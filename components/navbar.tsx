@@ -30,18 +30,10 @@ export const Navbar = () => {
         </NavbarBrand>
       </NavbarContent>
       <NavbarContent className="hidden sm:flex gap-4" justify="center">
-        {/* Section 1: Keyring Management */}
         <Dropdown>
           <NavbarItem>
             <DropdownTrigger>
-              <Button
-                disableRipple
-                className="p-0 bg-transparent data-[hover=true]:bg-transparent"
-                radius="sm"
-                variant="light"
-              >
-                Keyring Management
-              </Button>
+              <Button size="md">Keyrings Management</Button>
             </DropdownTrigger>
           </NavbarItem>
           <DropdownMenu
@@ -73,41 +65,15 @@ export const Navbar = () => {
                 </div>
               </Link>
             </DropdownItem>
-          </DropdownMenu>
-        </Dropdown>
-      </NavbarContent>
-      <NavbarContent className="hidden sm:flex gap-4" justify="center">
-        <Dropdown>
-          <NavbarItem>
-            <DropdownTrigger>
-              <Button
-                disableRipple
-                className="p-0 bg-transparent data-[hover=true]:bg-transparent"
-                radius="sm"
-                variant="light"
-              >
-                Key Operations
-              </Button>
-            </DropdownTrigger>
-          </NavbarItem>
-          <DropdownMenu
-            aria-label="Manage Public Keys"
-            className="w-[340px]"
-            itemClasses={{
-              base: "gap-4",
-            }}
-          >
-            <DropdownItem
-              key="import_keyring"
-              description="Import a public PGP keyring to verify or encrypt messages."
-            >
-              Import Keyring
-            </DropdownItem>
-            <DropdownItem
-              key="export_public_key"
-              description="Export your public key to share with others."
-            >
-              Export Public Key
+            <DropdownItem key="import_key">
+              <Link className="text-decoration-none" href="/import">
+                <div>
+                  Import Key
+                  <p className="text-default-500 text-xs">
+                    Import a PGP keyring to encrypt or decrypt messages.
+                  </p>
+                </div>
+              </Link>
             </DropdownItem>
           </DropdownMenu>
         </Dropdown>
@@ -116,14 +82,7 @@ export const Navbar = () => {
         <Dropdown>
           <NavbarItem>
             <DropdownTrigger>
-              <Button
-                disableRipple
-                className="p-0 bg-transparent data-[hover=true]:bg-transparent"
-                radius="sm"
-                variant="light"
-              >
-                Encryption / Decryption
-              </Button>
+              <Button size="md">Encryption / Decryption</Button>
             </DropdownTrigger>
           </NavbarItem>
           <DropdownMenu

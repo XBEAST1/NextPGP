@@ -9,6 +9,7 @@
 		"lint": "eslint . --ext .ts,.tsx -c .eslintrc.json --fix"
 	},
 	"dependencies": {
+		"@internationalized/date": "^3.6.0",
 		"@nextui-org/button": "2.2.3",
 		"@nextui-org/checkbox": "^2.3.3",
 		"@nextui-org/code": "2.2.3",
@@ -25,6 +26,7 @@
 		"@nextui-org/theme": "2.4.1",
 		"@react-aria/ssr": "3.9.7",
 		"@react-aria/visually-hidden": "3.8.18",
+		"@react-types/datepicker": "^3.9.0",
 		"clsx": "2.1.1",
 		"framer-motion": "11.13.1",
 		"install": "^0.13.0",

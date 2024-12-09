@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Textarea } from "@nextui-org/react";
-import { Checkbox } from "@nextui-org/react";
+import { Textarea, Checkbox } from "@nextui-org/react";
+
 export default function App() {
   const [isChecked, setIsChecked] = useState(false);
 

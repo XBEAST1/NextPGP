@@ -7,21 +7,39 @@ import { Input } from "@nextui-org/react";
 import { Checkbox } from "@nextui-org/react";
 import * as openpgp from "openpgp";
 
+interface PgpKeyData {
+  id: number;
+  name: string;
+  email: string;
+  publicKey: string;
+  privateKey: string;
+  expiryDate?: string;
+}
+
 export default function App() {
   const [isNoExpiryChecked, setIsNoExpiryChecked] = useState(true);
   const [isPasswordChecked, setIsPasswordChecked] = useState(false);
   const [passphrase, setPassphrase] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [expiryDate, setExpiryDate] = useState<string | undefined>(undefined);
   const [nameInvalid, setNameInvalid] = useState(false);
   const [emailInvalid, setEmailInvalid] = useState(false);
 
-  const getNextKeyIndex = () => {
-    let index = 1;
-    while (localStorage.getItem(`pgp_public_key_${index}`)) {
-      index++;
-    }
-    return index;
+  const getStoredKeys = (): PgpKeyData[] => {
+    const keys = localStorage.getItem("pgpKeys");
+    return keys ? JSON.parse(keys) : [];
+  };
+
+  const saveKeyToLocalStorage = (keyData: PgpKeyData): void => {
+    const existingKeys = getStoredKeys();
+    existingKeys.push(keyData);
+    localStorage.setItem("pgpKeys", JSON.stringify(existingKeys));
+  };
+
+  const getNextKeyIndex = (): number => {
+    const keys = getStoredKeys();
+    return keys.length + 1;
   };
 
   const generatePGPKey = async () => {
@@ -47,25 +65,37 @@ export default function App() {
       const passphraseToUse =
         isPasswordChecked && passphrase ? passphrase : undefined;
 
+      const expiry = !isNoExpiryChecked && expiryDate ? expiryDate : undefined;
+
       const options: openpgp.GenerateKeyOptions & { format?: "armored" } = {
         type: "rsa",
         rsaBits: 2048,
         userIDs: [{ name, email }],
         passphrase: passphraseToUse,
         format: "armored",
+        date: expiry ? new Date(expiry) : undefined,
       };
 
       const key = await openpgp.generateKey(options);
       const { privateKey, publicKey } = key;
 
-      const keyIndex = getNextKeyIndex();
+      const keyData: PgpKeyData = {
+        id: Date.now(),
+        name,
+        email,
+        publicKey,
+        privateKey,
+      };
 
-      localStorage.setItem(`pgp_public_key_${keyIndex}`, publicKey);
-      localStorage.setItem(`pgp_private_key_${keyIndex}`, privateKey);
+      saveKeyToLocalStorage(keyData);
 
-      alert(`PGP Key pair #${keyIndex} generated and saved to local storage!`);
+      alert(
+        `PGP Key pair for ${name} <${email}> generated and saved to local storage!`
+      );
 
-      console.log(`PGP Key pair #${keyIndex}:`);
+      console.log(`PGP Key pair for ${name} <${email}>:`);
+      console.log("Name:", name);
+      console.log("Email:", email);
       console.log("Public Key:", publicKey);
       console.log("Private Key:", privateKey);
     } catch (error) {
