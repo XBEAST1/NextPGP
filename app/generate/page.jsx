@@ -7,39 +7,25 @@ import { Input } from "@nextui-org/react";
 import { Checkbox } from "@nextui-org/react";
 import * as openpgp from "openpgp";
 
-interface PgpKeyData {
-  id: number;
-  name: string;
-  email: string;
-  publicKey: string;
-  privateKey: string;
-  expiryDate?: string;
-}
-
 export default function App() {
   const [isNoExpiryChecked, setIsNoExpiryChecked] = useState(true);
   const [isPasswordChecked, setIsPasswordChecked] = useState(false);
   const [passphrase, setPassphrase] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [expiryDate, setExpiryDate] = useState<string | undefined>(undefined);
+  const [expiryDate, setExpiryDate] = useState(null);
   const [nameInvalid, setNameInvalid] = useState(false);
   const [emailInvalid, setEmailInvalid] = useState(false);
 
-  const getStoredKeys = (): PgpKeyData[] => {
+  const getStoredKeys = () => {
     const keys = localStorage.getItem("pgpKeys");
     return keys ? JSON.parse(keys) : [];
   };
 
-  const saveKeyToLocalStorage = (keyData: PgpKeyData): void => {
+  const saveKeyToLocalStorage = (keyData) => {
     const existingKeys = getStoredKeys();
     existingKeys.push(keyData);
     localStorage.setItem("pgpKeys", JSON.stringify(existingKeys));
-  };
-
-  const getNextKeyIndex = (): number => {
-    const keys = getStoredKeys();
-    return keys.length + 1;
   };
 
   const generatePGPKey = async () => {
@@ -49,15 +35,15 @@ export default function App() {
     if (!name.trim()) {
       setNameInvalid(true);
     }
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setEmailInvalid(true);
+      return;
     }
 
-    if (
-      !name.trim() ||
-      !email.trim() ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    ) {
+    const validEmail = email.trim() ? email : "";
+
+    if (!name.trim()) {
       return;
     }
 
@@ -65,24 +51,33 @@ export default function App() {
       const passphraseToUse =
         isPasswordChecked && passphrase ? passphrase : undefined;
 
-      const expiry = !isNoExpiryChecked && expiryDate ? expiryDate : undefined;
+      let keyExpirationTime = undefined;
+      if (!isNoExpiryChecked && expiryDate) {
+        const now = new Date();
+        const expiry = new Date(expiryDate);
+        keyExpirationTime = Math.floor((expiry - now) / 1000);
+        if (keyExpirationTime <= 0) {
+          alert("The expiry date must be in the future.");
+          return;
+        }
+      }
 
-      const options: openpgp.GenerateKeyOptions & { format?: "armored" } = {
-        type: "rsa",
-        rsaBits: 2048,
-        userIDs: [{ name, email }],
+      const options = {
+        type: "ecc",
+        curve: "ed25519",
+        userIDs: [{ name, email: validEmail }],
         passphrase: passphraseToUse,
         format: "armored",
-        date: expiry ? new Date(expiry) : undefined,
+        keyExpirationTime: keyExpirationTime,
       };
 
       const key = await openpgp.generateKey(options);
       const { privateKey, publicKey } = key;
 
-      const keyData: PgpKeyData = {
+      const keyData = {
         id: Date.now(),
         name,
-        email,
+        email: validEmail,
         publicKey,
         privateKey,
       };
@@ -125,7 +120,6 @@ export default function App() {
       <br />
 
       <Input
-        isRequired
         label="Email"
         labelPlacement="outside"
         placeholder="Enter your email"
@@ -148,9 +142,12 @@ export default function App() {
       <br />
 
       <DatePicker
+        disableAnimation
         isDisabled={isNoExpiryChecked}
         className="max-w-[284px]"
         label="Expiry date"
+        value={expiryDate}
+        onChange={(date) => setExpiryDate(date)}
       />
       <br />
 
