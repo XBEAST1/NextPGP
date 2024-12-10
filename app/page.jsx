@@ -68,7 +68,6 @@ export default function App() {
   const [isChecked, setIsChecked] = useState(false);
 
   const [isVisible, setIsVisible] = React.useState(false);
-
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   return (

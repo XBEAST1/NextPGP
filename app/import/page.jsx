@@ -2,7 +2,25 @@
 
 import { useState } from "react";
 import { Textarea, Button, Input } from "@nextui-org/react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
+
+// Extract only the PGP keys from the content
+const extractPGPKeys = (content) => {
+  const publicKeyRegex =
+    /-----BEGIN PGP PUBLIC KEY BLOCK-----[\s\S]+?-----END PGP PUBLIC KEY BLOCK-----/;
+  const privateKeyRegex =
+    /-----BEGIN PGP PRIVATE KEY BLOCK-----[\s\S]+?-----END PGP PRIVATE KEY BLOCK-----/;
+
+  const publicKeyMatch = content.match(publicKeyRegex);
+  const privateKeyMatch = content.match(privateKeyRegex);
+
+  return {
+    publicKey: publicKeyMatch ? publicKeyMatch[0] : null,
+    privateKey: privateKeyMatch ? privateKeyMatch[0] : null,
+  };
+};
 
 export default function ImportKeyPage() {
   const [keyInput, setKeyInput] = useState("");
@@ -19,16 +37,37 @@ export default function ImportKeyPage() {
     localStorage.setItem("pgpKeys", JSON.stringify(existingKeys));
   };
 
+  const checkIfKeyExists = (newKeyData) => {
+    const existingKeys = getStoredKeys();
+    return existingKeys.some(
+      (key) =>
+        key.name === newKeyData.name &&
+        key.email === newKeyData.email &&
+        key.privateKey === newKeyData.privateKey
+    );
+  };
+
+  // Function To Import the PGP key and handle key extraction and storage
   const importKey = async (keyArmored) => {
     try {
-      // Use openpgp.readKey to parse the armored key
-      const importedKey = await openpgp.readKey({ armoredKey: keyArmored });
+      const { publicKey, privateKey } = extractPGPKeys(keyArmored);
 
-      const isPublicKey = keyArmored.startsWith(
-        "-----BEGIN PGP PUBLIC KEY BLOCK-----"
-      );
+      const key = await openpgp.readKey({
+        armoredKey: privateKey || publicKey,
+      });
 
-      const userIds = importedKey.users.map((user) => {
+      const isPrivateKey = privateKey !== null;
+
+      let keyData = {
+        id: Date.now(),
+        name: "N/A",
+        email: "N/A",
+        publicKey: publicKey,
+        privateKey: privateKey,
+      };
+
+      // Extract User IDs
+      const userIds = key.users.map((user) => {
         const userId = user.userID;
         return {
           name: userId?.name || "N/A",
@@ -36,40 +75,34 @@ export default function ImportKeyPage() {
         };
       });
 
-      if (isPublicKey) {
-        const publicKeyArmored = keyArmored;
-
-        const keyData = {
-          id: Date.now(),
-          name: userIds[0]?.name || "N/A",
-          email: userIds[0]?.email || "N/A",
-          publicKey: publicKeyArmored,
-        };
-
-        saveKeyToLocalStorage(keyData);
-
-        return { success: true, message: "Public key imported successfully." };
+      // Assign the extracted name and email from the key user IDs
+      if (userIds.length > 0) {
+        keyData.name = userIds[0]?.name;
+        keyData.email = userIds[0]?.email;
       }
 
-      // Handle the private key case
-      const privateKeyArmored = keyArmored; // The original private key
+      if (isPrivateKey) {
+        keyData.privateKey = keyArmored;
 
-      // Extract the public key from the private key directly (without decrypting)
-      const publicKeyArmored = importedKey.toPublic().armor(); // This directly derives the public key from the private key
+        // Generate public key if missing
+        const publicKey = key.toPublic().armor();
+        keyData.publicKey = publicKey;
+      } else {
+        keyData.publicKey = keyArmored;
+      }
 
-      const keyData = {
-        id: Date.now(),
-        name: userIds[0]?.name || "N/A",
-        email: userIds[0]?.email || "N/A",
-        privateKey: privateKeyArmored, // Store the private key
-        publicKey: publicKeyArmored, // Store the generated public key
-      };
+      // Check if the key already exists
+      if (checkIfKeyExists(keyData)) {
+        return { success: false };
+      }
 
       saveKeyToLocalStorage(keyData);
 
-      return { success: true, userIds };
+      return {
+        success: true,
+        details: isPrivateKey ? "Private key with public key" : "Public key",
+      };
     } catch (error) {
-      console.error("Error importing key:", error);
       return { success: false, error: error.message };
     }
   };
@@ -88,11 +121,27 @@ export default function ImportKeyPage() {
 
   const handleImport = async () => {
     const response = await importKey(keyInput);
+
+    if (response.success) {
+      toast.success(response.message || "Key imported successfully.", {
+        position: "top-right",
+      });
+    } else if (response.success === false) {
+      toast.error("Key already exists.", {
+        position: "top-right",
+      });
+    } else {
+      toast.error(`Failed to import key: ${response.error}`, {
+        position: "top-right",
+      });
+    }
+
     setResult(response);
   };
 
   return (
     <>
+      <ToastContainer theme="dark" />
       <h1 className="text-center text-4xl dm-serif-text-regular">Import Key</h1>
       <br />
       <Input
@@ -116,6 +165,12 @@ export default function ImportKeyPage() {
       <Button size="md" onClick={handleImport}>
         Import Key
       </Button>
+      {result && (
+        <div>
+          <p>{result.message}</p>
+          {result.error && <p className="text-red-500">{result.error}</p>}
+        </div>
+      )}
     </>
   );
 }

@@ -29,6 +29,7 @@ export const Navbar = () => {
           </NextLink>
         </NavbarBrand>
       </NavbarContent>
+
       <NavbarContent className="hidden sm:flex gap-4" justify="center">
         <Dropdown>
           <NavbarItem>
@@ -78,6 +79,7 @@ export const Navbar = () => {
           </DropdownMenu>
         </Dropdown>
       </NavbarContent>
+
       <NavbarContent className="hidden sm:flex gap-4" justify="center">
         <Dropdown>
           <NavbarItem>
@@ -115,6 +117,7 @@ export const Navbar = () => {
           </DropdownMenu>
         </Dropdown>
       </NavbarContent>
+
       <NavbarContent
         className="hidden sm:flex basis-1/5 sm:basis-full"
         justify="end"
@@ -134,7 +137,7 @@ export const Navbar = () => {
             isExternal
             as={Link}
             className="text-sm font-normal text-default-600 bg-default-100"
-            href=""
+            href="https://github.com/XBEAST1/next-pgp"
             startContent={<HeartFilledIcon className="text-danger" />}
             variant="flat"
           >
@@ -144,7 +147,7 @@ export const Navbar = () => {
       </NavbarContent>
 
       <NavbarContent className="sm:hidden basis-1 pl-4" justify="end">
-        <Link isExternal aria-label="Github" href="">
+        <Link isExternal aria-label="Github" href="https://github.com/XBEAST1">
           <GithubIcon className="text-default-500" />
         </Link>
         <ThemeSwitch />

@@ -1,5 +1,4 @@
 import "@/styles/globals.css";
-import { Viewport } from "next";
 import clsx from "clsx";
 
 import { Providers } from "./providers";
