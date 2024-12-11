@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { VisuallyHidden } from "@react-aria/visually-hidden";
 import { useSwitch } from "@nextui-org/switch";
 import { useTheme } from "next-themes";

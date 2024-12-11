@@ -44,6 +44,16 @@ export const Navbar = () => {
               base: "gap-4",
             }}
           >
+            <DropdownItem key="manage_keyrings">
+              <Link className="text-decoration-none" href="/manage-keyrings">
+                <div>
+                  Manage Keyrings
+                  <p className="text-default-500 text-xs">
+                    View, edit, or delete existing keyrings.
+                  </p>
+                </div>
+              </Link>
+            </DropdownItem>
             <DropdownItem key="generate_keyring">
               <Link className="text-decoration-none" href="/generate">
                 <div>
@@ -51,17 +61,6 @@ export const Navbar = () => {
                   <p className="text-default-500 text-xs">
                     Generate a new PGP keyring to securely encrypt and decrypt
                     data.
-                  </p>
-                </div>
-              </Link>
-            </DropdownItem>
-
-            <DropdownItem key="manage_keyrings">
-              <Link className="text-decoration-none" href="/manage-keyrings">
-                <div>
-                  Manage Keyrings
-                  <p className="text-default-500 text-xs">
-                    View, edit, or delete existing keyrings.
                   </p>
                 </div>
               </Link>

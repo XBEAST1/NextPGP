@@ -29,14 +29,20 @@ import * as openpgp from "openpgp";
 export const columns = [
   { name: "NAME", uid: "name", sortable: true },
   { name: "EMAIL", uid: "email" },
-  { name: "EXPIRY DATE", uid: "expirydate" },
+  { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
   { name: "STATUS", uid: "status", sortable: true },
+  { name: "PASSWORD", uid: "passwordprotected", sortable: true },
   { name: "ACTIONS", uid: "actions" },
 ];
 
 export const statusOptions = [
   { name: "Active", uid: "active" },
   { name: "Expired", uid: "expired" },
+];
+
+export const passwordprotectedOptions = [
+  { name: "Yes", uid: "yes" },
+  { name: "No", uid: "no" },
 ];
 
 export function capitalize(s) {
@@ -155,7 +161,12 @@ export const EyeFilledIcon = (props) => {
 
 const statusColorMap = {
   active: "success",
-  paused: "danger",
+  expired: "danger",
+};
+
+const passwordprotectedColorMap = {
+  Yes: "success",
+  No: "danger",
 };
 
 export default function App() {
@@ -234,10 +245,26 @@ export default function App() {
       }
     };
 
+    const isPasswordProtected = async (privateKeyArmored) => {
+      try {
+        const privateKey = await openpgp.readPrivateKey({
+          armoredKey: privateKeyArmored,
+        });
+        return privateKey.isPrivate() && !privateKey.isDecrypted();
+      } catch (error) {
+        console.error("Error reading private key:", error);
+        return false;
+      }
+    };
+
     const processedKeys = await Promise.all(
       keys.map(async (key) => {
         const openpgpKey = await openpgp.readKey({ armoredKey: key.publicKey });
         const { expirydate, status } = await getKeyExpiryInfo(openpgpKey);
+
+        const passwordProtected = key.privateKey
+          ? await isPasswordProtected(key.privateKey)
+          : false;
 
         return {
           id: key.id,
@@ -245,6 +272,7 @@ export default function App() {
           email: key.email,
           expirydate: expirydate,
           status: status,
+          passwordprotected: passwordProtected ? "Yes" : "No",
           avatar: (() => {
             const hasPrivateKey =
               key.privateKey && key.privateKey.trim() !== "";
@@ -342,6 +370,17 @@ export default function App() {
             {cellValue}
           </Chip>
         );
+      case "passwordprotected":
+        return (
+          <Chip
+            className="ms-5 capitalize"
+            color={passwordprotectedColorMap[user.passwordprotected]}
+            size="sm"
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
+        );
       case "actions":
         return (
           <div className="relative flex justify-end items-center gap-2 me-10">
@@ -411,7 +450,8 @@ export default function App() {
         }
       }
 
-      const blob = new Blob([privateKey.armor()], { type: "text/plain" });
+      const privateKeyBackup = user.privateKey;
+      const blob = new Blob([privateKeyBackup], { type: "text/plain" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = `${user.name}_${randomHex}_SECRET.asc`;
@@ -424,10 +464,6 @@ export default function App() {
         }
       );
     }
-  };
-
-  const handleModalOpen = () => {
-    onOpen();
   };
 
   const [passwordResolve, setPasswordResolve] = useState(null);
