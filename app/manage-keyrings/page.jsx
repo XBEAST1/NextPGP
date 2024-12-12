@@ -179,6 +179,9 @@ export default function App() {
   });
   const [page, setPage] = useState(1);
 
+  const [isVisible, setIsVisible] = React.useState(false);
+  const toggleVisibility = () => setIsVisible(!isVisible);
+
   const loadKeysFromLocalStorage = async () => {
     const keys = JSON.parse(localStorage.getItem("pgpKeys")) || [];
 
@@ -394,10 +397,12 @@ export default function App() {
                 <DropdownItem onClick={() => exportPublicKey(user)}>
                   Export Public Key
                 </DropdownItem>
-                {user.privateKey && user.privateKey.trim() !== "" && (
+                {user.privateKey && user.privateKey.trim() !== "" ? (
                   <DropdownItem onClick={() => backupKeyring(user)}>
                     Backup Keyring
                   </DropdownItem>
+                ) : (
+                  ""
                 )}
                 <DropdownItem onClick={() => deleteKey(user.id)}>
                   Delete
@@ -596,9 +601,6 @@ export default function App() {
       </div>
     );
   }, [page, pages, hasSearchFilter]);
-
-  const [isVisible, setIsVisible] = React.useState(false);
-  const toggleVisibility = () => setIsVisible(!isVisible);
 
   return (
     <>

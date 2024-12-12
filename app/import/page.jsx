@@ -24,7 +24,6 @@ const extractPGPKeys = (content) => {
 
 export default function ImportKeyPage() {
   const [keyInput, setKeyInput] = useState("");
-  const [result, setResult] = useState(null);
 
   const getStoredKeys = () => {
     const keys = localStorage.getItem("pgpKeys");
@@ -52,6 +51,13 @@ export default function ImportKeyPage() {
     try {
       const { publicKey, privateKey } = extractPGPKeys(keyArmored);
 
+      if (!publicKey && !privateKey) {
+        toast.error("No valid PGP key block found.", {
+          position: "top-right",
+        });
+        return;
+      }
+
       const key = await openpgp.readKey({
         armoredKey: privateKey || publicKey,
       });
@@ -75,35 +81,42 @@ export default function ImportKeyPage() {
         };
       });
 
-      // Assign the extracted name and email from the key user IDs
       if (userIds.length > 0) {
         keyData.name = userIds[0]?.name;
         keyData.email = userIds[0]?.email;
       }
 
       if (isPrivateKey) {
-        keyData.privateKey = keyArmored;
+        keyData.privateKey = privateKey;
 
-        // Generate public key if missing
-        const publicKey = key.toPublic().armor();
-        keyData.publicKey = publicKey;
+        // Check if the public key is missing, and if so, generate one
+        if (!publicKey) {
+          const extractedPublicKey = key.toPublic().armor();
+          keyData.publicKey = extractedPublicKey;
+        }
       } else {
-        keyData.publicKey = keyArmored;
+        keyData.publicKey = publicKey;
       }
 
-      // Check if the key already exists
       if (checkIfKeyExists(keyData)) {
-        return { success: false };
+        toast.error("Key already exists.", {
+          position: "top-right",
+        });
+        return;
       }
 
       saveKeyToLocalStorage(keyData);
 
-      return {
-        success: true,
-        details: isPrivateKey ? "Private key with public key" : "Public key",
-      };
+      toast.success(
+        isPrivateKey ? "Keyring Imported." : "Public key imported.",
+        {
+          position: "top-right",
+        }
+      );
     } catch (error) {
-      return { success: false, error: error.message };
+      toast.error(`Failed to import key: ${error.message}`, {
+        position: "top-right",
+      });
     }
   };
 
@@ -120,23 +133,13 @@ export default function ImportKeyPage() {
   };
 
   const handleImport = async () => {
-    const response = await importKey(keyInput);
-
-    if (response.success) {
-      toast.success(response.message || "Key imported successfully.", {
-        position: "top-right",
-      });
-    } else if (response.success === false) {
-      toast.error("Key already exists.", {
-        position: "top-right",
-      });
-    } else {
-      toast.error(`Failed to import key: ${response.error}`, {
+    try {
+      await importKey(keyInput);
+    } catch (error) {
+      toast.error(`An error occurred: ${error.message}`, {
         position: "top-right",
       });
     }
-
-    setResult(response);
   };
 
   return (
@@ -165,12 +168,6 @@ export default function ImportKeyPage() {
       <Button size="md" onClick={handleImport}>
         Import Key
       </Button>
-      {result && (
-        <div>
-          <p>{result.message}</p>
-          {result.error && <p className="text-red-500">{result.error}</p>}
-        </div>
-      )}
     </>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { Modal, ModalContent, Input, Button } from "@nextui-org/react";
 import { Textarea } from "@nextui-org/input";
 import * as openpgp from "openpgp";
@@ -66,9 +68,10 @@ export const EyeFilledIcon = (props) => {
 };
 
 export default function App() {
-  const [inputMessage, setInputMessage] = useState(""); // Store the input PGP message
-  const [decryptedMessage, setDecryptedMessage] = useState(""); // Store the decrypted message
-  const [pgpKeys, setPgpKeys] = useState(null); // Store the keys from localStorage
+  const [inputMessage, setInputMessage] = useState("");
+  const [decryptedMessage, setDecryptedMessage] = useState("");
+  const [pgpKeys, setPgpKeys] = useState(null);
+  const [detailsText, setDetailsText] = useState("");
 
   useEffect(() => {
     // Fetch PGP keys from local storage
@@ -78,12 +81,28 @@ export default function App() {
 
   const handleDecrypt = async () => {
     if (!inputMessage || !pgpKeys) {
-      console.error("Message or keys are missing.");
+      toast.error("Please enter a pgp message.", {
+        position: "top-right",
+      });
+      return;
+    }
+
+    // Validate if the message is a PGP message
+    let message;
+    try {
+      message = await openpgp.readMessage({
+        armoredMessage: inputMessage,
+      });
+    } catch (error) {
+      toast.error("The message is not in PGP message format.", {
+        position: "top-right",
+      });
       return;
     }
 
     try {
       let successfulDecryption = false;
+      let details = "";
 
       for (const keyData of pgpKeys) {
         if (!keyData.privateKey) {
@@ -91,109 +110,149 @@ export default function App() {
         }
 
         try {
+          // Read the private key
           const privateKey = await openpgp.readPrivateKey({
             armoredKey: keyData.privateKey,
           });
 
-          // If the private key requires a passphrase, decrypt it
           if (keyData.passphrase) {
             await privateKey.decrypt(keyData.passphrase);
           }
 
-          // Decrypt the message using the private key
           const message = await openpgp.readMessage({
             armoredMessage: inputMessage,
           });
 
-          // Prepare the public keys for signature verification
           const publicKeys = await Promise.all(
             pgpKeys
               .filter((key) => key.publicKey)
-              .map((key) => openpgp.readKey({ armoredKey: key.publicKey }))
+              .map(async (key) => {
+                const loadedKey = await openpgp.readKey({
+                  armoredKey: key.publicKey,
+                });
+                return loadedKey;
+              })
           );
 
-          const {
-            data: decrypted,
-            signatures,
-            verified,
-          } = await openpgp.decrypt({
+          // Decrypt the message
+          const { data: decrypted, signatures } = await openpgp.decrypt({
             message,
             decryptionKeys: [privateKey],
             verificationKeys: publicKeys, // Use public keys for signature verification
           });
 
-          console.log("Decryption successful! Decrypted message:", decrypted);
           setDecryptedMessage(decrypted);
           successfulDecryption = true;
 
-          // Process signature details if available
+          // Extract encryption key IDs for recipient matching
+          const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+
+          // Match encryption key IDs with the public keys explicitly
+          const recipients = encryptionKeyIDs.map((keyID) => {
+            const matchedKey = publicKeys.find((key) => {
+              // Check both primary key ID and subkeys
+              return (
+                key.getKeyID().equals(keyID) ||
+                key
+                  .getSubkeys()
+                  .some((subkey) => subkey.getKeyID().equals(keyID))
+              );
+            });
+
+            if (matchedKey) {
+              // Return the User ID and Key ID
+              const userID = matchedKey.getUserIDs()[0];
+              return `  - ${userID} (${keyID
+                .toHex()
+                .match(/.{1,4}/g)
+                .join(" ")})`;
+            } else {
+              // Handle case where no match is found
+              return `  - Unknown (${keyID
+                .toHex()
+                .match(/.{1,4}/g)
+                .join(" ")})`;
+            }
+          });
+
+          // Log the list of recipients
+          details += "Recipients:\n" + recipients.join("\n") + "\n\n";
+
+          // Signature verification details
           if (signatures && signatures.length > 0) {
-            const signatureInfo = await Promise.all(
-              signatures.map(async (sig, index) => {
-                const { valid, keyID, signatureTimestamp } = sig;
-                const signerKey = publicKeys.find((key) =>
-                  key.getKeyID().equals(keyID)
-                );
+            for (const sig of signatures) {
+              const { keyID, verified, signature } = sig;
 
-                const signerUser = signerKey
-                  ? signerKey.getUserIDs()[0]
-                  : "Unknown";
-                const creationTime = signatureTimestamp
-                  ? new Date(signatureTimestamp).toLocaleString()
-                  : "Unknown";
+              const isVerified = await verified;
 
-                // Extract all recipients from the message
-                const encryptionKeyIDs = await message.getEncryptionKeyIDs();
-                const recipients = encryptionKeyIDs.map((keyID) => {
-                  const recipientKey = publicKeys.find((key) =>
-                    key.getKeyID().equals(keyID)
-                  );
-                  const recipientUser = recipientKey
-                    ? recipientKey.getUserIDs()[0]
-                    : "Unknown";
-                  return `  - ${recipientUser} (${keyID
-                    .toHex()
-                    .match(/.{1,4}/g)
-                    .join(" ")})`;
-                });
+              const resolvedSignature = await signature;
 
-                return (
-                  `Valid signature by ${signerUser}
+              // Find the signer key from public keys
+              const signerKey = publicKeys.find((key) =>
+                key.getKeyID().equals(keyID)
+              );
 
-` +
-                  `Recipients:
-` +
-                  recipients.join("\n") +
-                  `
+              const signerUser = signerKey
+                ? signerKey.getUserIDs()[0]
+                : "Unknown";
 
-Signature created on ${creationTime}
-With certificate:
-  ${signerUser} (${keyID
-    .toHex()
-    .match(/.{1,4}/g)
-    .join(" ")})
-The signature is ${valid ? "valid and trusted" : "not valid"}.`
-                );
-              })
-            );
+              details += `Signature by ${signerUser} (${keyID
+                .toHex()
+                .match(/.{1,4}/g)
+                .join(" ")}) is ${isVerified ? "valid" : "not valid"}.\n`;
 
-            console.log(signatureInfo.join("\n\n"));
+              try {
+                const signaturePacket = resolvedSignature.packets[0];
+                const createdTime =
+                  signaturePacket && signaturePacket.created
+                    ? new Date(signaturePacket.created)
+                    : null;
+
+                if (createdTime) {
+                  const dayName = createdTime.toLocaleDateString("en-US", {
+                    weekday: "long",
+                  });
+                  const monthName = createdTime.toLocaleDateString("en-US", {
+                    month: "long",
+                  });
+                  const day = createdTime.getDate();
+                  const year = createdTime.getFullYear();
+
+                  const locale = navigator.language || "en-US";
+                  const is24Hour =
+                    locale.includes("GB") || locale.includes("DE");
+
+                  const timeWithZone = createdTime.toLocaleTimeString(locale, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: !is24Hour,
+                    timeZoneName: "long",
+                  });
+
+                  details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}\n\n`;
+                } else {
+                  details += `Signature created at: Not available\n\n`;
+                }
+              } catch (error) {
+                details += "Signature created at: Not available\n\n";
+              }
+            }
           } else {
-            console.warn("No signature data found.");
+            details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
           }
 
           break;
         } catch (error) {
-          console.warn("Decryption failed with one key:", error.message);
         }
       }
 
       if (!successfulDecryption) {
-        console.error("No valid key found for decryption.");
-        console.error(
-          "Decryption failed. No valid key found to decrypt the message."
-        );
+        toast.error("No private key found for decryption.", {
+          position: "top-right",
+        });
       }
+      setDetailsText(details);
     } catch (error) {
       console.error("Decryption process failed:", error);
     }
@@ -201,10 +260,11 @@ The signature is ${valid ? "valid and trusted" : "not valid"}.`
 
   return (
     <>
+      <ToastContainer theme="dark" />
       <Textarea
         disableAutosize
         classNames={{
-          input: "resize-y min-h-[200px]",
+          input: "resize-y min-h-[130px]",
         }}
         label="Decrypt"
         placeholder="Enter your pgp message"
@@ -214,11 +274,15 @@ The signature is ${valid ? "valid and trusted" : "not valid"}.`
 
       <br />
 
+      <Textarea isReadOnly label="Details" value={detailsText} />
+
+      <br />
+
       <Textarea
         isReadOnly
         disableAutosize
         classNames={{
-          input: "resize-y min-h-[200px]",
+          input: "resize-y min-h-[170px]",
         }}
         label="Output"
         value={decryptedMessage}
