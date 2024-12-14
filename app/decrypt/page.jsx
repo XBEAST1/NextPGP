@@ -72,6 +72,11 @@ export default function App() {
   const [decryptedMessage, setDecryptedMessage] = useState("");
   const [pgpKeys, setPgpKeys] = useState(null);
   const [detailsText, setDetailsText] = useState("");
+  const [password, setPassword] = useState("");
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [currentPrivateKey, setCurrentPrivateKey] = useState(null);
+  const [isVisible, setIsVisible] = React.useState(false);
+  const toggleVisibility = () => setIsVisible(!isVisible);
 
   useEffect(() => {
     // Fetch PGP keys from local storage
@@ -81,20 +86,18 @@ export default function App() {
 
   const handleDecrypt = async () => {
     if (!inputMessage || !pgpKeys) {
-      toast.error("Please enter a pgp message.", {
+      toast.error("Please enter a PGP message and ensure keys are loaded.", {
         position: "top-right",
       });
       return;
     }
 
-    // Validate if the message is a PGP message
     let message;
     try {
-      message = await openpgp.readMessage({
-        armoredMessage: inputMessage,
-      });
+      // Validate that the input is a PGP message
+      message = await openpgp.readMessage({ armoredMessage: inputMessage });
     } catch (error) {
-      toast.error("The message is not in PGP message format.", {
+      toast.error("The message is not in a valid PGP format.", {
         position: "top-right",
       });
       return;
@@ -104,41 +107,54 @@ export default function App() {
       let successfulDecryption = false;
       let details = "";
 
+      // Load public keys for signature verification
+      const publicKeys = await Promise.all(
+        pgpKeys
+          .filter((key) => key.publicKey)
+          .map((key) => openpgp.readKey({ armoredKey: key.publicKey }))
+      );
+
       for (const keyData of pgpKeys) {
-        if (!keyData.privateKey) {
-          continue;
-        }
+        if (!keyData.privateKey) continue;
 
         try {
-          // Read the private key
-          const privateKey = await openpgp.readPrivateKey({
+          // Read private key
+          let privateKey = await openpgp.readPrivateKey({
             armoredKey: keyData.privateKey,
           });
 
-          if (keyData.passphrase) {
-            await privateKey.decrypt(keyData.passphrase);
-          }
+          // Skip if the private key cannot decrypt the message
+          const matchingKeys = await message.getEncryptionKeyIDs();
+          const privateKeyIDs = [
+            privateKey.getKeyID(),
+            ...privateKey.getSubkeys().map((subkey) => subkey.getKeyID()),
+          ];
 
-          const message = await openpgp.readMessage({
-            armoredMessage: inputMessage,
-          });
-
-          const publicKeys = await Promise.all(
-            pgpKeys
-              .filter((key) => key.publicKey)
-              .map(async (key) => {
-                const loadedKey = await openpgp.readKey({
-                  armoredKey: key.publicKey,
-                });
-                return loadedKey;
-              })
+          const canDecrypt = matchingKeys.some((keyID) =>
+            privateKeyIDs.some((id) => id.equals(keyID))
           );
+
+          if (!canDecrypt) continue; // Skip keys that don't match
+
+          // Check if the private key requires a password
+          if (!privateKey.isDecrypted()) {
+            if (keyData.passphrase) {
+              privateKey = await openpgp.decryptKey({
+                privateKey,
+                passphrase: keyData.passphrase,
+              });
+            } else {
+              setCurrentPrivateKey(keyData.privateKey);
+              setIsPasswordModalOpen(true);
+              return; // Prompt for password input
+            }
+          }
 
           // Decrypt the message
           const { data: decrypted, signatures } = await openpgp.decrypt({
             message,
-            decryptionKeys: [privateKey],
-            verificationKeys: publicKeys, // Use public keys for signature verification
+            decryptionKeys: privateKey,
+            verificationKeys: publicKeys.length > 0 ? publicKeys : undefined,
           });
 
           setDecryptedMessage(decrypted);
@@ -147,10 +163,8 @@ export default function App() {
           // Extract encryption key IDs for recipient matching
           const encryptionKeyIDs = await message.getEncryptionKeyIDs();
 
-          // Match encryption key IDs with the public keys explicitly
           const recipients = encryptionKeyIDs.map((keyID) => {
             const matchedKey = publicKeys.find((key) => {
-              // Check both primary key ID and subkeys
               return (
                 key.getKeyID().equals(keyID) ||
                 key
@@ -160,14 +174,12 @@ export default function App() {
             });
 
             if (matchedKey) {
-              // Return the User ID and Key ID
               const userID = matchedKey.getUserIDs()[0];
               return `  - ${userID} (${keyID
                 .toHex()
                 .match(/.{1,4}/g)
                 .join(" ")})`;
             } else {
-              // Handle case where no match is found
               return `  - Unknown (${keyID
                 .toHex()
                 .match(/.{1,4}/g)
@@ -175,7 +187,6 @@ export default function App() {
             }
           });
 
-          // Log the list of recipients
           details += "Recipients:\n" + recipients.join("\n") + "\n\n";
 
           // Signature verification details
@@ -195,6 +206,8 @@ export default function App() {
               const signerUser = signerKey
                 ? signerKey.getUserIDs()[0]
                 : "Unknown";
+
+              details += `Message successfully decrypted using key: ${keyData.name || "Unnamed Key"}\n`;
 
               details += `Signature by ${signerUser} (${keyID
                 .toHex()
@@ -242,19 +255,159 @@ export default function App() {
             details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
           }
 
-          break;
+          setDetailsText(details);
+
+          toast.success("Decryption successful!", { position: "top-right" });
+          return;
         } catch (error) {
+          console.warn("Key failed to decrypt the message:", error);
+          continue;
         }
       }
 
       if (!successfulDecryption) {
-        toast.error("No private key found for decryption.", {
+        toast.error("No valid private key was able to decrypt this message.", {
           position: "top-right",
         });
       }
-      setDetailsText(details);
     } catch (error) {
-      console.error("Decryption process failed:", error);
+      toast.error("Decryption failed due to an unexpected error.", {
+        position: "top-right",
+      });
+    }
+  };
+
+  const handlePasswordSubmit = async () => {
+    try {
+      let privateKey = await openpgp.readPrivateKey({
+        armoredKey: currentPrivateKey,
+      });
+
+      privateKey = await openpgp.decryptKey({
+        privateKey,
+        passphrase: password,
+      });
+
+      // Try decryption with the decrypted private key
+      const message = await openpgp.readMessage({
+        armoredMessage: inputMessage,
+      });
+
+      const publicKeys = await Promise.all(
+        pgpKeys
+          .filter((key) => key.publicKey)
+          .map((key) => openpgp.readKey({ armoredKey: key.publicKey }))
+      );
+
+      const { data: decrypted, signatures } = await openpgp.decrypt({
+        message,
+        decryptionKeys: privateKey,
+        verificationKeys: publicKeys.length > 0 ? publicKeys : undefined,
+      });
+
+      setDecryptedMessage(decrypted);
+      setIsPasswordModalOpen(false);
+      setPassword("");
+
+      const keyData = pgpKeys.find(
+        (key) => key.privateKey === currentPrivateKey
+      );
+
+      let details = "";
+
+      const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+
+      const recipients = encryptionKeyIDs.map((keyID) => {
+        const matchedKey = publicKeys.find((key) => {
+          return (
+            key.getKeyID().equals(keyID) ||
+            key.getSubkeys().some((subkey) => subkey.getKeyID().equals(keyID))
+          );
+        });
+
+        if (matchedKey) {
+          const userID = matchedKey.getUserIDs()[0];
+          return `  - ${userID} (${keyID
+            .toHex()
+            .match(/.{1,4}/g)
+            .join(" ")})`;
+        } else {
+          return `  - Unknown (${keyID
+            .toHex()
+            .match(/.{1,4}/g)
+            .join(" ")})`;
+        }
+      });
+
+      details += "Recipients:\n" + recipients.join("\n") + "\n\n";
+
+      if (signatures && signatures.length > 0) {
+        for (const sig of signatures) {
+          const { keyID, verified, signature } = sig;
+
+          const isVerified = await verified;
+          const resolvedSignature = await signature;
+
+          const signerKey = publicKeys.find((key) =>
+            key.getKeyID().equals(keyID)
+          );
+
+          const signerUser = signerKey ? signerKey.getUserIDs()[0] : "Unknown";
+
+          details += `Message successfully decrypted using key: ${keyData?.name || "Unnamed Key"}\n`;
+
+          details += `Signature by ${signerUser} (${keyID
+            .toHex()
+            .match(/.{1,4}/g)
+            .join(" ")}) is ${isVerified ? "valid" : "not valid"}.\n`;
+
+          try {
+            const signaturePacket = resolvedSignature.packets[0];
+            const createdTime =
+              signaturePacket && signaturePacket.created
+                ? new Date(signaturePacket.created)
+                : null;
+
+            if (createdTime) {
+              const dayName = createdTime.toLocaleDateString("en-US", {
+                weekday: "long",
+              });
+              const monthName = createdTime.toLocaleDateString("en-US", {
+                month: "long",
+              });
+              const day = createdTime.getDate();
+              const year = createdTime.getFullYear();
+
+              const locale = navigator.language || "en-US";
+              const is24Hour = locale.includes("GB") || locale.includes("DE");
+
+              const timeWithZone = createdTime.toLocaleTimeString(locale, {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: !is24Hour,
+                timeZoneName: "long",
+              });
+
+              details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}\n\n`;
+            } else {
+              details += `Signature created at: Not available\n\n`;
+            }
+          } catch (error) {
+            details += "Signature created at: Not available\n\n";
+          }
+        }
+      } else {
+        details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+      }
+
+      setDetailsText(details);
+
+      toast.success("Decryption successful!", { position: "top-right" });
+    } catch (error) {
+      toast.error("Incorrect password or failed to decrypt the key.", {
+        position: "top-right",
+      });
     }
   };
 
@@ -291,6 +444,44 @@ export default function App() {
       <br />
 
       <Button onClick={handleDecrypt}>Decrypt</Button>
+      {isPasswordModalOpen && (
+        <Modal
+          backdrop="blur"
+          isOpen={isPasswordModalOpen}
+          onClose={() => setIsPasswordModalOpen(false)}
+        >
+          <ModalContent className="p-5">
+            <h3 className="mb-4">Enter Password for Protected Key</h3>
+            <Input
+              placeholder="Enter Password"
+              type={isVisible ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handlePasswordSubmit()}
+              endContent={
+                <button
+                  aria-label="toggle password visibility"
+                  className="focus:outline-none"
+                  type="button"
+                  onClick={toggleVisibility}
+                >
+                  {isVisible ? (
+                    <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                  ) : (
+                    <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                  )}
+                </button>
+              }
+            />
+            <Button
+              className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+              onClick={handlePasswordSubmit}
+            >
+              Submit
+            </Button>
+          </ModalContent>
+        </Modal>
+      )}
     </>
   );
 }

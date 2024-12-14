@@ -45,7 +45,7 @@ export const Navbar = () => {
             }}
           >
             <DropdownItem key="manage_keyrings">
-              <Link className="text-decoration-none" href="/manage-keyrings">
+              <Link className="text-decoration-none" href="/">
                 <div>
                   Manage Keyrings
                   <p className="text-default-500 text-xs">
@@ -94,7 +94,7 @@ export const Navbar = () => {
             }}
           >
             <DropdownItem key="encrypt_data">
-              <Link className="text-decoration-none" href="/">
+              <Link className="text-decoration-none" href="/encrypt">
                 <div>
                   Encrypt
                   <p className="text-default-500 text-xs">
