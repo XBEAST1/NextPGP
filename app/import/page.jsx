@@ -62,6 +62,8 @@ export default function ImportKeyPage() {
         armoredKey: privateKey || publicKey,
       });
 
+      console.log(key);
+
       const isPrivateKey = privateKey !== null;
 
       let keyData = {
@@ -75,9 +77,14 @@ export default function ImportKeyPage() {
       // Extract User IDs
       const userIds = key.users.map((user) => {
         const userId = user.userID;
+
+        // Extract the part before the < and ignore the email part
+        const name = userId?.userID.split(" <")[0] || "N/A";
+        const email = userId?.email || "N/A";
+
         return {
-          name: userId?.name || "N/A",
-          email: userId?.email || "N/A",
+          name: name,
+          email: email,
         };
       });
 

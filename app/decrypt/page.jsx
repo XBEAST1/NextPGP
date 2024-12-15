@@ -79,6 +79,15 @@ export default function App() {
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   useEffect(() => {
+    const originalConsoleError = console.error;
+    console.error = () => {};
+
+    return () => {
+      console.error = originalConsoleError;
+    };
+  }, []);
+
+  useEffect(() => {
     // Fetch PGP keys from local storage
     const storedKeys = JSON.parse(localStorage.getItem("pgpKeys"));
     setPgpKeys(storedKeys);
@@ -86,7 +95,7 @@ export default function App() {
 
   const handleDecrypt = async () => {
     if (!inputMessage || !pgpKeys) {
-      toast.error("Please enter a PGP message and ensure keys are loaded.", {
+      toast.error("Please enter a PGP message.", {
         position: "top-right",
       });
       return;
@@ -104,6 +113,17 @@ export default function App() {
     }
 
     try {
+      // Check for password-only encryption (no key IDs present)
+      const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+      if (encryptionKeyIDs.length === 0) {
+        // Open the password modal
+        setCurrentPrivateKey(null);
+        setIsPasswordModalOpen(true);
+        toast.info("The message is password encrypted.", {
+          position: "top-right",
+        });
+        return;
+      }
       let successfulDecryption = false;
       let details = "";
 
@@ -146,6 +166,12 @@ export default function App() {
             } else {
               setCurrentPrivateKey(keyData.privateKey);
               setIsPasswordModalOpen(true);
+              toast.info(
+                "The message is encrypted with a password protected key.",
+                {
+                  position: "top-right",
+                }
+              );
               return; // Prompt for password input
             }
           }
@@ -207,7 +233,9 @@ export default function App() {
                 ? signerKey.getUserIDs()[0]
                 : "Unknown";
 
-              details += `Message successfully decrypted using key: ${keyData.name || "Unnamed Key"}\n`;
+              details += `Message successfully decrypted using key: ${
+                keyData.name || "Unnamed Key"
+              }\n`;
 
               details += `Signature by ${signerUser} (${keyID
                 .toHex()
@@ -279,6 +307,79 @@ export default function App() {
 
   const handlePasswordSubmit = async () => {
     try {
+      const message = await openpgp.readMessage({
+        armoredMessage: inputMessage,
+      });
+
+      // Attempt to decrypt the message using the password
+      try {
+        const { data: decrypted, signatures } = await openpgp.decrypt({
+          message,
+          passwords: [password],
+          config: { allowUnauthenticatedMessages: true },
+        });
+
+        setDecryptedMessage(decrypted);
+
+        const storedKeys = JSON.parse(localStorage.getItem("pgpKeys") || "[]");
+
+        let detailsText = "No Signature Found";
+
+        if (signatures && signatures.length > 0) {
+          // Extract the signing key ID
+          const signingKeyID = signatures[0]?.keyID?.toHex();
+
+          if (signingKeyID) {
+            const storedKeyDetails = await Promise.all(
+              storedKeys.map(async (key) => {
+                try {
+                  if (key.publicKey) {
+                    const parsedKey = await openpgp.readKey({
+                      armoredKey: key.publicKey,
+                    });
+                    const keyID = parsedKey.getKeyID().toHex();
+                    const keyName = parsedKey.getUserIDs()[0] || "Unnamed Key";
+                    return { keyID, keyName };
+                  }
+                } catch (err) {
+                  console.error("Failed to parse public key:", err);
+                }
+                return null;
+              })
+            ).then((details) => details.filter(Boolean));
+
+            const matchedKey = storedKeyDetails.find(
+              (key) => key.keyID === signingKeyID
+            );
+
+            if (matchedKey) {
+              const formattedKeyID = matchedKey.keyID
+                .replace(/(.{4})/g, "$1 ")
+                .trim();
+              detailsText = `Signature by: ${matchedKey.keyName} (${formattedKeyID}) is valid`;
+            } else {
+              const formattedKeyID = signingKeyID
+                .replace(/(.{4})/g, "$1 ")
+                .trim();
+              detailsText = `Signature by: Unknown Key (${formattedKeyID})`;
+            }
+          }
+        }
+
+        setDetailsText(detailsText);
+
+        setIsPasswordModalOpen(false);
+        setPassword("");
+
+        toast.success("Message decrypted successfully!", {
+          position: "top-right",
+        });
+        return;
+      } catch (error) {
+        // console.log("Decryption failed or no valid signature:", error.message);
+      }
+
+      // If password decryption fails, fall back to private key decryption
       let privateKey = await openpgp.readPrivateKey({
         armoredKey: currentPrivateKey,
       });
@@ -286,11 +387,6 @@ export default function App() {
       privateKey = await openpgp.decryptKey({
         privateKey,
         passphrase: password,
-      });
-
-      // Try decryption with the decrypted private key
-      const message = await openpgp.readMessage({
-        armoredMessage: inputMessage,
       });
 
       const publicKeys = await Promise.all(
@@ -354,7 +450,9 @@ export default function App() {
 
           const signerUser = signerKey ? signerKey.getUserIDs()[0] : "Unknown";
 
-          details += `Message successfully decrypted using key: ${keyData?.name || "Unnamed Key"}\n`;
+          details += `Message successfully decrypted using key: ${
+            keyData?.name || "Unnamed Key"
+          }\n`;
 
           details += `Signature by ${signerUser} (${keyID
             .toHex()
@@ -405,7 +503,7 @@ export default function App() {
 
       toast.success("Decryption successful!", { position: "top-right" });
     } catch (error) {
-      toast.error("Incorrect password or failed to decrypt the key.", {
+      toast.error("Incorrect password.", {
         position: "top-right",
       });
     }
@@ -451,7 +549,7 @@ export default function App() {
           onClose={() => setIsPasswordModalOpen(false)}
         >
           <ModalContent className="p-5">
-            <h3 className="mb-4">Enter Password for Protected Key</h3>
+            <h3 className="mb-4">Password Required</h3>
             <Input
               placeholder="Enter Password"
               type={isVisible ? "text" : "password"}
