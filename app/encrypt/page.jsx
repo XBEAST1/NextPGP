@@ -1,10 +1,21 @@
 "use client";
 
-import React from "react";
-import { useState } from "react";
-import { Textarea, Checkbox, Input } from "@nextui-org/react";
+import { React, useState, useEffect, useRef } from "react";
+import {
+  Textarea,
+  Checkbox,
+  Input,
+  Autocomplete,
+  AutocompleteItem,
+  Button,
+  Modal,
+  ModalContent,
+} from "@nextui-org/react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import * as openpgp from "openpgp";
 
-export const EyeSlashFilledIcon = (props) => {
+const EyeSlashFilledIcon = (props) => {
   return (
     <svg
       aria-hidden="true"
@@ -40,7 +51,7 @@ export const EyeSlashFilledIcon = (props) => {
   );
 };
 
-export const EyeFilledIcon = (props) => {
+const EyeFilledIcon = (props) => {
   return (
     <svg
       aria-hidden="true"
@@ -65,13 +76,131 @@ export const EyeFilledIcon = (props) => {
 };
 
 export default function App() {
+  const [pgpKeys, setPgpKeys] = useState([]);
+  const [signerKeys, setSignerKeys] = useState([]);
+  const [recipientKeys, setRecipientKeys] = useState([]);
   const [isChecked, setIsChecked] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const [recipients, setRecipients] = useState([""]);
+  const [message, setMessage] = useState("");
+  const [password, setPassword] = useState("");
+  const [output, setOutput] = useState("");
+  const [modalpassword, setModalpassword] = useState("");
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [signerKey, setSignerKey] = useState(null); // Add this state
+  const onSubmitPassword = useRef(null);
 
-  const [isVisible, setIsVisible] = React.useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
+
+  // Fetch and filter PGP keys from localStorage
+  useEffect(() => {
+    const keysFromStorage = JSON.parse(localStorage.getItem("pgpKeys")) || [];
+
+    const filteredSignerKeys = keysFromStorage.filter(
+      (key) => key.publicKey && key.privateKey
+    );
+    const filteredRecipientKeys = keysFromStorage.filter(
+      (key) => key.publicKey
+    );
+
+    setPgpKeys(keysFromStorage);
+    setSignerKeys(filteredSignerKeys);
+    setRecipientKeys(filteredRecipientKeys);
+  }, []);
+
+  const handleSignerSelection = (selectedKey) => {
+    setSignerKey(selectedKey);
+  };
+
+  const handleSelection = (index, selectedKey) => {
+    const updatedRecipients = [...recipients];
+    updatedRecipients[index] = selectedKey;
+
+    if (index === recipients.length - 1) {
+      updatedRecipients.push("");
+    }
+
+    setRecipients(updatedRecipients);
+  };
+
+  const encryptMessage = async () => {
+    try {
+      const recipientKeysPublic = recipientKeys
+        .filter((key) => recipients.includes(key.id.toString()))
+        .map((key) => key.publicKey);
+
+      // Find the selected signer
+      const signer = signerKeys.find((key) => key.id.toString() === signerKey);
+
+      if (!isChecked && recipientKeysPublic.length === 0) {
+        toast.error("Please select at least one recipient.", {
+          position: "top-right",
+        });
+        return;
+      }
+
+      let privateKey = null;
+      if (signer) {
+        const privateKeyObject = await openpgp.readPrivateKey({
+          armoredKey: signer.privateKey,
+        });
+
+        // Check if the private key is encrypted
+        if (!privateKeyObject.isDecrypted()) {
+          setIsPasswordModalOpen(true);
+
+          // Wait for the passphrase from the modal
+          const passphrase = await new Promise((resolve) => {
+            onSubmitPassword.current = resolve;
+          });
+
+          // Decrypt the private key
+          privateKey = await openpgp.decryptKey({
+            privateKey: privateKeyObject,
+            passphrase: passphrase,
+          });
+
+          if (!privateKey || !privateKey.isDecrypted()) {
+            throw new Error("Failed to decrypt the private key.");
+          }
+        } else {
+          privateKey = privateKeyObject;
+        }
+      }
+
+      const messageToEncrypt = await openpgp.createMessage({ text: message });
+
+      const encryptionOptions = {
+        message: messageToEncrypt,
+        ...(isChecked && password && { passwords: [password] }),
+        ...(recipientKeysPublic.length > 0 && {
+          encryptionKeys: await Promise.all(
+            recipientKeysPublic.map((key) =>
+              openpgp.readKey({ armoredKey: key })
+            )
+          ),
+        }),
+        ...(privateKey && { signingKeys: privateKey }),
+      };
+
+      // Encrypt the message
+      const encryptedMessage = await openpgp.encrypt(encryptionOptions);
+      setOutput(encryptedMessage);
+    } catch (error) {
+      toast.error("Incorrect Password.", {
+        position: "top-right",
+      });
+    }
+  };
 
   return (
     <>
+      <ToastContainer theme="dark" />
+      <h1 className="text-center text-4xl dm-serif-text-regular">
+        Encrypt Message
+      </h1>
+      <br />
+      <br />
       <Textarea
         disableAutosize
         classNames={{
@@ -79,19 +208,66 @@ export default function App() {
         }}
         label="Encrypt"
         placeholder="Enter your message"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
       />
+      <br />
+      <div className="flex flex-col gap-4">
+        <h5 className="mt-4 ms-1">Sign as:</h5>
+        <Autocomplete
+          className="max-w-full"
+          label="Select the signer"
+          allowsCustomValue={false}
+          defaultItems={signerKeys}
+          onSelectionChange={handleSignerSelection}
+        >
+          {(item) => (
+            <AutocompleteItem
+              key={item.id}
+              textValue={`${item.name} (${item.email})`}
+            >
+              {item.name} ({item.email})
+            </AutocompleteItem>
+          )}
+        </Autocomplete>
+      </div>
+      <div className="flex flex-col gap-4">
+        <h5 className="mt-4">Encrypt for:</h5>
+        {recipients.map((selectedKey, index) => (
+          <Autocomplete
+            key={index}
+            className="max-w-full"
+            label={`Select recipient ${index + 1}`}
+            selectedKey={selectedKey}
+            onSelectionChange={(key) => handleSelection(index, key)}
+            defaultItems={recipientKeys.filter(
+              (key) => !recipients.includes(key.id) || key.id === selectedKey
+            )}
+          >
+            {(item) => (
+              <AutocompleteItem
+                key={item.id}
+                textValue={`${item.name} (${item.email})`}
+              >
+                {item.name} ({item.email})
+              </AutocompleteItem>
+            )}
+          </Autocomplete>
+        ))}
+      </div>
       <br />
       <Checkbox
         defaultSelected={isChecked}
         color="default"
         onChange={(e) => setIsChecked(e.target.checked)}
       >
-        Use Password
+        <span className="text-medium">Encrypt With Password.</span>
+        <p className="text-sm">
+          Anyone you share the password with can read it.
+        </p>
       </Checkbox>
-
       <br />
       <br />
-
       <Input
         isDisabled={!isChecked}
         classNames={{
@@ -99,6 +275,8 @@ export default function App() {
         }}
         placeholder="Enter your password"
         type={isVisible ? "text" : "password"}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
         endContent={
           <button
             aria-label="toggle password visibility"
@@ -114,17 +292,75 @@ export default function App() {
           </button>
         }
       />
-
       <br />
-
       <Textarea
         isReadOnly
         disableAutosize
         classNames={{
-          input: "resize-y min-h-[150px]",
+          input: "resize-y min-h-[250px]",
         }}
         label="Output"
+        value={output}
       />
+      <br />
+      <Button onClick={encryptMessage}>Encrypt</Button>
+      <Modal
+        backdrop="blur"
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      >
+        <ModalContent className="p-5">
+          <h3 className="mb-4">Signing Key Password Protected</h3>
+          <Input
+            placeholder="Enter Password"
+            type={isVisible ? "text" : "password"}
+            value={modalpassword}
+            onChange={(e) => setModalpassword(e.target.value)}
+            endContent={
+              <button
+                aria-label="toggle password visibility"
+                className="focus:outline-none"
+                type="button"
+                onClick={toggleVisibility}
+              >
+                {isVisible ? (
+                  <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                ) : (
+                  <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                )}
+              </button>
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                // Simulate the button click on Enter key press
+                if (modalpassword) {
+                  setIsPasswordModalOpen(false);
+                  if (onSubmitPassword.current) {
+                    onSubmitPassword.current(modalpassword);
+                  }
+                } else {
+                  toast.error("Please enter a password.");
+                }
+              }
+            }}
+          />
+          <br />
+          <Button
+            onClick={() => {
+              if (modalpassword) {
+                setIsPasswordModalOpen(false);
+                if (onSubmitPassword.current) {
+                  onSubmitPassword.current(modalpassword);
+                }
+              } else {
+                toast.error("Please enter a password.");
+              }
+            }}
+          >
+            Submit
+          </Button>
+        </ModalContent>
+      </Modal>
     </>
   );
 }

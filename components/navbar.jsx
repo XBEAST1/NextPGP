@@ -11,20 +11,23 @@ import {
   Dropdown,
   DropdownMenu,
 } from "@nextui-org/react";
-import { Button } from "@nextui-org/button";
-import { Link } from "@nextui-org/link";
+import { Button, Link } from "@nextui-org/react";
 import NextLink from "next/link";
-
 import { ThemeSwitch } from "@/components/theme-switch";
-import { GithubIcon, HeartFilledIcon, Logo } from "@/components/icons";
+import { GithubIcon, HeartFilledIcon } from "@/components/icons";
+import Logo from "@/assets/Logo.png";
 
 export const Navbar = () => {
   return (
-    <NextUINavbar maxWidth="xl" position="sticky">
+    <NextUINavbar
+      className="p-7 backdrop-blur backdrop-brightness-200"
+      maxWidth="xl"
+      position="sticky"
+    >
       <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
         <NavbarBrand as="li" className="gap-3 max-w-fit">
           <NextLink className="flex justify-start items-center gap-1" href="/">
-            <Logo />
+            <img width={70} src={Logo.src} alt="" />
             <p className="font-bold text-inherit">Next PGP</p>
           </NextLink>
         </NavbarBrand>
@@ -136,7 +139,7 @@ export const Navbar = () => {
             isExternal
             as={Link}
             className="text-sm font-normal text-default-600 bg-default-100"
-            href="https://github.com/XBEAST1/next-pgp"
+            href="https://github.com/XBEAST1/NextPGP"
             startContent={<HeartFilledIcon className="text-danger" />}
             variant="flat"
           >

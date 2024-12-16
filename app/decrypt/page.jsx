@@ -7,7 +7,7 @@ import { Modal, ModalContent, Input, Button } from "@nextui-org/react";
 import { Textarea } from "@nextui-org/input";
 import * as openpgp from "openpgp";
 
-export const EyeSlashFilledIcon = (props) => {
+const EyeSlashFilledIcon = (props) => {
   return (
     <svg
       aria-hidden="true"
@@ -43,7 +43,7 @@ export const EyeSlashFilledIcon = (props) => {
   );
 };
 
-export const EyeFilledIcon = (props) => {
+const EyeFilledIcon = (props) => {
   return (
     <svg
       aria-hidden="true"
@@ -512,6 +512,9 @@ export default function App() {
   return (
     <>
       <ToastContainer theme="dark" />
+      <h1 className="text-center text-4xl dm-serif-text-regular">Decrypt Message</h1>
+      <br />
+      <br />
       <Textarea
         disableAutosize
         classNames={{

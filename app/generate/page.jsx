@@ -10,7 +10,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
 
-export const EyeSlashFilledIcon = (props) => {
+const EyeSlashFilledIcon = (props) => {
   return (
     <svg
       aria-hidden="true"
@@ -46,7 +46,7 @@ export const EyeSlashFilledIcon = (props) => {
   );
 };
 
-export const EyeFilledIcon = (props) => {
+const EyeFilledIcon = (props) => {
   return (
     <svg
       aria-hidden="true"
@@ -142,7 +142,7 @@ export default function App() {
       const keyData = {
         id: Date.now(),
         name,
-        email: validEmail,
+        email: validEmail || "N/A",
         publicKey,
         privateKey,
       };

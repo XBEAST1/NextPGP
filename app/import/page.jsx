@@ -78,7 +78,6 @@ export default function ImportKeyPage() {
       const userIds = key.users.map((user) => {
         const userId = user.userID;
 
-        // Extract the part before the < and ignore the email part
         const name = userId?.userID.split(" <")[0] || "N/A";
         const email = userId?.email || "N/A";
 

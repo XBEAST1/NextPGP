@@ -26,30 +26,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
 
-export const columns = [
-  { name: "NAME", uid: "name", sortable: true },
-  { name: "EMAIL", uid: "email" },
-  { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
-  { name: "STATUS", uid: "status", sortable: true },
-  { name: "PASSWORD", uid: "passwordprotected", sortable: true },
-  { name: "ACTIONS", uid: "actions" },
-];
-
-export const statusOptions = [
-  { name: "Active", uid: "active" },
-  { name: "Expired", uid: "expired" },
-];
-
-export const passwordprotectedOptions = [
-  { name: "Yes", uid: "yes" },
-  { name: "No", uid: "no" },
-];
-
-export function capitalize(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "";
-}
-
-export const VerticalDotsIcon = ({ size = 24, width, height, ...props }) => {
+const VerticalDotsIcon = ({ size = 24, width, height, ...props }) => {
   return (
     <svg
       aria-hidden="true"
@@ -69,7 +46,7 @@ export const VerticalDotsIcon = ({ size = 24, width, height, ...props }) => {
   );
 };
 
-export const SearchIcon = (props) => {
+const SearchIcon = (props) => {
   return (
     <svg
       aria-hidden="true"
@@ -99,7 +76,7 @@ export const SearchIcon = (props) => {
   );
 };
 
-export const EyeSlashFilledIcon = (props) => {
+const EyeSlashFilledIcon = (props) => {
   return (
     <svg
       aria-hidden="true"
@@ -135,7 +112,7 @@ export const EyeSlashFilledIcon = (props) => {
   );
 };
 
-export const EyeFilledIcon = (props) => {
+const EyeFilledIcon = (props) => {
   return (
     <svg
       aria-hidden="true"
@@ -178,6 +155,15 @@ export default function App() {
     direction: "ascending",
   });
   const [page, setPage] = useState(1);
+
+  const columns = [
+  { name: "NAME", uid: "name", sortable: true },
+  { name: "EMAIL", uid: "email" },
+  { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
+  { name: "STATUS", uid: "status", sortable: true },
+  { name: "PASSWORD", uid: "passwordprotected", sortable: true },
+  { name: "ACTIONS", uid: "actions" },
+];
 
   const [isVisible, setIsVisible] = React.useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
@@ -629,7 +615,29 @@ export default function App() {
             </TableColumn>
           )}
         </TableHeader>
-        <TableBody emptyContent={"No keyrings found"} items={sortedItems}>
+        <TableBody
+          emptyContent={
+            <>
+              <span>No keyrings found</span>
+              <br />
+              <br />
+              <div className="ms-2 flex justify-center">
+                <a href="/import">
+                  <Button>
+                    Import Key
+                  </Button>
+                </a>
+                <span className="mx-3 mt-1">or</span>
+                <a href="/generate">
+                  <Button>
+                    Generate Key
+                  </Button>
+                </a>
+              </div>
+            </>
+          }
+          items={sortedItems}
+        >
           {(item) => (
             <TableRow key={item.id}>
               {(columnKey) => (
