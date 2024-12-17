@@ -379,17 +379,17 @@ export default function App() {
                 </Button>
               </DropdownTrigger>
               <DropdownMenu>
-                <DropdownItem onClick={() => exportPublicKey(user)}>
+                <DropdownItem onPress={() => exportPublicKey(user)}>
                   Export Public Key
                 </DropdownItem>
                 {user.privateKey && user.privateKey.trim() !== "" ? (
-                  <DropdownItem onClick={() => backupKeyring(user)}>
+                  <DropdownItem onPress={() => backupKeyring(user)}>
                     Backup Keyring
                   </DropdownItem>
                 ) : (
                   ""
                 )}
-                <DropdownItem onClick={() => deleteKey(user.id)}>
+                <DropdownItem onPress={() => deleteKey(user.id)}>
                   Delete
                 </DropdownItem>
               </DropdownMenu>
