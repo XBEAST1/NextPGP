@@ -20,6 +20,7 @@ import {
   Modal,
   ModalContent,
 } from "@nextui-org/react";
+import Link from "next/link"
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
 import { toast, ToastContainer } from "react-toastify";
@@ -273,8 +274,6 @@ export default function App() {
               return Public.src;
             }
           })(),
-          publicKey: key.publicKey,
-          privateKey: key.privateKey,
           publicKey: key.publicKey,
           privateKey: key.privateKey,
         };
@@ -622,17 +621,17 @@ export default function App() {
               <br />
               <br />
               <div className="ms-2 flex justify-center">
-                <a href="/import">
-                  <Button>
+                <Link href="/import">
+                  <span className="z-0 group relative inline-flex items-center justify-center box-border appearance-none select-none whitespace-nowrap font-normal subpixel-antialiased overflow-hidden tap-highlight-transparent data-[pressed=true]:scale-[0.97] outline-none data-[focus-visible=true]:z-10 data-[focus-visible=true]:outline-2 data-[focus-visible=true]:outline-focus data-[focus-visible=true]:outline-offset-2 px-4 min-w-20 h-10 text-small gap-2 rounded-medium [&>svg]:max-w-[theme(spacing.8)] transition-transform-colors-opacity motion-reduce:transition-none bg-default text-default-foreground data-[hover=true]:opacity-hover">
                     Import Key
-                  </Button>
-                </a>
+                  </span>
+                </Link>
                 <span className="mx-3 mt-1">or</span>
-                <a href="/generate">
-                  <Button>
+                <Link href="/generate">
+                  <span className="z-0 group relative inline-flex items-center justify-center box-border appearance-none select-none whitespace-nowrap font-normal subpixel-antialiased overflow-hidden tap-highlight-transparent data-[pressed=true]:scale-[0.97] outline-none data-[focus-visible=true]:z-10 data-[focus-visible=true]:outline-2 data-[focus-visible=true]:outline-focus data-[focus-visible=true]:outline-offset-2 px-4 min-w-20 h-10 text-small gap-2 rounded-medium [&>svg]:max-w-[theme(spacing.8)] transition-transform-colors-opacity motion-reduce:transition-none bg-default text-default-foreground data-[hover=true]:opacity-hover">
                     Generate Key
-                  </Button>
-                </a>
+                  </span>
+                </Link>
               </div>
             </>
           }

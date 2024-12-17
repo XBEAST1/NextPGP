@@ -10,6 +10,7 @@
 	},
 	"dependencies": {
 		"@internationalized/date": "^3.6.0",
+		"@next/third-parties": "^15.1.0",
 		"@nextui-org/button": "2.2.3",
 		"@nextui-org/checkbox": "^2.3.3",
 		"@nextui-org/code": "2.2.3",

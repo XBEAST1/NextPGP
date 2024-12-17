@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { Providers } from "./providers";
 import { fontSans } from "@/config/fonts";
 import { Navbar } from "@/components/navbar";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import Logo from "@/assets/Logo2.jpg";
 
 const twittercardimg = `https://nextpgp.vercel.app${Logo.src}`;
@@ -11,13 +12,13 @@ export const generateMetadata = () => {
   return {
     title: "Next PGP",
     description:
-      "Next PGP is a beautiful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
+      "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
     keywords:
       "PGP tool, Next.js PGP, online PGP tool, key management, key generation, encrypt message, decrypt message, secure communication, OpenPGP, keyring management, encryption tool, modern PGP tool",
     openGraph: {
       title: "Next PGP",
       description:
-        "Next PGP is an elegant and powerful online tool for generating PGP keys, managing keyrings, and securely encrypting and decrypting messages.",
+        "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
       images: [
         {
           url: twittercardimg,
@@ -33,7 +34,7 @@ export const generateMetadata = () => {
       site: "@NextPGP",
       title: "Next PGP",
       description:
-        "Experience a beautiful and modern online PGP tool for key generation, keyring management, encryption, and decryption. Built with Next.js.",
+        "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
       images: [twittercardimg],
     },
     robots: {
@@ -74,6 +75,7 @@ export default function RootLayout({ children }) {
             <Navbar />
             <main className="container mx-auto max-w-7xl pt-6 px-6 flex-grow">
               {children}
+              <GoogleAnalytics gaId="G-EJ067X6M97" />
             </main>
             <br />
             <footer className="w-full flex items-center justify-center py-3">

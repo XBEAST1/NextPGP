@@ -6,11 +6,14 @@ import {
   NavbarMenuToggle,
   NavbarBrand,
   NavbarItem,
+  NavbarMenu,
+  NavbarMenuItem,
   DropdownItem,
   DropdownTrigger,
   Dropdown,
   DropdownMenu,
 } from "@nextui-org/react";
+import { useState } from "react";
 import { Button, Link } from "@nextui-org/react";
 import NextLink from "next/link";
 import { ThemeSwitch } from "@/components/theme-switch";
@@ -18,8 +21,20 @@ import { GithubIcon, HeartFilledIcon } from "@/components/icons";
 import Logo from "@/assets/Logo.png";
 
 export const Navbar = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const menuItems = [
+    { label: "Manage Keyrings", href: "/" },
+    { label: "Generate Keyring", href: "/generate" },
+    { label: "Import Key", href: "/import" },
+    { label: "Encrypt", href: "/encrypt" },
+    { label: "Decrypt", href: "/decrypt" },
+    { label: "Open Source", href: "https://github.com/XBEAST1/NextPGP" },
+  ];
+
   return (
     <NextUINavbar
+      onMenuOpenChange={setIsMenuOpen}
       className="p-7 backdrop-blur backdrop-brightness-200"
       maxWidth="xl"
       position="sticky"
@@ -147,14 +162,35 @@ export const Navbar = () => {
           </Button>
         </NavbarItem>
       </NavbarContent>
-
       <NavbarContent className="sm:hidden basis-1 pl-4" justify="end">
         <Link isExternal aria-label="Github" href="https://github.com/XBEAST1">
           <GithubIcon className="text-default-500" />
         </Link>
         <ThemeSwitch />
-        <NavbarMenuToggle />
+        <NavbarMenuToggle
+          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          className="sm:hidden"
+        />
       </NavbarContent>
+      <NavbarMenu className="mt-12 backdrop-blur">
+        {menuItems.map((item, index) => (
+          <NavbarMenuItem
+            className="mx-auto mt-3"
+            key={`${item.label}-${index}`}
+          >
+            <Link
+              className="w-full"
+              color={index === menuItems.length - 1 ? "danger" : "foreground"}
+              href={item.href}
+              size="lg"
+              onClick={() => setIsMenuOpen(false)}
+              target={item.href.startsWith("http") ? "_blank" : undefined}
+            >
+              {item.label}
+            </Link>
+          </NavbarMenuItem>
+        ))}
+      </NavbarMenu>
     </NextUINavbar>
   );
 };
