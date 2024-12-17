@@ -14,7 +14,6 @@ import {
   Dropdown,
   DropdownMenu,
 } from "@nextui-org/react";
-import { useState } from "react";
 import { Button, Link } from "@nextui-org/react";
 import NextLink from "next/link";
 import { ThemeSwitch } from "@/components/theme-switch";
@@ -28,6 +27,8 @@ export const Navbar = () => {
     (current) => !current,
     false
   );
+
+  const { theme } = useTheme();
 
   const menuItems = [
     { label: "Manage Keyrings", href: "/" },
@@ -52,16 +53,11 @@ export const Navbar = () => {
       >
         <NavbarBrand as="li" className="gap-3 max-w-fit">
           <NextLink className="flex justify-start items-center gap-1" href="/">
-            {(() => {
-              const { theme } = useTheme();
-              return (
-                <img
-                  width={70}
-                  src={theme === "light" ? LogoLight.src : Logo.src}
-                  alt="Logo"
-                />
-              );
-            })()}
+            <img
+              width={70}
+              src={theme === "light" ? LogoLight.src : Logo.src}
+              alt="Logo"
+            />
             <p className="font-bold text-inherit">Next PGP</p>
           </NextLink>
         </NavbarBrand>
