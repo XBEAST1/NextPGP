@@ -303,7 +303,7 @@ export default function App() {
         value={output}
       />
       <br />
-      <Button onClick={encryptMessage}>Encrypt</Button>
+      <Button onPress={encryptMessage}>Encrypt</Button>
       <Modal
         backdrop="blur"
         isOpen={isPasswordModalOpen}
@@ -346,7 +346,7 @@ export default function App() {
           />
           <br />
           <Button
-            onClick={() => {
+            onPress={() => {
               if (modalpassword) {
                 setIsPasswordModalOpen(false);
                 if (onSubmitPassword.current) {

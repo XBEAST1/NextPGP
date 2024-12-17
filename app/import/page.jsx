@@ -171,7 +171,7 @@ export default function ImportKeyPage() {
         placeholder="Paste your PGP key here"
       />
       <br />
-      <Button size="md" onClick={handleImport}>
+      <Button size="md" onPress={handleImport}>
         Import Key
       </Button>
     </>

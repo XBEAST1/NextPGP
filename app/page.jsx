@@ -20,7 +20,7 @@ import {
   Modal,
   ModalContent,
 } from "@nextui-org/react";
-import Link from "next/link"
+import Link from "next/link";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
 import { toast, ToastContainer } from "react-toastify";
@@ -158,13 +158,13 @@ export default function App() {
   const [page, setPage] = useState(1);
 
   const columns = [
-  { name: "NAME", uid: "name", sortable: true },
-  { name: "EMAIL", uid: "email" },
-  { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
-  { name: "STATUS", uid: "status", sortable: true },
-  { name: "PASSWORD", uid: "passwordprotected", sortable: true },
-  { name: "ACTIONS", uid: "actions" },
-];
+    { name: "NAME", uid: "name", sortable: true },
+    { name: "EMAIL", uid: "email" },
+    { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
+    { name: "STATUS", uid: "status", sortable: true },
+    { name: "PASSWORD", uid: "passwordprotected", sortable: true },
+    { name: "ACTIONS", uid: "actions" },
+  ];
 
   const [isVisible, setIsVisible] = React.useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
@@ -691,7 +691,7 @@ export default function App() {
           />
           <Button
             className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
-            onClick={() => {
+            onPress={() => {
               if (password.trim() === "") {
                 toast.error("Please Enter a Password", {
                   position: "top-right",

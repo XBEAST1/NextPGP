@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   Navbar as NextUINavbar,
   NavbarContent,
@@ -19,9 +20,14 @@ import NextLink from "next/link";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { GithubIcon, HeartFilledIcon } from "@/components/icons";
 import Logo from "@/assets/Logo.png";
+import LogoLight from "@/assets/Logo-Light.png";
+import { useTheme } from "next-themes";
 
 export const Navbar = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = React.useReducer(
+    (current) => !current,
+    false
+  );
 
   const menuItems = [
     { label: "Manage Keyrings", href: "/" },
@@ -34,15 +40,28 @@ export const Navbar = () => {
 
   return (
     <NextUINavbar
+      isMenuOpen={isMenuOpen}
       onMenuOpenChange={setIsMenuOpen}
       className="p-7 backdrop-blur backdrop-brightness-200"
       maxWidth="xl"
       position="sticky"
     >
-      <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
+      <NavbarContent
+        className="basis-1/5 sm:basis-full mx-[-1.5rem]"
+        justify="start"
+      >
         <NavbarBrand as="li" className="gap-3 max-w-fit">
           <NextLink className="flex justify-start items-center gap-1" href="/">
-            <img width={70} src={Logo.src} alt="" />
+            {(() => {
+              const { theme } = useTheme();
+              return (
+                <img
+                  width={70}
+                  src={theme === "light" ? LogoLight.src : Logo.src}
+                  alt="Logo"
+                />
+              );
+            })()}
             <p className="font-bold text-inherit">Next PGP</p>
           </NextLink>
         </NavbarBrand>
@@ -175,7 +194,7 @@ export const Navbar = () => {
       <NavbarMenu className="mt-12 backdrop-blur">
         {menuItems.map((item, index) => (
           <NavbarMenuItem
-            className="mx-auto mt-3"
+            className="mx-auto mt-5"
             key={`${item.label}-${index}`}
           >
             <Link
@@ -183,7 +202,7 @@ export const Navbar = () => {
               color={index === menuItems.length - 1 ? "danger" : "foreground"}
               href={item.href}
               size="lg"
-              onClick={() => setIsMenuOpen(false)}
+              onClick={() => setIsMenuOpen()}
               target={item.href.startsWith("http") ? "_blank" : undefined}
             >
               {item.label}

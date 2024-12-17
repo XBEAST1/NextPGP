@@ -252,7 +252,7 @@ export default function App() {
       />
 
       <br />
-      <Button size="md" onClick={generatePGPKey}>
+      <Button size="md" onPress={generatePGPKey}>
         Generate Key
       </Button>
     </>

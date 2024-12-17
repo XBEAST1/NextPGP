@@ -512,7 +512,9 @@ export default function App() {
   return (
     <>
       <ToastContainer theme="dark" />
-      <h1 className="text-center text-4xl dm-serif-text-regular">Decrypt Message</h1>
+      <h1 className="text-center text-4xl dm-serif-text-regular">
+        Decrypt Message
+      </h1>
       <br />
       <br />
       <Textarea
@@ -544,7 +546,7 @@ export default function App() {
 
       <br />
 
-      <Button onClick={handleDecrypt}>Decrypt</Button>
+      <Button onPress={handleDecrypt}>Decrypt</Button>
       {isPasswordModalOpen && (
         <Modal
           backdrop="blur"
@@ -576,7 +578,7 @@ export default function App() {
             />
             <Button
               className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
-              onClick={handlePasswordSubmit}
+              onPress={handlePasswordSubmit}
             >
               Submit
             </Button>
