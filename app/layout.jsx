@@ -8,49 +8,48 @@ import Logo from "@/assets/Logo2.jpg";
 
 const twittercardimg = `https://nextpgp.vercel.app${Logo.src}`;
 
-export const generateMetadata = () => {
-  return {
+export const metadata = {
+  manifest: "/manifest.json",
+  title: "Next PGP",
+  description:
+    "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
+  keywords:
+    "PGP tool, Next.js PGP, online PGP tool, key management, key generation, encrypt message, decrypt message, secure communication, OpenPGP, keyring management, encryption tool, modern PGP tool",
+  openGraph: {
     title: "Next PGP",
     description:
       "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
-    keywords:
-      "PGP tool, Next.js PGP, online PGP tool, key management, key generation, encrypt message, decrypt message, secure communication, OpenPGP, keyring management, encryption tool, modern PGP tool",
-    openGraph: {
-      title: "Next PGP",
-      description:
-        "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
-      images: [
-        {
-          url: twittercardimg,
-          alt: "Next PGP",
-        },
-      ],
-      url: "https://nextpgp.vercel.app",
-      siteName: "NextPGP",
-      type: "website",
-    },
-    twitter: {
-      card: "summary_large_image",
-      site: "@NextPGP",
-      title: "Next PGP",
-      description:
-        "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
-      images: [twittercardimg],
-    },
-    robots: {
+    images: [
+      {
+        url: twittercardimg,
+        alt: "Next PGP",
+      },
+    ],
+    url: "https://nextpgp.vercel.app",
+    siteName: "NextPGP",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@NextPGP",
+    title: "Next PGP",
+    description:
+      "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
+    images: [twittercardimg],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    nocache: false,
+    googleBot: {
       index: true,
       follow: true,
-      nocache: false,
-      googleBot: {
-        index: true,
-        follow: true,
-        noimageindex: false,
-        "max-video-preview": -1,
-        "max-image-preview": "large",
-        "max-snippet": -1,
-      },
+      noimageindex: false,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
-  };
+  },
 };
 
 export const viewport = {
