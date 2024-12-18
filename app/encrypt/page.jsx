@@ -10,6 +10,7 @@ import {
   Button,
   Modal,
   ModalContent,
+  Snippet,
 } from "@nextui-org/react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -78,6 +79,7 @@ const EyeFilledIcon = (props) => {
 export default function App() {
   const [pgpKeys, setPgpKeys] = useState([]);
   const [signerKeys, setSignerKeys] = useState([]);
+  const [signerKey, setSignerKey] = useState(null);
   const [recipientKeys, setRecipientKeys] = useState([]);
   const [isChecked, setIsChecked] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -87,7 +89,6 @@ export default function App() {
   const [output, setOutput] = useState("");
   const [modalpassword, setModalpassword] = useState("");
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [signerKey, setSignerKey] = useState(null); // Add this state
   const onSubmitPassword = useRef(null);
 
   const toggleVisibility = () => setIsVisible(!isVisible);
@@ -108,19 +109,52 @@ export default function App() {
     setRecipientKeys(filteredRecipientKeys);
   }, []);
 
+  useEffect(() => {
+    const savedSignerKey = localStorage.getItem("selectedSignerKey");
+    const savedRecipients = JSON.parse(
+      localStorage.getItem("selectedRecipients")
+    ) || [""];
+
+    // Set the retrieved values
+    if (savedSignerKey) setSignerKey(savedSignerKey);
+    if (savedRecipients.length > 0) setRecipients(savedRecipients);
+  }, []);
+
   const handleSignerSelection = (selectedKey) => {
+    localStorage.setItem("selectedSignerKey", selectedKey);
     setSignerKey(selectedKey);
   };
 
   const handleSelection = (index, selectedKey) => {
     const updatedRecipients = [...recipients];
-    updatedRecipients[index] = selectedKey;
 
-    if (index === recipients.length - 1) {
-      updatedRecipients.push("");
+    if (selectedKey) {
+      updatedRecipients[index] = selectedKey;
+
+      // Make sure the last slot is always empty for new entries
+      if (updatedRecipients[updatedRecipients.length - 1] !== "") {
+        updatedRecipients.push("");
+      }
+    } else {
+      // Replace the deselected value with an empty string
+      updatedRecipients[index] = "";
+
+      // Remove trailing empty slots
+      while (
+        updatedRecipients.length > 1 &&
+        updatedRecipients[updatedRecipients.length - 2] === "" &&
+        updatedRecipients[updatedRecipients.length - 1] === ""
+      ) {
+        updatedRecipients.pop();
+      }
     }
 
     setRecipients(updatedRecipients);
+
+    localStorage.setItem(
+      "selectedRecipients",
+      JSON.stringify(updatedRecipients)
+    );
   };
 
   const encryptMessage = async () => {
@@ -187,7 +221,7 @@ export default function App() {
       const encryptedMessage = await openpgp.encrypt(encryptionOptions);
       setOutput(encryptedMessage);
     } catch (error) {
-      toast.error("Incorrect Password.", {
+      toast.error("Please Enter a Password.", {
         position: "top-right",
       });
     }
@@ -218,6 +252,7 @@ export default function App() {
           className="max-w-full"
           label="Select the signer"
           allowsCustomValue={false}
+          selectedKey={signerKey}
           defaultItems={signerKeys}
           onSelectionChange={handleSignerSelection}
         >
@@ -232,7 +267,7 @@ export default function App() {
         </Autocomplete>
       </div>
       <div className="flex flex-col gap-4">
-        <h5 className="mt-4">Encrypt for:</h5>
+        <h5 className="mt-4 ms-1">Encrypt for:</h5>
         {recipients.map((selectedKey, index) => (
           <Autocomplete
             key={index}
@@ -293,15 +328,19 @@ export default function App() {
         }
       />
       <br />
-      <Textarea
-        isReadOnly
-        disableAutosize
+      <h5 className="ms-1">Encrypted PGP Message:</h5>
+      <br />
+      <Snippet
+        symbol=""
         classNames={{
-          input: "resize-y min-h-[250px]",
+          base: "w-full p-5",
+          content: "whitespace-pre-wrap",
+          pre: "whitespace-pre-wrap",
         }}
-        label="Output"
-        value={output}
-      />
+      >
+        {output}
+      </Snippet>
+      <br />
       <br />
       <Button onPress={encryptMessage}>Encrypt</Button>
       <Modal

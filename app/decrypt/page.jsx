@@ -271,7 +271,7 @@ export default function App() {
                     timeZoneName: "long",
                   });
 
-                  details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}\n\n`;
+                  details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}`;
                 } else {
                   details += `Signature created at: Not available\n\n`;
                 }
@@ -326,42 +326,77 @@ export default function App() {
         let detailsText = "No Signature Found";
 
         if (signatures && signatures.length > 0) {
-          // Extract the signing key ID
-          const signingKeyID = signatures[0]?.keyID?.toHex();
+          for (const sig of signatures) {
+            const { signature } = sig;
 
-          if (signingKeyID) {
-            const storedKeyDetails = await Promise.all(
-              storedKeys.map(async (key) => {
-                try {
-                  if (key.publicKey) {
-                    const parsedKey = await openpgp.readKey({
-                      armoredKey: key.publicKey,
-                    });
-                    const keyID = parsedKey.getKeyID().toHex();
-                    const keyName = parsedKey.getUserIDs()[0] || "Unnamed Key";
-                    return { keyID, keyName };
+            // Get the resolved Signature array
+            const resolvedSignature = await signature;
+
+            // Extract the signing key ID
+            const signingKeyID = signatures[0]?.keyID?.toHex();
+
+            if (signingKeyID) {
+              const storedKeyDetails = await Promise.all(
+                storedKeys.map(async (key) => {
+                  try {
+                    if (key.publicKey) {
+                      const parsedKey = await openpgp.readKey({
+                        armoredKey: key.publicKey,
+                      });
+                      const keyID = parsedKey.getKeyID().toHex();
+                      const keyName =
+                        parsedKey.getUserIDs()[0] || "Unnamed Key";
+                      return { keyID, keyName };
+                    }
+                  } catch (err) {
+                    console.error("Failed to parse public key:", err);
                   }
-                } catch (err) {
-                  console.error("Failed to parse public key:", err);
-                }
-                return null;
-              })
-            ).then((details) => details.filter(Boolean));
+                  return null;
+                })
+              ).then((details) => details.filter(Boolean));
 
-            const matchedKey = storedKeyDetails.find(
-              (key) => key.keyID === signingKeyID
-            );
+              const matchedKey = storedKeyDetails.find(
+                (key) => key.keyID === signingKeyID
+              );
 
-            if (matchedKey) {
-              const formattedKeyID = matchedKey.keyID
-                .replace(/(.{4})/g, "$1 ")
-                .trim();
-              detailsText = `Signature by: ${matchedKey.keyName} (${formattedKeyID}) is valid`;
-            } else {
-              const formattedKeyID = signingKeyID
-                .replace(/(.{4})/g, "$1 ")
-                .trim();
-              detailsText = `Signature by: Unknown Key (${formattedKeyID})`;
+              // Show signature and created time
+              if (matchedKey) {
+                const formattedKeyID = matchedKey.keyID
+                  .replace(/(.{4})/g, "$1 ")
+                  .trim();
+                const signaturePacket = resolvedSignature.packets[0];
+                const createdTime =
+                  signaturePacket && signaturePacket.created
+                    ? new Date(signaturePacket.created)
+                    : null;
+                const dayName = createdTime.toLocaleDateString("en-US", {
+                  weekday: "long",
+                });
+                const monthName = createdTime.toLocaleDateString("en-US", {
+                  month: "long",
+                });
+                const day = createdTime.getDate();
+                const year = createdTime.getFullYear();
+
+                const locale = navigator.language || "en-US";
+                const is24Hour = locale.includes("GB") || locale.includes("DE");
+
+                const timeWithZone = createdTime.toLocaleTimeString(locale, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: !is24Hour,
+                  timeZoneName: "long",
+                });
+                detailsText = `Signature by: ${matchedKey.keyName} (${formattedKeyID}) is valid\n`;
+                detailsText += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}`;
+              } else {
+                const formattedKeyID = signingKeyID
+                  .replace(/(.{4})/g, "$1 ")
+                  .trim();
+                detailsText = `Signature by: Unknown Key (${formattedKeyID})`;
+                detailsText += `Signature created at: Not available\n\n`;
+              }
             }
           }
         }
