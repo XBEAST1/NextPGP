@@ -333,9 +333,9 @@ export default function App() {
       <Snippet
         symbol=""
         classNames={{
-          base: "w-full p-5",
-          content: "whitespace-pre-wrap",
-          pre: "whitespace-pre-wrap",
+          base: "max-w-full p-5 overflow-auto",
+          content: "whitespace-pre-wrap break-all",
+          pre: "whitespace-pre-wrap break-all",
         }}
       >
         {output}
