@@ -62,8 +62,6 @@ export default function ImportKeyPage() {
         armoredKey: privateKey || publicKey,
       });
 
-      console.log(key);
-
       const isPrivateKey = privateKey !== null;
 
       let keyData = {

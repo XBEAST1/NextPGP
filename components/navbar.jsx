@@ -77,7 +77,7 @@ export const Navbar = () => {
               base: "gap-4",
             }}
           >
-            <DropdownItem key="manage_keyrings">
+            <DropdownItem key="manage_keyrings" textValue="Manage Keyrings">
               <Link className="text-decoration-none" href="/">
                 <div>
                   Manage Keyrings
@@ -87,7 +87,7 @@ export const Navbar = () => {
                 </div>
               </Link>
             </DropdownItem>
-            <DropdownItem key="generate_keyring">
+            <DropdownItem key="generate_keyring" textValue="Generate Keyrings">
               <Link className="text-decoration-none" href="/generate">
                 <div>
                   Generate Keyring
@@ -98,7 +98,7 @@ export const Navbar = () => {
                 </div>
               </Link>
             </DropdownItem>
-            <DropdownItem key="import_key">
+            <DropdownItem key="import_key" textValue="Import Key">
               <Link className="text-decoration-none" href="/import">
                 <div>
                   Import Key
@@ -126,7 +126,7 @@ export const Navbar = () => {
               base: "gap-4",
             }}
           >
-            <DropdownItem key="encrypt_data">
+            <DropdownItem key="encrypt_data" textValue="Encrypt">
               <Link className="text-decoration-none" href="/encrypt">
                 <div>
                   Encrypt
@@ -136,7 +136,7 @@ export const Navbar = () => {
                 </div>
               </Link>
             </DropdownItem>
-            <DropdownItem key="decrypt_data">
+            <DropdownItem key="decrypt_data" textValue="Decrypt">
               <Link className="text-decoration-none" href="/decrypt">
                 <div>
                   Decrypt
