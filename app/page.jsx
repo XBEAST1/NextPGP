@@ -389,7 +389,9 @@ export default function App() {
                 ) : (
                   ""
                 )}
-                <DropdownItem onPress={() => triggerDeleteModal(user.id)}>
+                <DropdownItem
+                  onPress={() => triggerDeleteModal(user.id, user.name)}
+                >
                   Delete
                 </DropdownItem>
               </DropdownMenu>
@@ -480,14 +482,17 @@ export default function App() {
 
   const [DeleteModal, setDeleteModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [selectedKeyName, setSelectedKeyName] = useState("");
 
-  const triggerDeleteModal = (userId) => {
+  const triggerDeleteModal = (userId, name) => {
     setSelectedUserId(userId);
+    setSelectedKeyName(name);
     setDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setSelectedUserId(null);
+    setSelectedKeyName("");
     setDeleteModal(false);
   };
 
@@ -725,7 +730,9 @@ export default function App() {
       </Modal>
       <Modal backdrop="blur" isOpen={DeleteModal} onClose={closeDeleteModal}>
         <ModalContent className="p-5">
-          <h3 className="mb-2">Are You Sure You Want To Delete This Key?</h3>
+          <h3 className="mb-2">
+            Are You Sure You Want To Delete {selectedKeyName}&apos;s Key?
+          </h3>
           <div className="flex gap-2">
             <Button
               className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
