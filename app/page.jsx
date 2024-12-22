@@ -389,7 +389,7 @@ export default function App() {
                 ) : (
                   ""
                 )}
-                <DropdownItem onPress={() => deleteKey(user.id)}>
+                <DropdownItem onPress={() => triggerDeleteModal(user.id)}>
                   Delete
                 </DropdownItem>
               </DropdownMenu>
@@ -476,6 +476,19 @@ export default function App() {
     const refreshedKeys = await loadKeysFromLocalStorage();
     setUsers(refreshedKeys);
     setPage(1);
+  };
+
+  const [DeleteModal, setDeleteModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+
+  const triggerDeleteModal = (userId) => {
+    setSelectedUserId(userId);
+    setDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setSelectedUserId(null);
+    setDeleteModal(false);
   };
 
   const onNextPage = React.useCallback(() => {
@@ -708,6 +721,28 @@ export default function App() {
           >
             Submit
           </Button>
+        </ModalContent>
+      </Modal>
+      <Modal backdrop="blur" isOpen={DeleteModal} onClose={closeDeleteModal}>
+        <ModalContent className="p-5">
+          <h3 className="mb-2">Are You Sure You Want To Delete This Key?</h3>
+          <div className="flex gap-2">
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+              onPress={closeDeleteModal}
+            >
+              No
+            </Button>
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
+              onPress={() => {
+                deleteKey(selectedUserId);
+                closeDeleteModal();
+              }}
+            >
+              Yes
+            </Button>
+          </div>
         </ModalContent>
       </Modal>
     </>
