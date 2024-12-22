@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Textarea, Button, Input } from "@nextui-org/react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import secureLocalStorage from "react-secure-storage";
 import * as openpgp from "openpgp";
 
 // Extract only the PGP keys from the content
@@ -26,14 +27,14 @@ export default function ImportKeyPage() {
   const [keyInput, setKeyInput] = useState("");
 
   const getStoredKeys = () => {
-    const keys = localStorage.getItem("pgpKeys");
+    const keys = secureLocalStorage.getItem("pgpKeys");
     return keys ? JSON.parse(keys) : [];
   };
 
   const saveKeyToLocalStorage = (keyData) => {
     const existingKeys = getStoredKeys();
     existingKeys.push(keyData);
-    localStorage.setItem("pgpKeys", JSON.stringify(existingKeys));
+    secureLocalStorage.setItem("pgpKeys", JSON.stringify(existingKeys));
   };
 
   const checkIfKeyExists = (newKeyData) => {

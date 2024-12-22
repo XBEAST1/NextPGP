@@ -2,12 +2,10 @@
 
 import React from "react";
 import { useState } from "react";
-import { Button } from "@nextui-org/react";
-import { DatePicker } from "@nextui-org/react";
-import { Input } from "@nextui-org/react";
-import { Checkbox } from "@nextui-org/react";
+import { Button, DatePicker, Input, Checkbox } from "@nextui-org/react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import secureLocalStorage from "react-secure-storage";
 import * as openpgp from "openpgp";
 
 const EyeSlashFilledIcon = (props) => {
@@ -81,14 +79,14 @@ export default function App() {
   const [emailInvalid, setEmailInvalid] = useState(false);
 
   const getStoredKeys = () => {
-    const keys = localStorage.getItem("pgpKeys");
+    const keys = secureLocalStorage.getItem("pgpKeys");
     return keys ? JSON.parse(keys) : [];
   };
 
   const saveKeyToLocalStorage = (keyData) => {
     const existingKeys = getStoredKeys();
     existingKeys.push(keyData);
-    localStorage.setItem("pgpKeys", JSON.stringify(existingKeys));
+    secureLocalStorage.setItem("pgpKeys", JSON.stringify(existingKeys));
   };
 
   const generatePGPKey = async () => {

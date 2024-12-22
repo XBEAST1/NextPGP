@@ -14,6 +14,7 @@ import {
 } from "@nextui-org/react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import secureLocalStorage from "react-secure-storage";
 import * as openpgp from "openpgp";
 
 const EyeSlashFilledIcon = (props) => {
@@ -95,7 +96,7 @@ export default function App() {
 
   // Fetch and filter PGP keys from localStorage
   useEffect(() => {
-    const keysFromStorage = JSON.parse(localStorage.getItem("pgpKeys")) || [];
+    const keysFromStorage = JSON.parse(secureLocalStorage.getItem("pgpKeys")) || [];
 
     const filteredSignerKeys = keysFromStorage.filter(
       (key) => key.publicKey && key.privateKey
@@ -110,9 +111,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const savedSignerKey = localStorage.getItem("selectedSignerKey");
+    const savedSignerKey = secureLocalStorage.getItem("selectedSignerKey");
     const savedRecipients = JSON.parse(
-      localStorage.getItem("selectedRecipients")
+      secureLocalStorage.getItem("selectedRecipients")
     ) || [""];
 
     // Set the retrieved values
@@ -121,7 +122,7 @@ export default function App() {
   }, []);
 
   const handleSignerSelection = (selectedKey) => {
-    localStorage.setItem("selectedSignerKey", selectedKey);
+    secureLocalStorage.setItem("selectedSignerKey", selectedKey);
     setSignerKey(selectedKey);
   };
 
@@ -151,7 +152,7 @@ export default function App() {
 
     setRecipients(updatedRecipients);
 
-    localStorage.setItem(
+    secureLocalStorage.setItem(
       "selectedRecipients",
       JSON.stringify(updatedRecipients)
     );

@@ -2,9 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 import { toast, ToastContainer } from "react-toastify";
+import {
+  Modal,
+  ModalContent,
+  Input,
+  Button,
+  Textarea,
+} from "@nextui-org/react";
+import secureLocalStorage from "react-secure-storage";
 import "react-toastify/dist/ReactToastify.css";
-import { Modal, ModalContent, Input, Button } from "@nextui-org/react";
-import { Textarea } from "@nextui-org/input";
 import * as openpgp from "openpgp";
 
 const EyeSlashFilledIcon = (props) => {
@@ -89,7 +95,7 @@ export default function App() {
 
   useEffect(() => {
     // Fetch PGP keys from local storage
-    const storedKeys = JSON.parse(localStorage.getItem("pgpKeys"));
+    const storedKeys = JSON.parse(secureLocalStorage.getItem("pgpKeys"));
     setPgpKeys(storedKeys);
   }, []);
 
@@ -322,7 +328,7 @@ export default function App() {
 
         setDecryptedMessage(decrypted);
 
-        const storedKeys = JSON.parse(localStorage.getItem("pgpKeys") || "[]");
+        const storedKeys = JSON.parse(secureLocalStorage.getItem("pgpKeys") || "[]");
 
         // Load and parse all public keys from storedKeys
         const publicKeys = await Promise.all(

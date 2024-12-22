@@ -25,6 +25,7 @@ import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import secureLocalStorage from "react-secure-storage";
 import * as openpgp from "openpgp";
 
 const VerticalDotsIcon = ({ size = 24, width, height, ...props }) => {
@@ -170,7 +171,7 @@ export default function App() {
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   const loadKeysFromLocalStorage = async () => {
-    const keys = JSON.parse(localStorage.getItem("pgpKeys")) || [];
+    const keys = JSON.parse(secureLocalStorage.getItem("pgpKeys")) || [];
 
     const formatDate = (isoDate) => {
       const date = new Date(isoDate);
@@ -471,9 +472,9 @@ export default function App() {
   };
 
   const deleteKey = async (userId) => {
-    const currentKeys = JSON.parse(localStorage.getItem("pgpKeys")) || [];
+    const currentKeys = JSON.parse(secureLocalStorage.getItem("pgpKeys")) || [];
     const updatedKeys = currentKeys.filter((key) => key.id !== userId);
-    localStorage.setItem("pgpKeys", JSON.stringify(updatedKeys));
+    secureLocalStorage.setItem("pgpKeys", JSON.stringify(updatedKeys));
 
     const refreshedKeys = await loadKeysFromLocalStorage();
     setUsers(refreshedKeys);
