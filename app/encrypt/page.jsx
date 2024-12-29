@@ -96,7 +96,8 @@ export default function App() {
 
   // Fetch and filter PGP keys from localStorage
   useEffect(() => {
-    const keysFromStorage = JSON.parse(secureLocalStorage.getItem("pgpKeys")) || [];
+    const keysFromStorage =
+      JSON.parse(secureLocalStorage.getItem("pgpKeys")) || [];
 
     const filteredSignerKeys = keysFromStorage.filter(
       (key) => key.publicKey && key.privateKey
@@ -222,7 +223,7 @@ export default function App() {
       const encryptedMessage = await openpgp.encrypt(encryptionOptions);
       setOutput(encryptedMessage);
     } catch (error) {
-      toast.error("Please Enter a Password.", {
+      toast.error("Incorrect Password.", {
         position: "top-right",
       });
     }

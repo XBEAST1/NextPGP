@@ -100,7 +100,7 @@ export default function App() {
   }, []);
 
   const handleDecrypt = async () => {
-    if (!inputMessage || !pgpKeys) {
+    if (!inputMessage) {
       toast.error("Please enter a PGP message.", {
         position: "top-right",
       });
@@ -119,6 +119,8 @@ export default function App() {
     }
 
     try {
+      const validPgpKeys = Array.isArray(pgpKeys) ? pgpKeys : [];
+
       // Check if the message contains s2k in the packet if yes then prompt for password
       const packets = message.packets;
       let isPasswordEncrypted = packets.some((packet) => packet.s2k);
@@ -128,12 +130,12 @@ export default function App() {
 
       // Load public keys for signature verification
       const publicKeys = await Promise.all(
-        pgpKeys
+        validPgpKeys
           .filter((key) => key.publicKey)
           .map((key) => openpgp.readKey({ armoredKey: key.publicKey }))
       );
 
-      for (const keyData of pgpKeys) {
+      for (const keyData of validPgpKeys) {
         if (!keyData.privateKey) continue;
 
         try {
@@ -153,7 +155,8 @@ export default function App() {
             privateKeyIDs.some((id) => id.equals(keyID))
           );
 
-          if (!canDecrypt) continue; // Skip keys that don't match
+          // Skip keys that don't match
+          if (!canDecrypt) continue;
 
           // Check if the private key requires a password
           if (!privateKey.isDecrypted()) {
@@ -273,10 +276,10 @@ export default function App() {
 
                   details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}`;
                 } else {
-                  details += `Signature created at: Not available\n\n`;
+                  details += `Signature created at: Not Available\n\n`;
                 }
               } catch (error) {
-                details += "Signature created at: Not available\n\n";
+                details += "Signature created at: Not Available\n\n";
               }
             }
           } else {
@@ -328,7 +331,9 @@ export default function App() {
 
         setDecryptedMessage(decrypted);
 
-        const storedKeys = JSON.parse(secureLocalStorage.getItem("pgpKeys") || "[]");
+        const storedKeys = JSON.parse(
+          secureLocalStorage.getItem("pgpKeys") || "[]"
+        );
 
         // Load and parse all public keys from storedKeys
         const publicKeys = await Promise.all(
@@ -365,7 +370,10 @@ export default function App() {
           }
         });
 
-        detailsText = "Recipients:\n" + recipients.join("\n") + "\n\n";
+        detailsText =
+          recipients.length > 0
+            ? "Recipients:\n" + recipients.join("\n") + "\n\n"
+            : "No recipients found\n\n";
 
         if (signatures && signatures.length > 0) {
           for (const sig of signatures) {
@@ -426,14 +434,14 @@ export default function App() {
                   detailsText += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}`;
                 } else {
                   detailsText += `Signature by: ${userID} (${formattedKeyID})\n`;
-                  detailsText += `Signature creation time: Not available\n`;
+                  detailsText += `Signature creation time: Not Available\n`;
                 }
               } else {
                 const formattedKeyID = signingKeyID
                   .replace(/(.{4})/g, "$1 ")
                   .trim();
                 detailsText += `Signature by: Unknown Key (${formattedKeyID})\n`;
-                detailsText += `Signature creation time: Not available\n`;
+                detailsText += `Signature creation time: Not Available\n`;
               }
             }
           }
@@ -565,10 +573,10 @@ export default function App() {
 
               details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}\n\n`;
             } else {
-              details += `Signature created at: Not available\n\n`;
+              details += `Signature created at: Not Available\n\n`;
             }
           } catch (error) {
-            details += "Signature created at: Not available\n\n";
+            details += "Signature created at: Not Available\n\n";
           }
         }
       } else {
