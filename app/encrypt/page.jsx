@@ -237,98 +237,108 @@ export default function App() {
       </h1>
       <br />
       <br />
-      <Textarea
-        disableAutosize
-        classNames={{
-          input: "resize-y min-h-[150px]",
-        }}
-        label="Encrypt"
-        placeholder="Enter your message"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-      />
-      <br />
-      <div className="flex flex-col gap-4">
-        <h5 className="mt-4 ms-1">Sign as:</h5>
-        <Autocomplete
-          className="max-w-full"
-          label="Select the signer"
-          allowsCustomValue={false}
-          selectedKey={signerKey}
-          defaultItems={signerKeys}
-          onSelectionChange={handleSignerSelection}
-        >
-          {(item) => (
-            <AutocompleteItem
-              key={item.id}
-              textValue={`${item.name} (${item.email})`}
+      <div className="flex flex-row gap-0 flex-wrap md:gap-4">
+        <div className="flex-1 mb-4 md:mb-0">
+          <Textarea
+            disableAutosize
+            classNames={{
+              input: "resize-y xs:min-w-[350px] min-w-[0px]",
+            }}
+            style={{
+              minHeight: `${235 + recipients.length * 70}px`,
+            }}
+            label="Encrypt"
+            placeholder="Enter your message"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+        </div>
+        <br />
+        <div className="w-full md:w-[350px]">
+          <div className="flex flex-col gap-4">
+            <h5 className="ms-1">Sign as:</h5>
+            <Autocomplete
+              className="max-w-full"
+              label="Select the signer"
+              allowsCustomValue={false}
+              selectedKey={signerKey}
+              defaultItems={signerKeys}
+              onSelectionChange={handleSignerSelection}
             >
-              {item.name} ({item.email})
-            </AutocompleteItem>
-          )}
-        </Autocomplete>
-      </div>
-      <div className="flex flex-col gap-4">
-        <h5 className="mt-4 ms-1">Encrypt for:</h5>
-        {recipients.map((selectedKey, index) => (
-          <Autocomplete
-            key={index}
-            className="max-w-full"
-            label={`Select recipient ${index + 1}`}
-            selectedKey={selectedKey}
-            onSelectionChange={(key) => handleSelection(index, key)}
-            defaultItems={recipientKeys.filter(
-              (key) => !recipients.includes(key.id) || key.id === selectedKey
-            )}
-          >
-            {(item) => (
-              <AutocompleteItem
-                key={item.id}
-                textValue={`${item.name} (${item.email})`}
+              {(item) => (
+                <AutocompleteItem
+                  key={item.id}
+                  textValue={`${item.name} (${item.email})`}
+                >
+                  {item.name} ({item.email})
+                </AutocompleteItem>
+              )}
+            </Autocomplete>
+          </div>
+          <div className="flex flex-col gap-4">
+            <h5 className="mt-4 ms-1">Encrypt for:</h5>
+            {recipients.map((selectedKey, index) => (
+              <Autocomplete
+                key={index}
+                className="max-w-full"
+                label={`Select recipient ${index + 1}`}
+                selectedKey={selectedKey}
+                onSelectionChange={(key) => handleSelection(index, key)}
+                defaultItems={recipientKeys.filter(
+                  (key) =>
+                    !recipients.includes(key.id) || key.id === selectedKey
+                )}
               >
-                {item.name} ({item.email})
-              </AutocompleteItem>
-            )}
-          </Autocomplete>
-        ))}
-      </div>
-      <br />
-      <Checkbox
-        defaultSelected={isChecked}
-        color="default"
-        onChange={(e) => setIsChecked(e.target.checked)}
-      >
-        <span className="text-medium">Encrypt With Password.</span>
-        <p className="text-sm">
-          Anyone you share the password with can read it.
-        </p>
-      </Checkbox>
-      <br />
-      <br />
-      <Input
-        isDisabled={!isChecked}
-        classNames={{
-          input: "min-h-[10px]",
-        }}
-        placeholder="Enter your password"
-        type={isVisible ? "text" : "password"}
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        endContent={
-          <button
-            aria-label="toggle password visibility"
-            className="focus:outline-none"
-            type="button"
-            onClick={toggleVisibility}
+                {(item) => (
+                  <AutocompleteItem
+                    key={item.id}
+                    textValue={`${item.name} (${item.email})`}
+                  >
+                    {item.name} ({item.email})
+                  </AutocompleteItem>
+                )}
+              </Autocomplete>
+            ))}
+          </div>
+          <br />
+          <Checkbox
+            defaultSelected={isChecked}
+            color="default"
+            onChange={(e) => setIsChecked(e.target.checked)}
           >
-            {isVisible ? (
-              <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
-            ) : (
-              <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
-            )}
-          </button>
-        }
-      />
+            <span className="text-medium">Encrypt With Password.</span>
+            <p className="text-sm">
+              Anyone you share the password with can read it.
+            </p>
+          </Checkbox>
+          <br />
+          <br />
+          <Input
+            isDisabled={!isChecked}
+            classNames={{
+              input: "min-h-[10px]",
+            }}
+            placeholder="Enter your password"
+            type={isVisible ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            endContent={
+              <button
+                aria-label="toggle password visibility"
+                className="focus:outline-none"
+                type="button"
+                onClick={toggleVisibility}
+              >
+                {isVisible ? (
+                  <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                ) : (
+                  <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                )}
+              </button>
+            }
+          />
+        </div>
+      </div>
       <br />
       <h5 className="ms-1">Encrypted PGP Message:</h5>
       <br />
