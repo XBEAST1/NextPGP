@@ -41,8 +41,7 @@ export default function ImportKeyPage() {
     const existingKeys = getStoredKeys();
     return existingKeys.some(
       (key) =>
-        key.name === newKeyData.name &&
-        key.email === newKeyData.email &&
+        key.publicKey === newKeyData.publicKey &&
         key.privateKey === newKeyData.privateKey
     );
   };
