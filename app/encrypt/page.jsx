@@ -16,6 +16,8 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import secureLocalStorage from "react-secure-storage";
 import * as openpgp from "openpgp";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 
 const EyeSlashFilledIcon = (props) => {
   return (
@@ -91,6 +93,7 @@ export default function App() {
   const [modalpassword, setModalpassword] = useState("");
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const onSubmitPassword = useRef(null);
+  const [files, setFiles] = useState(null);
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
@@ -161,6 +164,10 @@ export default function App() {
 
   const encryptMessage = async () => {
     try {
+      // If the message is empty then don't push anything to output
+      if (!message.trim()) {
+        return;
+      }
       const recipientKeysPublic = recipientKeys
         .filter((key) => recipients.includes(key.id.toString()))
         .map((key) => key.publicKey);
@@ -169,9 +176,12 @@ export default function App() {
       const signer = signerKeys.find((key) => key.id.toString() === signerKey);
 
       if (!isChecked && recipientKeysPublic.length === 0) {
-        toast.error("Please select at least one recipient.", {
-          position: "top-right",
-        });
+        toast.error(
+          "Please select at least one recipient or provide a password.",
+          {
+            position: "top-right",
+          }
+        );
         return;
       }
 
@@ -223,10 +233,126 @@ export default function App() {
       const encryptedMessage = await openpgp.encrypt(encryptionOptions);
       setOutput(encryptedMessage);
     } catch (error) {
-      toast.error("Incorrect Password.", {
+      toast.error("Please Enter a Password.", {
         position: "top-right",
       });
     }
+  };
+
+  const handleFileUpload = (event) => {
+    const selectedFiles = Array.from(event.target.files);
+    setFiles(selectedFiles);
+  };
+
+  const encryptFiles = async () => {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    try {
+      let fileToEncrypt;
+
+      // Check if it's a single file or multiple files
+      if (files.length === 1) {
+        const fileData = await files[0].arrayBuffer();
+        fileToEncrypt = new Uint8Array(fileData);
+      } else {
+        const zip = new JSZip();
+
+        for (const file of files) {
+          const fileData = await file.arrayBuffer();
+          zip.file(file.name, fileData);
+        }
+
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const zipArrayBuffer = await zipBlob.arrayBuffer();
+        fileToEncrypt = new Uint8Array(zipArrayBuffer);
+      }
+
+      // Find the recipient keys (public keys of the selected recipients)
+      const recipientKeysPublic = recipientKeys
+        .filter((key) => recipients.includes(key.id.toString()))
+        .map((key) => key.publicKey);
+
+      // Validation for empty recipients and password
+      if (recipientKeysPublic.length === 0 && !password) {
+        toast.error(
+          "Please select at least one recipient or provide a password."
+        );
+        return;
+      }
+
+      let encryptionOptions = {
+        message: await openpgp.createMessage({ binary: fileToEncrypt }),
+      };
+
+      // If recipients are selected, encrypt with public keys
+      if (recipientKeysPublic.length > 0) {
+        encryptionOptions.encryptionKeys = await Promise.all(
+          recipientKeysPublic.map((key) => openpgp.readKey({ armoredKey: key }))
+        );
+      }
+
+      // If no recipients are selected but a password is provided, encrypt with the password
+      if (recipientKeysPublic.length === 0 && password) {
+        encryptionOptions.passwords = [password];
+      }
+
+      // If both recipients and password are selected, include both in encryption
+      if (recipientKeysPublic.length > 0 && password) {
+        encryptionOptions.passwords = [password];
+      }
+
+      // Find the selected signer and decrypt their private key if needed
+      let privateKey = null;
+      const signer = signerKeys.find((key) => key.id.toString() === signerKey);
+
+      if (signer) {
+        const privateKeyObject = await openpgp.readPrivateKey({
+          armoredKey: signer.privateKey,
+        });
+
+        if (!privateKeyObject.isDecrypted()) {
+          setIsPasswordModalOpen(true);
+
+          const passphrase = await new Promise((resolve) => {
+            onSubmitPassword.current = resolve;
+          });
+
+          // Decrypt the private key
+          privateKey = await openpgp.decryptKey({
+            privateKey: privateKeyObject,
+            passphrase: passphrase,
+          });
+
+          if (!privateKey || !privateKey.isDecrypted()) {
+            throw new Error("Failed to decrypt the private key.");
+          }
+        } else {
+          privateKey = privateKeyObject;
+        }
+
+        if (privateKey) {
+          encryptionOptions.signingKeys = privateKey;
+        }
+      }
+
+      const encrypted = await openpgp.encrypt(encryptionOptions);
+
+      // Convert encrypted content to Blob and download
+      const encryptedBlob = new Blob([encrypted], {
+        type: "application/octet-stream",
+      });
+      const fileName = files.length === 1 ? files[0].name : "archive.zip";
+      saveAs(encryptedBlob, `${fileName}.gpg`);
+    } catch (error) {
+      toast.error("Password Incorrect");
+    }
+  };
+
+  const handleEncrypt = async () => {
+    await encryptMessage();
+    await encryptFiles();
   };
 
   return (
@@ -340,6 +466,8 @@ export default function App() {
         </div>
       </div>
       <br />
+      <Input type="file" multiple onChange={handleFileUpload} />
+      <br />
       <h5 className="ms-1">Encrypted PGP Message:</h5>
       <br />
       <Snippet
@@ -354,7 +482,7 @@ export default function App() {
       </Snippet>
       <br />
       <br />
-      <Button onPress={encryptMessage}>Encrypt</Button>
+      <Button onPress={handleEncrypt}>Encrypt</Button>
       <Modal
         backdrop="blur"
         isOpen={isPasswordModalOpen}
