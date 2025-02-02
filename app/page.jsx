@@ -152,10 +152,7 @@ export default function App() {
   const [filterValue, setFilterValue] = useState("");
   const [users, setUsers] = useState([]);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [sortDescriptor, setSortDescriptor] = useState({
-    column: "expirydate",
-    direction: "ascending",
-  });
+  const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
 
   const columns = [

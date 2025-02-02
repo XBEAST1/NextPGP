@@ -12,6 +12,7 @@ import {
 import secureLocalStorage from "react-secure-storage";
 import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
+import { saveAs } from "file-saver";
 
 const EyeSlashFilledIcon = (props) => {
   return (
@@ -77,10 +78,11 @@ export default function App() {
   const [inputMessage, setInputMessage] = useState("");
   const [decryptedMessage, setDecryptedMessage] = useState("");
   const [pgpKeys, setPgpKeys] = useState(null);
-  const [detailsText, setDetailsText] = useState("");
+  let [details, setDetails] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [currentPrivateKey, setCurrentPrivateKey] = useState(null);
+  const [files, setFiles] = useState(null);
   const [isVisible, setIsVisible] = React.useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
 
@@ -99,8 +101,10 @@ export default function App() {
     setPgpKeys(storedKeys);
   }, []);
 
-  const handleDecrypt = async () => {
-    if (!inputMessage) {
+  let decryptedFileData;
+
+  const messageDecrypt = async () => {
+    if (!inputMessage && !files) {
       toast.error("Please enter a PGP message.", {
         position: "top-right",
       });
@@ -108,214 +112,224 @@ export default function App() {
     }
 
     let message;
-    try {
-      // Validate that the input is a PGP message
-      message = await openpgp.readMessage({ armoredMessage: inputMessage });
-    } catch (error) {
-      toast.error("The message is not in a valid PGP format.", {
-        position: "top-right",
-      });
-      return;
+
+    if (!files) {
+      try {
+        // Validate that the input is a PGP message
+        message = await openpgp.readMessage({ armoredMessage: inputMessage });
+      } catch (error) {
+        toast.error("The message is not in a valid PGP format.", {
+          position: "top-right",
+        });
+        return;
+      }
     }
 
-    try {
-      const validPgpKeys = Array.isArray(pgpKeys) ? pgpKeys : [];
+    if (!files) {
+      try {
+        const validPgpKeys = Array.isArray(pgpKeys) ? pgpKeys : [];
 
-      // Check if the message contains s2k in the packet if yes then prompt for password
-      const packets = message.packets;
-      let isPasswordEncrypted = packets.some((packet) => packet.s2k);
+        // Check if the message contains s2k in the packet if yes then prompt for password
+        const packets = message.packets;
+        let isPasswordEncrypted = packets.some((packet) => packet.s2k);
 
-      let successfulDecryption = false;
-      let details = "";
+        let successfulDecryption = false;
 
-      // Load public keys for signature verification
-      const publicKeys = await Promise.all(
-        validPgpKeys
-          .filter((key) => key.publicKey)
-          .map((key) => openpgp.readKey({ armoredKey: key.publicKey }))
-      );
+        // Load public keys for signature verification
+        const publicKeys = await Promise.all(
+          validPgpKeys
+            .filter((key) => key.publicKey)
+            .map((key) => openpgp.readKey({ armoredKey: key.publicKey }))
+        );
 
-      for (const keyData of validPgpKeys) {
-        if (!keyData.privateKey) continue;
+        for (const keyData of validPgpKeys) {
+          if (!keyData.privateKey) continue;
 
-        try {
-          // Read private key
-          let privateKey = await openpgp.readPrivateKey({
-            armoredKey: keyData.privateKey,
-          });
-
-          // Skip if the private key cannot decrypt the message
-          const matchingKeys = await message.getEncryptionKeyIDs();
-          const privateKeyIDs = [
-            privateKey.getKeyID(),
-            ...privateKey.getSubkeys().map((subkey) => subkey.getKeyID()),
-          ];
-
-          const canDecrypt = matchingKeys.some((keyID) =>
-            privateKeyIDs.some((id) => id.equals(keyID))
-          );
-
-          // Skip keys that don't match
-          if (!canDecrypt) continue;
-
-          // Check if the private key requires a password
-          if (!privateKey.isDecrypted()) {
-            if (keyData.passphrase) {
-              privateKey = await openpgp.decryptKey({
-                privateKey,
-                passphrase: keyData.passphrase,
-              });
-            } else {
-              // Mark as needing a password but defer the prompt
-              setCurrentPrivateKey(keyData.privateKey);
-              setIsPasswordModalOpen(true);
-              toast.info(
-                "The message is encrypted with a password protected key.",
-                {
-                  position: "top-right",
-                }
-              );
-              return;
-            }
-          }
-
-          // Decrypt the message
-          const { data: decrypted, signatures } = await openpgp.decrypt({
-            message,
-            decryptionKeys: privateKey,
-            verificationKeys: publicKeys.length > 0 ? publicKeys : undefined,
-          });
-
-          setDecryptedMessage(decrypted);
-          successfulDecryption = true;
-
-          // Extract encryption key IDs for recipient matching
-          const encryptionKeyIDs = await message.getEncryptionKeyIDs();
-
-          const recipients = encryptionKeyIDs.map((keyID) => {
-            const matchedKey = publicKeys.find((key) => {
-              return (
-                key.getKeyID().equals(keyID) ||
-                key
-                  .getSubkeys()
-                  .some((subkey) => subkey.getKeyID().equals(keyID))
-              );
+          try {
+            // Read private key
+            let privateKey = await openpgp.readPrivateKey({
+              armoredKey: keyData.privateKey,
             });
 
-            if (matchedKey) {
-              const userID = matchedKey.getUserIDs()[0];
-              return `  - ${userID} (${keyID
-                .toHex()
-                .match(/.{1,4}/g)
-                .join(" ")})`;
-            } else {
-              return `  - Unknown (${keyID
-                .toHex()
-                .match(/.{1,4}/g)
-                .join(" ")})`;
-            }
-          });
+            // Skip if the private key cannot decrypt the message
+            const matchingKeys = await message.getEncryptionKeyIDs();
+            const privateKeyIDs = [
+              privateKey.getKeyID(),
+              ...privateKey.getSubkeys().map((subkey) => subkey.getKeyID()),
+            ];
 
-          details += "Recipients:\n" + recipients.join("\n") + "\n\n";
+            const canDecrypt = matchingKeys.some((keyID) =>
+              privateKeyIDs.some((id) => id.equals(keyID))
+            );
 
-          // Signature verification details
-          if (signatures && signatures.length > 0) {
-            for (const sig of signatures) {
-              const { keyID, verified, signature } = sig;
+            // Skip keys that don't match
+            if (!canDecrypt) continue;
 
-              const isVerified = await verified;
-
-              const resolvedSignature = await signature;
-
-              // Find the signer key from public keys
-              const signerKey = publicKeys.find((key) =>
-                key.getKeyID().equals(keyID)
-              );
-
-              const signerUser = signerKey
-                ? signerKey.getUserIDs()[0]
-                : "Unknown";
-
-              details += `Message successfully decrypted using key: ${
-                keyData.name || "Unnamed Key"
-              }\n`;
-
-              details += `Signature by ${signerUser} (${keyID
-                .toHex()
-                .match(/.{1,4}/g)
-                .join(" ")}) is ${isVerified ? "valid" : "not valid"}.\n`;
-
-              try {
-                const signaturePacket = resolvedSignature.packets[0];
-                const createdTime =
-                  signaturePacket && signaturePacket.created
-                    ? new Date(signaturePacket.created)
-                    : null;
-
-                if (createdTime) {
-                  const dayName = createdTime.toLocaleDateString("en-US", {
-                    weekday: "long",
-                  });
-                  const monthName = createdTime.toLocaleDateString("en-US", {
-                    month: "long",
-                  });
-                  const day = createdTime.getDate();
-                  const year = createdTime.getFullYear();
-
-                  const locale = navigator.language || "en-US";
-                  const is24Hour =
-                    locale.includes("GB") || locale.includes("DE");
-
-                  const timeWithZone = createdTime.toLocaleTimeString(locale, {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: !is24Hour,
-                    timeZoneName: "long",
-                  });
-
-                  details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}`;
-                } else {
-                  details += `Signature created at: Not Available\n\n`;
-                }
-              } catch (error) {
-                details += "Signature created at: Not Available\n\n";
+            // Check if the private key requires a password
+            if (!privateKey.isDecrypted()) {
+              if (keyData.passphrase) {
+                privateKey = await openpgp.decryptKey({
+                  privateKey,
+                  passphrase: keyData.passphrase,
+                });
+              } else {
+                // Mark as needing a password but defer the prompt
+                setCurrentPrivateKey(keyData.privateKey);
+                setIsPasswordModalOpen(true);
+                toast.info(
+                  "The message is encrypted with a password protected key.",
+                  {
+                    position: "top-right",
+                  }
+                );
+                return;
               }
             }
-          } else {
-            details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+
+            // Decrypt the message
+            const { data: decrypted, signatures } = await openpgp.decrypt({
+              message,
+              decryptionKeys: privateKey,
+              verificationKeys: publicKeys.length > 0 ? publicKeys : undefined,
+            });
+
+            setDecryptedMessage(decrypted);
+            successfulDecryption = true;
+
+            // Extract encryption key IDs for recipient matching
+            const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+
+            const recipients = encryptionKeyIDs.map((keyID) => {
+              const matchedKey = publicKeys.find((key) => {
+                return (
+                  key.getKeyID().equals(keyID) ||
+                  key
+                    .getSubkeys()
+                    .some((subkey) => subkey.getKeyID().equals(keyID))
+                );
+              });
+
+              if (matchedKey) {
+                const userID = matchedKey.getUserIDs()[0];
+                return `  - ${userID} (${keyID
+                  .toHex()
+                  .match(/.{1,4}/g)
+                  .join(" ")})`;
+              } else {
+                return `  - Unknown (${keyID
+                  .toHex()
+                  .match(/.{1,4}/g)
+                  .join(" ")})`;
+              }
+            });
+
+            details += "Recipients:\n" + recipients.join("\n") + "\n\n";
+
+            // Signature verification details
+            if (signatures && signatures.length > 0) {
+              for (const sig of signatures) {
+                const { keyID, verified, signature } = sig;
+
+                const isVerified = await verified;
+
+                const resolvedSignature = await signature;
+
+                // Find the signer key from public keys
+                const signerKey = publicKeys.find((key) =>
+                  key.getKeyID().equals(keyID)
+                );
+
+                const signerUser = signerKey
+                  ? signerKey.getUserIDs()[0]
+                  : "Unknown";
+
+                details += `Message successfully decrypted using key: ${
+                  keyData.name || "Unnamed Key"
+                }\n`;
+
+                details += `Signature by ${signerUser} (${keyID
+                  .toHex()
+                  .match(/.{1,4}/g)
+                  .join(" ")}) is ${isVerified ? "valid" : "not valid"}.\n`;
+
+                try {
+                  const signaturePacket = resolvedSignature.packets[0];
+                  const createdTime =
+                    signaturePacket && signaturePacket.created
+                      ? new Date(signaturePacket.created)
+                      : null;
+
+                  if (createdTime) {
+                    const dayName = createdTime.toLocaleDateString("en-US", {
+                      weekday: "long",
+                    });
+                    const monthName = createdTime.toLocaleDateString("en-US", {
+                      month: "long",
+                    });
+                    const day = createdTime.getDate();
+                    const year = createdTime.getFullYear();
+
+                    const locale = navigator.language || "en-US";
+                    const is24Hour =
+                      locale.includes("GB") || locale.includes("DE");
+
+                    const timeWithZone = createdTime.toLocaleTimeString(
+                      locale,
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                        hour12: !is24Hour,
+                        timeZoneName: "long",
+                      }
+                    );
+
+                    details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}`;
+                  } else {
+                    details += `Signature created at: Not Available\n\n`;
+                  }
+                } catch (error) {
+                  details += "Signature created at: Not Available\n\n";
+                }
+              }
+            } else {
+              details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+            }
+
+            setDetails(details);
+
+            toast.success("Decryption successful!", { position: "top-right" });
+            return;
+          } catch (error) {
+            console.log("Key failed to decrypt the message:", error);
+            continue;
           }
-
-          setDetailsText(details);
-
-          toast.success("Decryption successful!", { position: "top-right" });
-          return;
-        } catch (error) {
-          console.warn("Key failed to decrypt the message:", error);
-          continue;
         }
-      }
 
-      if (isPasswordEncrypted && !successfulDecryption) {
-        // Open password prompt only if no valid private key could decrypt
-        setCurrentPrivateKey(null);
-        setIsPasswordModalOpen(true);
-        toast.info("The message is password encrypted.", {
-          position: "top-right",
-        });
-      } else if (!successfulDecryption) {
-        toast.error("No valid private key was able to decrypt this message.", {
+        if (isPasswordEncrypted && !successfulDecryption) {
+          // Open password prompt only if no valid private key could decrypt
+          setCurrentPrivateKey(null);
+          setIsPasswordModalOpen(true);
+          toast.info("The message is password encrypted.", {
+            position: "top-right",
+          });
+        } else if (!successfulDecryption) {
+          toast.error(
+            "No valid private key was able to decrypt this message.",
+            {
+              position: "top-right",
+            }
+          );
+        }
+      } catch (error) {
+        toast.error("Decryption failed due to an unexpected error.", {
           position: "top-right",
         });
       }
-    } catch (error) {
-      toast.error("Decryption failed due to an unexpected error.", {
-        position: "top-right",
-      });
     }
   };
 
-  const handlePasswordDecrypt = async () => {
+  const messagePasswordDecrypt = async () => {
     try {
       const message = await openpgp.readMessage({
         armoredMessage: inputMessage,
@@ -335,7 +349,7 @@ export default function App() {
           secureLocalStorage.getItem("pgpKeys") || "[]"
         );
 
-        // Load and parse all public keys from storedKeys
+        // Load public keys for signature verification
         const publicKeys = await Promise.all(
           storedKeys
             .filter((key) => key.publicKey)
@@ -344,8 +358,6 @@ export default function App() {
 
         // Extract encryption key IDs for recipient matching
         const encryptionKeyIDs = await message.getEncryptionKeyIDs();
-
-        let detailsText = "";
 
         // Match recipients
         const recipients = encryptionKeyIDs.map((keyID) => {
@@ -370,7 +382,7 @@ export default function App() {
           }
         });
 
-        detailsText =
+        details =
           recipients.length > 0
             ? "Recipients:\n" + recipients.join("\n") + "\n\n"
             : "No recipients found\n\n";
@@ -430,24 +442,24 @@ export default function App() {
                     timeZoneName: "long",
                   });
 
-                  detailsText += `Signature by: ${userID} (${formattedKeyID}) is valid\n`;
-                  detailsText += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}`;
+                  details += `Signature by: ${userID} (${formattedKeyID}) is valid\n`;
+                  details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}`;
                 } else {
-                  detailsText += `Signature by: ${userID} (${formattedKeyID})\n`;
-                  detailsText += `Signature creation time: Not Available\n`;
+                  details += `Signature by: ${userID} (${formattedKeyID})\n`;
+                  details += `Signature creation time: Not Available\n`;
                 }
               } else {
                 const formattedKeyID = signingKeyID
                   .replace(/(.{4})/g, "$1 ")
                   .trim();
-                detailsText += `Signature by: Unknown Key (${formattedKeyID})\n`;
-                detailsText += `Signature creation time: Not Available\n`;
+                details += `Signature by: Unknown Key (${formattedKeyID})\n`;
+                details += `Signature creation time: Not Available\n`;
               }
             }
           }
         }
 
-        setDetailsText(detailsText);
+        setDetails(details);
 
         setIsPasswordModalOpen(false);
         setPassword("");
@@ -473,6 +485,7 @@ export default function App() {
         passphrase: password,
       });
 
+      // Load public keys for signature verification
       const publicKeys = await Promise.all(
         pgpKeys
           .filter((key) => key.publicKey)
@@ -492,8 +505,6 @@ export default function App() {
       const keyData = pgpKeys.find(
         (key) => key.privateKey === currentPrivateKey
       );
-
-      let details = "";
 
       const encryptionKeyIDs = await message.getEncryptionKeyIDs();
 
@@ -583,13 +594,543 @@ export default function App() {
         details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
       }
 
-      setDetailsText(details);
+      setDetails(details);
 
       toast.success("Decryption successful!", { position: "top-right" });
     } catch (error) {
       toast.error("Incorrect password.", {
         position: "top-right",
       });
+    }
+  };
+
+  const handleFileUpload = (event) => {
+    const selectedFiles = Array.from(event.target.files);
+    setFiles(selectedFiles);
+  };
+
+  const DecryptFile = async () => {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    try {
+      const file = files[0];
+      let message;
+
+      try {
+        // First try reading as armored text
+        const armoredText = await file.text();
+        message = await openpgp.readMessage({ armoredMessage: armoredText });
+      } catch (armoredError) {
+        toast.error("The message is not in a valid PGP format.", {
+          position: "top-right",
+        });
+        return;
+      }
+
+      const validPgpKeys = Array.isArray(pgpKeys) ? pgpKeys : [];
+
+      // Check if the message contains s2k in the packet if yes then prompt for password
+      const packets = message.packets;
+      let isPasswordEncrypted = packets.some((packet) => packet.s2k);
+
+      let successfulDecryption = false;
+
+      // Load public keys for signature verification
+      const publicKeys = await Promise.all(
+        validPgpKeys
+          .filter((key) => key.publicKey)
+          .map((key) => openpgp.readKey({ armoredKey: key.publicKey }))
+      );
+
+      for (const keyData of validPgpKeys) {
+        if (!keyData.privateKey) continue;
+
+        try {
+          let privateKey = await openpgp.readPrivateKey({
+            armoredKey: keyData.privateKey,
+          });
+
+          // Check if key can decrypt
+          const matchingKeys = await message.getEncryptionKeyIDs();
+          const privateKeyIDs = [
+            privateKey.getKeyID(),
+            ...privateKey.getSubkeys().map((subkey) => subkey.getKeyID()),
+          ];
+
+          const canDecrypt = matchingKeys.some((keyID) =>
+            privateKeyIDs.some((id) => id.equals(keyID))
+          );
+
+          if (!canDecrypt) continue;
+
+          // Handle passphrase if needed
+          if (!privateKey.isDecrypted()) {
+            if (keyData.passphrase) {
+              privateKey = await openpgp.decryptKey({
+                privateKey,
+                passphrase: keyData.passphrase,
+              });
+            } else {
+              setCurrentPrivateKey(keyData.privateKey);
+              setIsPasswordModalOpen(true);
+              toast.info("Private key requires passphrase", {
+                position: "top-right",
+              });
+              return;
+            }
+          }
+
+          // Decrypt the message
+          const { data: decrypted, signatures } = await openpgp.decrypt({
+            message,
+            decryptionKeys: privateKey,
+            verificationKeys: publicKeys.length > 0 ? publicKeys : undefined,
+            format: "binary",
+          });
+
+          successfulDecryption = true;
+
+          // Extract encryption key IDs for recipient matching
+          const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+          const recipients = encryptionKeyIDs.map((keyID) => {
+            const matchedKey = publicKeys.find((key) => {
+              return (
+                key.getKeyID().equals(keyID) ||
+                key
+                  .getSubkeys()
+                  .some((subkey) => subkey.getKeyID().equals(keyID))
+              );
+            });
+
+            if (matchedKey) {
+              const userID = matchedKey.getUserIDs()[0];
+              return `  - ${userID} (${keyID
+                .toHex()
+                .match(/.{1,4}/g)
+                .join(" ")})`;
+            } else {
+              return `  - Unknown (${keyID
+                .toHex()
+                .match(/.{1,4}/g)
+                .join(" ")})`;
+            }
+          });
+
+          details += "Recipients:\n" + recipients.join("\n") + "\n\n";
+
+          // Signature verification details
+          if (signatures && signatures.length > 0) {
+            for (const sig of signatures) {
+              const { keyID, verified, signature } = sig;
+
+              const isVerified = await verified;
+              const resolvedSignature = await signature;
+
+              // Find the signer key from public keys
+              const signerKey = publicKeys.find((key) =>
+                key.getKeyID().equals(keyID)
+              );
+
+              const signerUser = signerKey
+                ? signerKey.getUserIDs()[0]
+                : "Unknown";
+
+              details += `Message successfully decrypted using key: ${
+                keyData.name || "Unnamed Key"
+              }\n`;
+
+              details += `Signature by ${signerUser} (${keyID
+                .toHex()
+                .match(/.{1,4}/g)
+                .join(" ")}) is ${isVerified ? "valid" : "not valid"}.\n`;
+
+              try {
+                const signaturePacket = resolvedSignature.packets[0];
+                const createdTime =
+                  signaturePacket && signaturePacket.created
+                    ? new Date(signaturePacket.created)
+                    : null;
+
+                if (createdTime) {
+                  const dayName = createdTime.toLocaleDateString("en-US", {
+                    weekday: "long",
+                  });
+                  const monthName = createdTime.toLocaleDateString("en-US", {
+                    month: "long",
+                  });
+                  const day = createdTime.getDate();
+                  const year = createdTime.getFullYear();
+
+                  const locale = navigator.language || "en-US";
+                  const is24Hour =
+                    locale.includes("GB") || locale.includes("DE");
+
+                  const timeWithZone = createdTime.toLocaleTimeString(locale, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: !is24Hour,
+                    timeZoneName: "long",
+                  });
+
+                  details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}`;
+                } else {
+                  details += `Signature created at: Not Available\n\n`;
+                }
+              } catch (error) {
+                details += "Signature created at: Not Available\n\n";
+              }
+            }
+          } else {
+            details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+          }
+
+          setDetails(details);
+          decryptedFileData = decrypted;
+
+          // Download Decrypted Content
+          if (decryptedFileData) {
+            const blob = new Blob([decryptedFileData]);
+            saveAs(blob, file.name.replace(/\.gpg$/, ""));
+          }
+
+          toast.success("Decryption successful!", { position: "top-right" });
+          return;
+        } catch (error) {
+          console.log("Key failed to decrypt the message:", error);
+          continue;
+        }
+      }
+
+      if (isPasswordEncrypted && !successfulDecryption) {
+        // Open password prompt only if no valid private key could decrypt
+        setCurrentPrivateKey(null);
+        setIsPasswordModalOpen(true);
+        toast.info("The message is password encrypted.", {
+          position: "top-right",
+        });
+      } else if (!successfulDecryption) {
+        toast.error("No valid private key was able to decrypt this message.", {
+          position: "top-right",
+        });
+      }
+    } catch (error) {
+      toast.error("Decryption failed", {
+        position: "top-right",
+      });
+    }
+  };
+
+  const PasswordFileDecrypt = async () => {
+    const file = files[0];
+    let message;
+
+    try {
+      // First try reading as armored text
+      const armoredText = await file.text();
+      message = await openpgp.readMessage({ armoredMessage: armoredText });
+
+      // Attempt to decrypt the message using the password
+      try {
+        const { data: decrypted, signatures } = await openpgp.decrypt({
+          message,
+          passwords: [password],
+          config: { allowUnauthenticatedMessages: true },
+          format: "binary",
+        });
+
+        const storedKeys = JSON.parse(
+          secureLocalStorage.getItem("pgpKeys") || "[]"
+        );
+
+        // Load public keys for signature verification
+        const publicKeys = await Promise.all(
+          storedKeys
+            .filter((key) => key.publicKey)
+            .map((key) => openpgp.readKey({ armoredKey: key.publicKey }))
+        );
+
+        // Extract encryption key IDs for recipient matching
+        const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+
+        // Match recipients
+        const recipients = encryptionKeyIDs.map((keyID) => {
+          const matchedKey = publicKeys.find((key) => {
+            return (
+              key.getKeyID().equals(keyID) ||
+              key.getSubkeys().some((subkey) => subkey.getKeyID().equals(keyID))
+            );
+          });
+
+          if (matchedKey) {
+            const userID = matchedKey.getUserIDs()[0];
+            return `  - ${userID} (${keyID
+              .toHex()
+              .match(/.{1,4}/g)
+              .join(" ")})`;
+          } else {
+            return `  - Unknown (${keyID
+              .toHex()
+              .match(/.{1,4}/g)
+              .join(" ")})`;
+          }
+        });
+
+        details =
+          recipients.length > 0
+            ? "Recipients:\n" + recipients.join("\n") + "\n\n"
+            : "No recipients found\n\n";
+
+        if (signatures && signatures.length > 0) {
+          for (const sig of signatures) {
+            const { signature } = sig;
+
+            const resolvedSignature = await signature;
+
+            // Extract the signing key ID
+            const signingKeyID = signatures[0]?.keyID?.toHex();
+
+            if (signingKeyID) {
+              const matchedKey = publicKeys.find((key) => {
+                return (
+                  key.getKeyID().toHex() === signingKeyID ||
+                  key
+                    .getSubkeys()
+                    .some(
+                      (subkey) => subkey.getKeyID().toHex() === signingKeyID
+                    )
+                );
+              });
+
+              // Show signature and created time
+              if (matchedKey) {
+                const formattedKeyID = signingKeyID
+                  .replace(/(.{4})/g, "$1 ")
+                  .trim();
+                const userID = matchedKey.getUserIDs()[0] || "Unnamed Key";
+                const signaturePacket = resolvedSignature.packets[0];
+                const createdTime =
+                  signaturePacket && signaturePacket.created
+                    ? new Date(signaturePacket.created)
+                    : null;
+
+                if (createdTime) {
+                  const dayName = createdTime.toLocaleDateString("en-US", {
+                    weekday: "long",
+                  });
+                  const monthName = createdTime.toLocaleDateString("en-US", {
+                    month: "long",
+                  });
+                  const day = createdTime.getDate();
+                  const year = createdTime.getFullYear();
+
+                  const locale = navigator.language || "en-US";
+                  const is24Hour =
+                    locale.includes("GB") || locale.includes("DE");
+
+                  const timeWithZone = createdTime.toLocaleTimeString(locale, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: !is24Hour,
+                    timeZoneName: "long",
+                  });
+
+                  details += `Signature by: ${userID} (${formattedKeyID}) is valid\n`;
+                  details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}`;
+                } else {
+                  details += `Signature by: ${userID} (${formattedKeyID})\n`;
+                  details += `Signature creation time: Not Available\n`;
+                }
+              } else {
+                const formattedKeyID = signingKeyID
+                  .replace(/(.{4})/g, "$1 ")
+                  .trim();
+                details += `Signature by: Unknown Key (${formattedKeyID})\n`;
+                details += `Signature creation time: Not Available\n`;
+              }
+            }
+          }
+        }
+
+        setDetails(details);
+        decryptedFileData = decrypted;
+
+        // Download Decrypted Content
+        if (decryptedFileData) {
+          const blob = new Blob([decryptedFileData]);
+          saveAs(blob, file.name.replace(/\.gpg$/, ""));
+        }
+
+        setIsPasswordModalOpen(false);
+        setPassword("");
+
+        toast.success("Message decrypted successfully!", {
+          position: "top-right",
+        });
+        return;
+      } catch (error) {
+        console.error(
+          "Decryption failed or no valid signature:",
+          error.message
+        );
+      }
+
+      // If password decryption fails, fall back to private key decryption
+      let privateKey = await openpgp.readPrivateKey({
+        armoredKey: currentPrivateKey,
+      });
+
+      privateKey = await openpgp.decryptKey({
+        privateKey,
+        passphrase: password,
+      });
+
+      // Load public keys for signature verification
+      const publicKeys = await Promise.all(
+        pgpKeys
+          .filter((key) => key.publicKey)
+          .map((key) => openpgp.readKey({ armoredKey: key.publicKey }))
+      );
+
+      const { data: decrypted, signatures } = await openpgp.decrypt({
+        message,
+        decryptionKeys: privateKey,
+        verificationKeys: publicKeys.length > 0 ? publicKeys : undefined,
+        format: "binary",
+      });
+
+      setIsPasswordModalOpen(false);
+      setPassword("");
+
+      const keyData = pgpKeys.find(
+        (key) => key.privateKey === currentPrivateKey
+      );
+
+      const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+
+      const recipients = encryptionKeyIDs.map((keyID) => {
+        const matchedKey = publicKeys.find((key) => {
+          return (
+            key.getKeyID().equals(keyID) ||
+            key.getSubkeys().some((subkey) => subkey.getKeyID().equals(keyID))
+          );
+        });
+
+        if (matchedKey) {
+          const userID = matchedKey.getUserIDs()[0];
+          return `  - ${userID} (${keyID
+            .toHex()
+            .match(/.{1,4}/g)
+            .join(" ")})`;
+        } else {
+          return `  - Unknown (${keyID
+            .toHex()
+            .match(/.{1,4}/g)
+            .join(" ")})`;
+        }
+      });
+
+      details += "Recipients:\n" + recipients.join("\n") + "\n\n";
+
+      if (signatures && signatures.length > 0) {
+        for (const sig of signatures) {
+          const { keyID, verified, signature } = sig;
+
+          const isVerified = await verified;
+          const resolvedSignature = await signature;
+
+          const signerKey = publicKeys.find((key) =>
+            key.getKeyID().equals(keyID)
+          );
+
+          const signerUser = signerKey ? signerKey.getUserIDs()[0] : "Unknown";
+
+          details += `Message successfully decrypted using key: ${
+            keyData?.name || "Unnamed Key"
+          }\n`;
+
+          details += `Signature by ${signerUser} (${keyID
+            .toHex()
+            .match(/.{1,4}/g)
+            .join(" ")}) is ${isVerified ? "valid" : "not valid"}.\n`;
+
+          try {
+            const signaturePacket = resolvedSignature.packets[0];
+            const createdTime =
+              signaturePacket && signaturePacket.created
+                ? new Date(signaturePacket.created)
+                : null;
+
+            if (createdTime) {
+              const dayName = createdTime.toLocaleDateString("en-US", {
+                weekday: "long",
+              });
+              const monthName = createdTime.toLocaleDateString("en-US", {
+                month: "long",
+              });
+              const day = createdTime.getDate();
+              const year = createdTime.getFullYear();
+
+              const locale = navigator.language || "en-US";
+              const is24Hour = locale.includes("GB") || locale.includes("DE");
+
+              const timeWithZone = createdTime.toLocaleTimeString(locale, {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: !is24Hour,
+                timeZoneName: "long",
+              });
+
+              details += `Signature created on ${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}\n\n`;
+            } else {
+              details += `Signature created at: Not Available\n\n`;
+            }
+          } catch (error) {
+            details += "Signature created at: Not Available\n\n";
+          }
+        }
+      } else {
+        details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+      }
+
+      setDetails(details);
+      decryptedFileData = decrypted;
+
+      // Download Decrypted Content
+      if (decryptedFileData) {
+        const blob = new Blob([decryptedFileData]);
+        saveAs(blob, file.name.replace(/\.gpg$/, ""));
+      }
+
+      toast.success("Decryption successful!", { position: "top-right" });
+    } catch (error) {
+      toast.error("Incorrect password.", {
+        position: "top-right",
+      });
+    }
+  };
+
+  const handleDecrypt = async () => {
+    if (inputMessage) {
+      await messageDecrypt();
+    }
+
+    if (files) {
+      await DecryptFile();
+    }
+  };
+
+  const handlePasswordDecrypt = async () => {
+    if (inputMessage) {
+      await messagePasswordDecrypt();
+    }
+
+    if (files) {
+      await PasswordFileDecrypt();
     }
   };
 
@@ -611,13 +1152,11 @@ export default function App() {
         value={inputMessage}
         onChange={(e) => setInputMessage(e.target.value)}
       />
-
       <br />
-
-      <Textarea isReadOnly label="Details" value={detailsText} />
-
+      <Input type="file" onChange={handleFileUpload} />
       <br />
-
+      <Textarea isReadOnly label="Details" value={details} />
+      <br />
       <Textarea
         isReadOnly
         disableAutosize
@@ -627,9 +1166,7 @@ export default function App() {
         label="Output"
         value={decryptedMessage}
       />
-
       <br />
-
       <Button onPress={handleDecrypt}>Decrypt</Button>
       {isPasswordModalOpen && (
         <Modal
