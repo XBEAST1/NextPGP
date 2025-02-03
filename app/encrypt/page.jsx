@@ -337,7 +337,11 @@ export default function App() {
         }
       }
 
-      const encrypted = await openpgp.encrypt(encryptionOptions);
+      const encrypted = await openpgp.encrypt({
+        ...encryptionOptions,
+        format: "binary",
+      });
+
 
       // Convert encrypted content to Blob and download
       const encryptedBlob = new Blob([encrypted], {

@@ -618,16 +618,10 @@ export default function App() {
       const file = files[0];
       let message;
 
-      try {
-        // First try reading as armored text
-        const armoredText = await file.text();
-        message = await openpgp.readMessage({ armoredMessage: armoredText });
-      } catch (armoredError) {
-        toast.error("The message is not in a valid PGP format.", {
-          position: "top-right",
-        });
-        return;
-      }
+      const fileData = await file.arrayBuffer();
+      message = await openpgp.readMessage({
+        binaryMessage: new Uint8Array(fileData),
+      });
 
       const validPgpKeys = Array.isArray(pgpKeys) ? pgpKeys : [];
 
@@ -828,9 +822,10 @@ export default function App() {
     let message;
 
     try {
-      // First try reading as armored text
-      const armoredText = await file.text();
-      message = await openpgp.readMessage({ armoredMessage: armoredText });
+      const fileData = await file.arrayBuffer();
+      message = await openpgp.readMessage({
+        binaryMessage: new Uint8Array(fileData),
+      });
 
       // Attempt to decrypt the message using the password
       try {
