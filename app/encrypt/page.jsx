@@ -416,7 +416,8 @@ export default function App() {
                 onSelectionChange={(key) => handleSelection(index, key)}
                 defaultItems={recipientKeys.filter(
                   (key) =>
-                    !recipients.includes(key.id) || key.id === selectedKey
+                    !recipients.includes(String(key.id)) ||
+                    String(key.id) === selectedKey
                 )}
               >
                 {(item) => (
