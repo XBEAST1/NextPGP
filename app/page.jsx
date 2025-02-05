@@ -170,6 +170,7 @@ export default function App() {
   const dbPgpKeys = "pgpKeys";
   const selectedSigners = "selectedSigners";
   const selectedRecipients = "selectedRecipients";
+  const dbCryptoKeys = "cryptoKeys";
 
   const openDB = () => {
     return new Promise((resolve, reject) => {
@@ -187,6 +188,9 @@ export default function App() {
         if (!db.objectStoreNames.contains(selectedRecipients)) {
           db.createObjectStore(selectedRecipients, { keyPath: "id" });
         }
+        if (!db.objectStoreNames.contains(dbCryptoKeys)) {
+          db.createObjectStore(dbCryptoKeys, { keyPath: "id" });
+        }
       };
 
       request.onsuccess = (e) => resolve(e.target.result);
@@ -194,24 +198,83 @@ export default function App() {
     });
   };
 
+  // Retrieves (or generates) the master encryption key using the Web Crypto API.
+  const getEncryptionKey = async () => {
+    const db = await openDB();
+    const tx = db.transaction(dbCryptoKeys, "readonly");
+    const store = tx.objectStore(dbCryptoKeys);
+    const request = store.get("mainKey");
+
+    return new Promise(async (resolve, reject) => {
+      request.onsuccess = async () => {
+        if (request.result) {
+          const importedKey = await crypto.subtle.importKey(
+            "raw",
+            request.result.key,
+            { name: "AES-GCM" },
+            true,
+            ["encrypt", "decrypt"]
+          );
+          resolve(importedKey);
+        } else {
+          // Generate Key if not found
+          const key = await crypto.subtle.generateKey(
+            { name: "AES-GCM", length: 256 },
+            true,
+            ["encrypt", "decrypt"]
+          );
+          const exportedKey = await crypto.subtle.exportKey("raw", key);
+
+          const txWrite = db.transaction(dbCryptoKeys, "readwrite");
+          const storeWrite = txWrite.objectStore(dbCryptoKeys);
+          storeWrite.put({ id: "mainKey", key: new Uint8Array(exportedKey) });
+
+          resolve(key);
+        }
+      };
+      request.onerror = (e) => reject(e.target.error);
+    });
+  };
+
+  // Decrypts data using the provided encryption key and IV.
+  const decryptData = async (encryptedData, key, iv) => {
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      encryptedData
+    );
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  };
+
   const loadKeysFromIndexedDB = async () => {
     const db = await openDB();
+    const encryptionKey = await getEncryptionKey();
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(dbPgpKeys, "readonly");
       const store = transaction.objectStore(dbPgpKeys);
-      const keys = [];
-
+      const encryptedRecords = [];
       const request = store.openCursor();
+
       request.onsuccess = async (e) => {
         const cursor = e.target.result;
         if (cursor) {
-          keys.push(cursor.value);
+          encryptedRecords.push(cursor.value);
           cursor.continue();
         } else {
           try {
+            const decryptedKeys = await Promise.all(
+              encryptedRecords.map(async (record) => {
+                return await decryptData(
+                  record.encrypted,
+                  encryptionKey,
+                  record.iv
+                );
+              })
+            );
+
             const formatDate = (isoDate) => {
               const date = new Date(isoDate);
-
               if (
                 date.getUTCHours() === 23 &&
                 date.getUTCMinutes() === 59 &&
@@ -219,7 +282,6 @@ export default function App() {
               ) {
                 date.setUTCDate(date.getUTCDate() + 1);
               }
-
               const monthNames = [
                 "Jan",
                 "Feb",
@@ -234,11 +296,9 @@ export default function App() {
                 "Nov",
                 "Dec",
               ];
-
               const day = String(date.getUTCDate()).padStart(2, "0");
               const month = monthNames[date.getUTCMonth()];
               const year = date.getUTCFullYear();
-
               return `${day}-${month}-${year}`;
             };
 
@@ -246,7 +306,6 @@ export default function App() {
               try {
                 const expirationTime = await key.getExpirationTime();
                 const now = new Date();
-
                 if (expirationTime === null || expirationTime === Infinity) {
                   return { expirydate: "No Expiry", status: "active" };
                 } else if (expirationTime < now) {
@@ -279,17 +338,15 @@ export default function App() {
             };
 
             const processedKeys = await Promise.all(
-              keys.map(async (key) => {
+              decryptedKeys.map(async (key) => {
                 const openpgpKey = await openpgp.readKey({
                   armoredKey: key.publicKey,
                 });
                 const { expirydate, status } =
                   await getKeyExpiryInfo(openpgpKey);
-
                 const passwordProtected = key.privateKey
                   ? await isPasswordProtected(key.privateKey)
                   : false;
-
                 return {
                   id: key.id,
                   name: key.name,
@@ -302,7 +359,6 @@ export default function App() {
                       key.privateKey && key.privateKey.trim() !== "";
                     const hasPublicKey =
                       key.publicKey && key.publicKey.trim() !== "";
-
                     if (hasPrivateKey && hasPublicKey) {
                       return Keyring.src;
                     } else if (hasPublicKey) {

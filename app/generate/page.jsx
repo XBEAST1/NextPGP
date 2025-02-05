@@ -81,6 +81,7 @@ export default function App() {
   const dbPgpKeys = "pgpKeys";
   const selectedSigners = "selectedSigners";
   const selectedRecipients = "selectedRecipients";
+  const dbCryptoKeys = "cryptoKeys";
 
   const openDB = () => {
     return new Promise((resolve, reject) => {
@@ -98,6 +99,9 @@ export default function App() {
         if (!db.objectStoreNames.contains(selectedRecipients)) {
           db.createObjectStore(selectedRecipients, { keyPath: "id" });
         }
+        if (!db.objectStoreNames.contains(dbCryptoKeys)) {
+          db.createObjectStore(dbCryptoKeys, { keyPath: "id" });
+        }
       };
 
       request.onsuccess = (e) => resolve(e.target.result);
@@ -105,12 +109,66 @@ export default function App() {
     });
   };
 
-  const saveKeyToIndexedDB = async (keyData) => {
+  // Retrieves (or generates) the master encryption key using the Web Crypto API.
+  const getEncryptionKey = async () => {
     const db = await openDB();
+    const tx = db.transaction(dbCryptoKeys, "readonly");
+    const store = tx.objectStore(dbCryptoKeys);
+    const request = store.get("mainKey");
+
+    return new Promise(async (resolve, reject) => {
+      request.onsuccess = async () => {
+        if (request.result) {
+          const importedKey = await crypto.subtle.importKey(
+            "raw",
+            request.result.key,
+            { name: "AES-GCM" },
+            true,
+            ["encrypt", "decrypt"]
+          );
+          resolve(importedKey);
+        } else {
+          // Generate Key if not found
+          const key = await crypto.subtle.generateKey(
+            { name: "AES-GCM", length: 256 },
+            true,
+            ["encrypt", "decrypt"]
+          );
+          const exportedKey = await crypto.subtle.exportKey("raw", key);
+
+          const txWrite = db.transaction(dbCryptoKeys, "readwrite");
+          const storeWrite = txWrite.objectStore(dbCryptoKeys);
+          storeWrite.put({ id: "mainKey", key: new Uint8Array(exportedKey) });
+
+          resolve(key);
+        }
+      };
+      request.onerror = (e) => reject(e.target.error);
+    });
+  };
+
+  // Encrypt Data before storing in IndexedDB
+  const encryptData = async (data, key) => {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encoded = new TextEncoder().encode(JSON.stringify(data));
+    const encrypted = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      encoded
+    );
+    return { encrypted: new Uint8Array(encrypted), iv };
+  };
+
+  // Save Encrypted PGP Key to IndexedDB
+  const saveKeyToIndexedDB = async (id, keyData) => {
+    const db = await openDB();
+    const encryptionKey = await getEncryptionKey();
+    const { encrypted, iv } = await encryptData(keyData, encryptionKey);
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(dbPgpKeys, "readwrite");
       const store = transaction.objectStore(dbPgpKeys);
-      store.add(keyData);
+      store.put({ id, encrypted, iv });
 
       transaction.oncomplete = () => resolve();
       transaction.onerror = (e) => reject(e.target.error);
@@ -173,7 +231,8 @@ export default function App() {
         privateKey,
       };
 
-      await saveKeyToIndexedDB(keyData);
+      // Save the encrypted key data
+      await saveKeyToIndexedDB(keyData.id, keyData);
 
       toast.success("PGP keyring Generated", {
         position: "top-right",
