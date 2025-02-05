@@ -8,7 +8,7 @@ import {
   Input,
   Button,
   Textarea,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import secureLocalStorage from "react-secure-storage";
 import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";

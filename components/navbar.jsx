@@ -13,8 +13,9 @@ import {
   DropdownTrigger,
   Dropdown,
   DropdownMenu,
-} from "@nextui-org/react";
-import { Button, Link } from "@nextui-org/react";
+  Button,
+  Link,
+} from "@heroui/react";
 import NextLink from "next/link";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { GithubIcon, HeartFilledIcon } from "@/components/icons";

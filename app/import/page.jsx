@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Textarea, Button, Input } from "@nextui-org/react";
+import { Textarea, Button, Input } from "@heroui/react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import secureLocalStorage from "react-secure-storage";

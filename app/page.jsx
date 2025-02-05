@@ -19,7 +19,7 @@ import {
   Pagination,
   Modal,
   ModalContent,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import Link from "next/link";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";

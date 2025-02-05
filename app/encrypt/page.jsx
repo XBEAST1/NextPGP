@@ -11,7 +11,7 @@ import {
   Modal,
   ModalContent,
   Snippet,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import secureLocalStorage from "react-secure-storage";

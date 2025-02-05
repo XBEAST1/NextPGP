@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useState } from "react";
-import { Button, DatePicker, Input, Checkbox } from "@nextui-org/react";
+import { Button, DatePicker, Input, Checkbox } from "@heroui/react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import secureLocalStorage from "react-secure-storage";
@@ -204,7 +204,6 @@ export default function App() {
       <br />
 
       <DatePicker
-        disableAnimation
         isDisabled={isNoExpiryChecked}
         className="max-w-[284px]"
         label="Expiry date"
