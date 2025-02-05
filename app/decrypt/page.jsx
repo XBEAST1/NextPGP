@@ -2,13 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { toast, ToastContainer } from "react-toastify";
-import {
-  Modal,
-  ModalContent,
-  Input,
-  Button,
-  Textarea,
-} from "@heroui/react";
+import { Modal, ModalContent, Input, Button, Textarea } from "@heroui/react";
 import secureLocalStorage from "react-secure-storage";
 import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
@@ -104,13 +98,6 @@ export default function App() {
   let decryptedFileData;
 
   const messageDecrypt = async () => {
-    if (!inputMessage && !files) {
-      toast.error("Please enter a PGP message.", {
-        position: "top-right",
-      });
-      return;
-    }
-
     let message;
 
     try {
@@ -1106,6 +1093,13 @@ export default function App() {
 
     if (files) {
       await DecryptFile();
+    }
+
+    if (!inputMessage && !files) {
+      toast.error("Please enter a PGP message or Select a File", {
+        position: "top-right",
+      });
+      return;
     }
   };
 
