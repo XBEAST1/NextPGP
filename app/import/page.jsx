@@ -208,11 +208,11 @@ export default function ImportKeyPage() {
       <ToastContainer theme="dark" />
       <h1 className="text-center text-4xl dm-serif-text-regular">Import Key</h1>
       <br />
+      <p className="ms-1 mb-3 text-small">Upload PGP Key File</p>
       <Input
         type="file"
         accept=".asc,.txt,.key"
         onChange={handleFileInput}
-        label="Upload PGP Key File"
       />
       <br />
       <Textarea
