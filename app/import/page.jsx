@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Textarea, Button, Input } from "@heroui/react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import secureLocalStorage from "react-secure-storage";
 import * as openpgp from "openpgp";
 
 // Extract only the PGP keys from the content
@@ -26,19 +25,77 @@ const extractPGPKeys = (content) => {
 export default function ImportKeyPage() {
   const [keyInput, setKeyInput] = useState("");
 
-  const getStoredKeys = () => {
-    const keys = secureLocalStorage.getItem("pgpKeys");
-    return keys ? JSON.parse(keys) : [];
+  const dbName = "NextPGP";
+  const dbPgpKeys = "pgpKeys";
+  const selectedSigners = "selectedSigners";
+  const selectedRecipients = "selectedRecipients";
+
+  const openDB = () => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(dbName, 1);
+
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+
+        if (!db.objectStoreNames.contains(dbPgpKeys)) {
+          db.createObjectStore(dbPgpKeys, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(selectedSigners)) {
+          db.createObjectStore(selectedSigners, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(selectedRecipients)) {
+          db.createObjectStore(selectedRecipients, { keyPath: "id" });
+        }
+      };
+
+      request.onsuccess = (e) => resolve(e.target.result);
+      request.onerror = (e) => reject(e.target.error);
+    });
   };
 
-  const saveKeyToLocalStorage = (keyData) => {
-    const existingKeys = getStoredKeys();
+  const getStoredKeys = async () => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(dbPgpKeys, "readonly");
+      const store = transaction.objectStore(dbPgpKeys);
+      const keys = [];
+      const request = store.openCursor();
+
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          keys.push(cursor.value);
+          cursor.continue();
+        } else {
+          resolve(keys);
+        }
+      };
+
+      request.onerror = (e) => reject(e.target.error);
+    });
+  };
+
+  const saveKeyToIndexedDB = async (keyData) => {
+    const existingKeys = await getStoredKeys();
     existingKeys.push(keyData);
-    secureLocalStorage.setItem("pgpKeys", JSON.stringify(existingKeys));
+
+    const db = await openDB();
+    const transaction = db.transaction(dbPgpKeys, "readwrite");
+    const store = transaction.objectStore(dbPgpKeys);
+
+    store.put(keyData);
+
+    transaction.oncomplete = () => {
+      console.log("Key saved successfully in IndexedDB.");
+    };
+
+    transaction.onerror = (e) => {
+      console.error("Error saving key to IndexedDB:", e.target.error);
+    };
   };
 
-  const checkIfKeyExists = (newKeyData) => {
-    const existingKeys = getStoredKeys();
+  const checkIfKeyExists = async (newKeyData) => {
+    const existingKeys = await getStoredKeys();
     return existingKeys.some(
       (key) =>
         key.publicKey === newKeyData.publicKey &&
@@ -102,14 +159,14 @@ export default function ImportKeyPage() {
         keyData.publicKey = publicKey;
       }
 
-      if (checkIfKeyExists(keyData)) {
+      if (await checkIfKeyExists(keyData)) {
         toast.error("Key already exists.", {
           position: "top-right",
         });
         return;
       }
 
-      saveKeyToLocalStorage(keyData);
+      saveKeyToIndexedDB(keyData);
 
       toast.success(
         isPrivateKey ? "Keyring Imported." : "Public key imported.",

@@ -5,7 +5,6 @@ import { useState } from "react";
 import { Button, DatePicker, Input, Checkbox } from "@heroui/react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import secureLocalStorage from "react-secure-storage";
 import * as openpgp from "openpgp";
 
 const EyeSlashFilledIcon = (props) => {
@@ -78,15 +77,44 @@ export default function App() {
   const [nameInvalid, setNameInvalid] = useState(false);
   const [emailInvalid, setEmailInvalid] = useState(false);
 
-  const getStoredKeys = () => {
-    const keys = secureLocalStorage.getItem("pgpKeys");
-    return keys ? JSON.parse(keys) : [];
+  const dbName = "NextPGP";
+  const dbPgpKeys = "pgpKeys";
+  const selectedSigners = "selectedSigners";
+  const selectedRecipients = "selectedRecipients";
+
+  const openDB = () => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(dbName, 1);
+
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+
+        if (!db.objectStoreNames.contains(dbPgpKeys)) {
+          db.createObjectStore(dbPgpKeys, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(selectedSigners)) {
+          db.createObjectStore(selectedSigners, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(selectedRecipients)) {
+          db.createObjectStore(selectedRecipients, { keyPath: "id" });
+        }
+      };
+
+      request.onsuccess = (e) => resolve(e.target.result);
+      request.onerror = (e) => reject(e.target.error);
+    });
   };
 
-  const saveKeyToLocalStorage = (keyData) => {
-    const existingKeys = getStoredKeys();
-    existingKeys.push(keyData);
-    secureLocalStorage.setItem("pgpKeys", JSON.stringify(existingKeys));
+  const saveKeyToIndexedDB = async (keyData) => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(dbPgpKeys, "readwrite");
+      const store = transaction.objectStore(dbPgpKeys);
+      store.add(keyData);
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = (e) => reject(e.target.error);
+    });
   };
 
   const generatePGPKey = async () => {
@@ -145,7 +173,7 @@ export default function App() {
         privateKey,
       };
 
-      saveKeyToLocalStorage(keyData);
+      await saveKeyToIndexedDB(keyData);
 
       toast.success("PGP keyring Generated", {
         position: "top-right",
@@ -154,6 +182,7 @@ export default function App() {
       toast.error("Failed to generate PGP keyring", {
         position: "top-right",
       });
+      console.log(error);
     }
   };
 

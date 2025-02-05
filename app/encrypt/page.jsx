@@ -14,7 +14,6 @@ import {
 } from "@heroui/react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import secureLocalStorage from "react-secure-storage";
 import * as openpgp from "openpgp";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -97,54 +96,133 @@ export default function App() {
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
-  // Fetch and filter PGP keys from localStorage
-  useEffect(() => {
-    const keysFromStorage =
-      JSON.parse(secureLocalStorage.getItem("pgpKeys")) || [];
+  const dbName = "NextPGP";
+  const dbPgpKeys = "pgpKeys";
+  const selectedSigners = "selectedSigners";
+  const selectedRecipients = "selectedRecipients";
 
-    const filteredSignerKeys = keysFromStorage.filter(
-      (key) => key.publicKey && key.privateKey
-    );
-    const filteredRecipientKeys = keysFromStorage.filter(
-      (key) => key.publicKey
-    );
+  const openDB = () => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(dbName, 1);
 
-    setPgpKeys(keysFromStorage);
-    setSignerKeys(filteredSignerKeys);
-    setRecipientKeys(filteredRecipientKeys);
-  }, []);
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
 
-  useEffect(() => {
-    const savedSignerKey = secureLocalStorage.getItem("selectedSignerKey");
-    const savedRecipients = JSON.parse(
-      secureLocalStorage.getItem("selectedRecipients")
-    ) || [""];
+        if (!db.objectStoreNames.contains(dbPgpKeys)) {
+          db.createObjectStore(dbPgpKeys, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(selectedSigners)) {
+          db.createObjectStore(selectedSigners, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(selectedRecipients)) {
+          db.createObjectStore(selectedRecipients, { keyPath: "id" });
+        }
+      };
 
-    // Set the retrieved values
-    if (savedSignerKey) setSignerKey(savedSignerKey);
-    if (savedRecipients.length > 0) setRecipients(savedRecipients);
-  }, []);
-
-  const handleSignerSelection = (selectedKey) => {
-    secureLocalStorage.setItem("selectedSignerKey", selectedKey);
-    setSignerKey(selectedKey);
+      request.onsuccess = (e) => resolve(e.target.result);
+      request.onerror = (e) => reject(e.target.error);
+    });
   };
 
-  const handleSelection = (index, selectedKey) => {
+  const getStoredKeys = async () => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(dbPgpKeys, "readonly");
+      const store = transaction.objectStore(dbPgpKeys);
+      const keys = [];
+      const request = store.openCursor();
+
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          keys.push(cursor.value);
+          cursor.continue();
+        } else {
+          resolve(keys);
+        }
+      };
+
+      request.onerror = (e) => reject(e.target.error);
+    });
+  };
+
+  useEffect(() => {
+    const fetchKeysFromIndexedDB = async () => {
+      const keysFromStorage = await getStoredKeys();
+
+      const filteredSignerKeys = keysFromStorage.filter(
+        (key) => key.publicKey && key.privateKey
+      );
+      const filteredRecipientKeys = keysFromStorage.filter(
+        (key) => key.publicKey
+      );
+
+      setPgpKeys(keysFromStorage);
+      setSignerKeys(filteredSignerKeys);
+      setRecipientKeys(filteredRecipientKeys);
+    };
+
+    fetchKeysFromIndexedDB();
+  }, []);
+
+  useEffect(() => {
+    const fetchSelectedKeys = async () => {
+      const db = await openDB();
+      const transaction = db.transaction(
+        [selectedRecipients, selectedSigners],
+        "readwrite"
+      );
+      const store = transaction.objectStore(selectedSigners);
+      const store2 = transaction.objectStore(selectedRecipients);
+
+      const signerKeyRequest = store.get("selectedSignerKey");
+      const recipientsRequest = store2.get("selectedRecipients");
+
+      signerKeyRequest.onsuccess = () => {
+        if (signerKeyRequest.result) {
+          setSignerKey(signerKeyRequest.result.value);
+        }
+      };
+
+      recipientsRequest.onsuccess = () => {
+        if (recipientsRequest.result) {
+          setRecipients(recipientsRequest.result.value || [""]);
+        }
+      };
+    };
+
+    fetchSelectedKeys();
+  }, []);
+
+  const handleSignerSelection = async (selectedKey) => {
+    const db = await openDB();
+
+    const transaction = db.transaction(
+      [dbPgpKeys, selectedSigners],
+      "readwrite"
+    );
+
+    const store = transaction.objectStore(selectedSigners);
+
+    store.put({ id: "selectedSignerKey", value: selectedKey });
+
+    transaction.oncomplete = () => {
+      setSignerKey(selectedKey);
+    };
+  };
+
+  const handleSelection = async (index, selectedKey) => {
     const updatedRecipients = [...recipients];
 
     if (selectedKey) {
       updatedRecipients[index] = selectedKey;
 
-      // Make sure the last slot is always empty for new entries
       if (updatedRecipients[updatedRecipients.length - 1] !== "") {
         updatedRecipients.push("");
       }
     } else {
-      // Replace the deselected value with an empty string
       updatedRecipients[index] = "";
 
-      // Remove trailing empty slots
       while (
         updatedRecipients.length > 1 &&
         updatedRecipients[updatedRecipients.length - 2] === "" &&
@@ -156,10 +234,15 @@ export default function App() {
 
     setRecipients(updatedRecipients);
 
-    secureLocalStorage.setItem(
-      "selectedRecipients",
-      JSON.stringify(updatedRecipients)
+    const db = await openDB();
+
+    const transaction = db.transaction(
+      [dbPgpKeys, selectedRecipients],
+      "readwrite"
     );
+    const store = transaction.objectStore(selectedRecipients);
+
+    store.put({ id: "selectedRecipients", value: updatedRecipients });
   };
 
   const encryptMessage = async () => {
@@ -341,7 +424,6 @@ export default function App() {
         ...encryptionOptions,
         format: "binary",
       });
-
 
       // Convert encrypted content to Blob and download
       const encryptedBlob = new Blob([encrypted], {

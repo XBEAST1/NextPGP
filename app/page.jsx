@@ -25,7 +25,6 @@ import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import secureLocalStorage from "react-secure-storage";
 import * as openpgp from "openpgp";
 
 const VerticalDotsIcon = ({ size = 24, width, height, ...props }) => {
@@ -167,130 +166,176 @@ export default function App() {
   const [isVisible, setIsVisible] = React.useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
 
-  const loadKeysFromLocalStorage = async () => {
-    const keys = JSON.parse(secureLocalStorage.getItem("pgpKeys")) || [];
+  const dbName = "NextPGP";
+  const dbPgpKeys = "pgpKeys";
+  const selectedSigners = "selectedSigners";
+  const selectedRecipients = "selectedRecipients";
 
-    const formatDate = (isoDate) => {
-      const date = new Date(isoDate);
+  const openDB = () => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(dbName, 1);
 
-      if (
-        date.getUTCHours() === 23 &&
-        date.getUTCMinutes() === 59 &&
-        date.getUTCSeconds() === 59
-      ) {
-        date.setUTCDate(date.getUTCDate() + 1);
-      }
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
 
-      const monthNames = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
-
-      const day = String(date.getUTCDate()).padStart(2, "0");
-      const month = monthNames[date.getUTCMonth()];
-      const year = date.getUTCFullYear();
-
-      return `${day}-${month}-${year}`;
-    };
-
-    const getKeyExpiryInfo = async (key) => {
-      try {
-        const expirationTime = await key.getExpirationTime();
-        const now = new Date();
-
-        if (expirationTime === null || expirationTime === Infinity) {
-          return {
-            expirydate: "No Expiry",
-            status: "active",
-          };
-        } else if (expirationTime < now) {
-          return {
-            expirydate: formatDate(expirationTime),
-            status: "expired",
-          };
-        } else {
-          return {
-            expirydate: formatDate(expirationTime),
-            status: "active",
-          };
+        if (!db.objectStoreNames.contains(dbPgpKeys)) {
+          db.createObjectStore(dbPgpKeys, { keyPath: "id" });
         }
-      } catch (error) {
-        console.error("Error getting key expiration time:", error);
-        return {
-          expirydate: "Error",
-          status: "unknown",
-        };
-      }
-    };
+        if (!db.objectStoreNames.contains(selectedSigners)) {
+          db.createObjectStore(selectedSigners, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(selectedRecipients)) {
+          db.createObjectStore(selectedRecipients, { keyPath: "id" });
+        }
+      };
 
-    const isPasswordProtected = async (privateKeyArmored) => {
-      try {
-        const privateKey = await openpgp.readPrivateKey({
-          armoredKey: privateKeyArmored,
-        });
-        return privateKey.isPrivate() && !privateKey.isDecrypted();
-      } catch (error) {
-        console.error("Error reading private key:", error);
-        return false;
-      }
-    };
+      request.onsuccess = (e) => resolve(e.target.result);
+      request.onerror = (e) => reject(e.target.error);
+    });
+  };
 
-    const processedKeys = await Promise.all(
-      keys.map(async (key) => {
-        const openpgpKey = await openpgp.readKey({ armoredKey: key.publicKey });
-        const { expirydate, status } = await getKeyExpiryInfo(openpgpKey);
+  const loadKeysFromIndexedDB = async () => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(dbPgpKeys, "readonly");
+      const store = transaction.objectStore(dbPgpKeys);
+      const keys = [];
 
-        const passwordProtected = key.privateKey
-          ? await isPasswordProtected(key.privateKey)
-          : false;
+      const request = store.openCursor();
+      request.onsuccess = async (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+          keys.push(cursor.value);
+          cursor.continue();
+        } else {
+          try {
+            const formatDate = (isoDate) => {
+              const date = new Date(isoDate);
 
-        return {
-          id: key.id,
-          name: key.name,
-          email: key.email,
-          expirydate: expirydate,
-          status: status,
-          passwordprotected: passwordProtected ? "Yes" : "No",
-          avatar: (() => {
-            const hasPrivateKey =
-              key.privateKey && key.privateKey.trim() !== "";
-            const hasPublicKey = key.publicKey && key.publicKey.trim() !== "";
+              if (
+                date.getUTCHours() === 23 &&
+                date.getUTCMinutes() === 59 &&
+                date.getUTCSeconds() === 59
+              ) {
+                date.setUTCDate(date.getUTCDate() + 1);
+              }
 
-            if (hasPrivateKey && hasPublicKey) {
-              return Keyring.src;
-            } else if (hasPublicKey) {
-              return Public.src;
-            }
-          })(),
-          publicKey: key.publicKey,
-          privateKey: key.privateKey,
-        };
-      })
-    );
+              const monthNames = [
+                "Jan",
+                "Feb",
+                "Mar",
+                "Apr",
+                "May",
+                "Jun",
+                "Jul",
+                "Aug",
+                "Sep",
+                "Oct",
+                "Nov",
+                "Dec",
+              ];
 
-    return processedKeys;
+              const day = String(date.getUTCDate()).padStart(2, "0");
+              const month = monthNames[date.getUTCMonth()];
+              const year = date.getUTCFullYear();
+
+              return `${day}-${month}-${year}`;
+            };
+
+            const getKeyExpiryInfo = async (key) => {
+              try {
+                const expirationTime = await key.getExpirationTime();
+                const now = new Date();
+
+                if (expirationTime === null || expirationTime === Infinity) {
+                  return { expirydate: "No Expiry", status: "active" };
+                } else if (expirationTime < now) {
+                  return {
+                    expirydate: formatDate(expirationTime),
+                    status: "expired",
+                  };
+                } else {
+                  return {
+                    expirydate: formatDate(expirationTime),
+                    status: "active",
+                  };
+                }
+              } catch (error) {
+                console.error("Error getting key expiration time:", error);
+                return { expirydate: "Error", status: "unknown" };
+              }
+            };
+
+            const isPasswordProtected = async (privateKeyArmored) => {
+              try {
+                const privateKey = await openpgp.readPrivateKey({
+                  armoredKey: privateKeyArmored,
+                });
+                return privateKey.isPrivate() && !privateKey.isDecrypted();
+              } catch (error) {
+                console.error("Error reading private key:", error);
+                return false;
+              }
+            };
+
+            const processedKeys = await Promise.all(
+              keys.map(async (key) => {
+                const openpgpKey = await openpgp.readKey({
+                  armoredKey: key.publicKey,
+                });
+                const { expirydate, status } =
+                  await getKeyExpiryInfo(openpgpKey);
+
+                const passwordProtected = key.privateKey
+                  ? await isPasswordProtected(key.privateKey)
+                  : false;
+
+                return {
+                  id: key.id,
+                  name: key.name,
+                  email: key.email,
+                  expirydate: expirydate,
+                  status: status,
+                  passwordprotected: passwordProtected ? "Yes" : "No",
+                  avatar: (() => {
+                    const hasPrivateKey =
+                      key.privateKey && key.privateKey.trim() !== "";
+                    const hasPublicKey =
+                      key.publicKey && key.publicKey.trim() !== "";
+
+                    if (hasPrivateKey && hasPublicKey) {
+                      return Keyring.src;
+                    } else if (hasPublicKey) {
+                      return Public.src;
+                    }
+                  })(),
+                  publicKey: key.publicKey,
+                  privateKey: key.privateKey,
+                };
+              })
+            );
+
+            resolve(processedKeys);
+          } catch (error) {
+            reject(error);
+          }
+        }
+      };
+
+      request.onerror = (e) => reject(e.target.error);
+    });
   };
 
   useEffect(() => {
     const fetchKeys = async () => {
-      const pgpKeys = await loadKeysFromLocalStorage();
+      const pgpKeys = await loadKeysFromIndexedDB();
       setUsers(pgpKeys);
     };
 
     fetchKeys();
 
     const handleStorageChange = async () => {
-      const updatedKeys = await loadKeysFromLocalStorage();
+      const updatedKeys = await loadKeysFromIndexedDB();
       setUsers(updatedKeys);
     };
 
@@ -469,13 +514,25 @@ export default function App() {
   };
 
   const deleteKey = async (userId) => {
-    const currentKeys = JSON.parse(secureLocalStorage.getItem("pgpKeys")) || [];
-    const updatedKeys = currentKeys.filter((key) => key.id !== userId);
-    secureLocalStorage.setItem("pgpKeys", JSON.stringify(updatedKeys));
+    const db = await openDB();
 
-    const refreshedKeys = await loadKeysFromLocalStorage();
-    setUsers(refreshedKeys);
-    setPage(1);
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(dbPgpKeys, "readwrite");
+      const store = transaction.objectStore(dbPgpKeys);
+
+      const request = store.delete(userId);
+
+      request.onsuccess = async () => {
+        const refreshedKeys = await loadKeysFromIndexedDB();
+        setUsers(refreshedKeys);
+        setPage(1);
+        resolve();
+      };
+
+      request.onerror = (e) => {
+        reject(e.target.error);
+      };
+    });
   };
 
   const [DeleteModal, setDeleteModal] = useState(false);
