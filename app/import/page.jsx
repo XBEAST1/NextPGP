@@ -176,7 +176,7 @@ export default function ImportKeyPage() {
       const { publicKey, privateKey } = extractPGPKeys(keyArmored);
 
       if (!publicKey && !privateKey) {
-        toast.error("No valid PGP key block found.", {
+        toast.error("No valid PGP key block found", {
           position: "top-right",
         });
         return;
@@ -227,7 +227,7 @@ export default function ImportKeyPage() {
       }
 
       if (await checkIfKeyExists(keyData)) {
-        toast.error("Key already exists.", {
+        toast.error("Key already exists", {
           position: "top-right",
         });
         return;
@@ -236,7 +236,7 @@ export default function ImportKeyPage() {
       saveKeyToIndexedDB(keyData);
 
       toast.success(
-        isPrivateKey ? "Keyring Imported." : "Public key imported.",
+        isPrivateKey ? "Keyring Imported" : "Public key imported",
         {
           position: "top-right",
         }

@@ -549,7 +549,7 @@ export default function App() {
       link.click();
     } catch (error) {
       toast.error(
-        "Failed to read or decrypt. The key is not valid or there was an error processing it.",
+        "Failed to read or decrypt. The key is not valid or there was an error processing it",
         {
           position: "top-right",
         }
@@ -798,7 +798,7 @@ export default function App() {
                     setIsOpen(false);
                     setPassword("");
                   } else {
-                    console.error("passwordResolve is not set.");
+                    console.error("passwordResolve is not set");
                   }
                 }
               }

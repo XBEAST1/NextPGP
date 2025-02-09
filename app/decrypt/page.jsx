@@ -68,10 +68,11 @@ const EyeFilledIcon = (props) => {
 };
 
 export default function App() {
-  const [inputMessage, setInputMessage] = useState("");
+  let message;
+  let [inputMessage, setInputMessage] = useState("");
+  let [details, setDetails] = useState("");
   const [decryptedMessage, setDecryptedMessage] = useState("");
   const [pgpKeys, setPgpKeys] = useState(null);
-  let [details, setDetails] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [currentPrivateKey, setCurrentPrivateKey] = useState(null);
@@ -219,13 +220,23 @@ export default function App() {
   let decryptedFileData;
 
   const messageDecrypt = async () => {
-    let message;
-
     try {
-      // Validate that the input is a PGP message
+      const header = "-----BEGIN PGP MESSAGE-----";
+      const footer = "-----END PGP MESSAGE-----";
+
+      // If the input message doesn't include the header, add it
+      if (!inputMessage.includes(header)) {
+        inputMessage = `${header}\n\n${inputMessage.trim()}`;
+      }
+
+      // If the input message doesn't include the footer, add it
+      if (!inputMessage.includes(footer)) {
+        inputMessage = `${inputMessage.trim()}\n\n${footer}`;
+      }
+
       message = await openpgp.readMessage({ armoredMessage: inputMessage });
     } catch (error) {
-      toast.error("The message is not in a valid PGP format.", {
+      toast.error("The message is not in a valid PGP format", {
         position: "top-right",
       });
       return;
@@ -282,7 +293,7 @@ export default function App() {
               setCurrentPrivateKey(keyData.privateKey);
               setIsPasswordModalOpen(true);
               toast.info(
-                "The message is encrypted with a password protected key.",
+                "The message is encrypted with a password protected key",
                 {
                   position: "top-right",
                 }
@@ -400,7 +411,7 @@ export default function App() {
 
           setDetails(details);
 
-          toast.success("Decryption successful!", { position: "top-right" });
+          toast.success("Message Successfully Decrypted!", { position: "top-right" });
           return;
         } catch (error) {
           console.log("Key failed to decrypt the message:", error);
@@ -412,16 +423,16 @@ export default function App() {
         // Open password prompt only if no valid private key could decrypt
         setCurrentPrivateKey(null);
         setIsPasswordModalOpen(true);
-        toast.info("The message is password encrypted.", {
+        toast.info("The message is password encrypted", {
           position: "top-right",
         });
       } else if (!successfulDecryption) {
-        toast.error("No valid private key was able to decrypt this message.", {
+        toast.error("No valid private key was able to decrypt this message", {
           position: "top-right",
         });
       }
     } catch (error) {
-      toast.error("Decryption failed due to an unexpected error.", {
+      toast.error("Decryption failed due to an unexpected error", {
         position: "top-right",
       });
     }
@@ -429,9 +440,20 @@ export default function App() {
 
   const messagePasswordDecrypt = async () => {
     try {
-      const message = await openpgp.readMessage({
-        armoredMessage: inputMessage,
-      });
+      const header = "-----BEGIN PGP MESSAGE-----";
+      const footer = "-----END PGP MESSAGE-----";
+
+      // If the input message doesn't include the header, add it
+      if (!inputMessage.includes(header)) {
+        inputMessage = `${header}\n\n${inputMessage.trim()}`;
+      }
+
+      // If the input message doesn't include the footer, add it
+      if (!inputMessage.includes(footer)) {
+        inputMessage = `${inputMessage.trim()}\n\n${footer}`;
+      }
+
+      message = await openpgp.readMessage({ armoredMessage: inputMessage });
 
       // Attempt to decrypt the message using the password
       try {
@@ -693,9 +715,9 @@ export default function App() {
 
       setDetails(details);
 
-      toast.success("Decryption successful!", { position: "top-right" });
+      toast.success("Message Successfully Decrypted!", { position: "top-right" });
     } catch (error) {
-      toast.error("Incorrect password.", {
+      toast.error("Incorrect password", {
         position: "top-right",
       });
     }
@@ -713,7 +735,6 @@ export default function App() {
 
     try {
       const file = files[0];
-      let message;
 
       const fileData = await file.arrayBuffer();
       message = await openpgp.readMessage({
@@ -887,7 +908,9 @@ export default function App() {
             saveAs(blob, file.name.replace(/\.gpg$/, ""));
           }
 
-          toast.success("Decryption successful!", { position: "top-right" });
+          toast.success("File Successfully Decrypted!", {
+            position: "top-right",
+          });
           return;
         } catch (error) {
           console.log("Key failed to decrypt the message:", error);
@@ -899,11 +922,11 @@ export default function App() {
         // Open password prompt only if no valid private key could decrypt
         setCurrentPrivateKey(null);
         setIsPasswordModalOpen(true);
-        toast.info("The message is password encrypted.", {
+        toast.info("The message is password encrypted", {
           position: "top-right",
         });
       } else if (!successfulDecryption) {
-        toast.error("No valid private key was able to decrypt this message.", {
+        toast.error("No valid private key was able to decrypt this message", {
           position: "top-right",
         });
       }
@@ -916,7 +939,6 @@ export default function App() {
 
   const PasswordFileDecrypt = async () => {
     const file = files[0];
-    let message;
 
     try {
       const fileData = await file.arrayBuffer();
@@ -1196,9 +1218,9 @@ export default function App() {
         saveAs(blob, file.name.replace(/\.gpg$/, ""));
       }
 
-      toast.success("Decryption successful!", { position: "top-right" });
+      toast.success("File Successfully Decrypted!", { position: "top-right" });
     } catch (error) {
-      toast.error("Incorrect password.", {
+      toast.error("Incorrect password", {
         position: "top-right",
       });
     }

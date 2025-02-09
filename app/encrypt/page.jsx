@@ -312,6 +312,9 @@ export default function App() {
     try {
       // If the message is empty then don't push anything to output
       if (!message.trim()) {
+        toast.error("Please Enter a Message or Select a File", {
+          position: "top-right",
+        });
         return;
       }
       const recipientKeysPublic = recipientKeys
@@ -323,7 +326,7 @@ export default function App() {
 
       if (!isChecked && recipientKeysPublic.length === 0) {
         toast.error(
-          "Please select at least one recipient or provide a password.",
+          "Please select at least one recipient or provide a password",
           {
             position: "top-right",
           }
@@ -353,7 +356,7 @@ export default function App() {
           });
 
           if (!privateKey || !privateKey.isDecrypted()) {
-            throw new Error("Failed to decrypt the private key.");
+            throw new Error("Failed to decrypt the private key");
           }
         } else {
           privateKey = privateKeyObject;
@@ -379,7 +382,7 @@ export default function App() {
       const encryptedMessage = await openpgp.encrypt(encryptionOptions);
       setOutput(encryptedMessage);
     } catch (error) {
-      toast.error("Please Enter a Password.", {
+      toast.error("Please Enter a Password", {
         position: "top-right",
       });
     }
@@ -423,7 +426,7 @@ export default function App() {
       // Validation for empty recipients and password
       if (recipientKeysPublic.length === 0 && !password) {
         toast.error(
-          "Please select at least one recipient or provide a password."
+          "Please select at least one recipient or provide a password"
         );
         return;
       }
@@ -472,7 +475,7 @@ export default function App() {
           });
 
           if (!privateKey || !privateKey.isDecrypted()) {
-            throw new Error("Failed to decrypt the private key.");
+            throw new Error("Failed to decrypt the private key");
           }
         } else {
           privateKey = privateKeyObject;
@@ -668,7 +671,7 @@ export default function App() {
                     onSubmitPassword.current(modalpassword);
                   }
                 } else {
-                  toast.error("Please enter a password.");
+                  toast.error("Please enter a password");
                 }
               }
             }}
@@ -682,7 +685,7 @@ export default function App() {
                   onSubmitPassword.current(modalpassword);
                 }
               } else {
-                toast.error("Please enter a password.");
+                toast.error("Please enter a password");
               }
             }}
           >

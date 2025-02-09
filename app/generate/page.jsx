@@ -204,7 +204,7 @@ export default function App() {
         const expiry = new Date(expiryDate);
         keyExpirationTime = Math.floor((expiry - now) / 1000);
         if (keyExpirationTime <= 0) {
-          toast.error("The expiry date must be in the future.", {
+          toast.error("The expiry date must be in the future", {
             position: "top-right",
           });
           return;
