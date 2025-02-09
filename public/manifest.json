@@ -1,7 +1,7 @@
 {
   "id": "2",
   "name": "Next PGP",
-  "short_name": "NextPGP",
+  "short_name": "Next PGP",
   "description": "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
   "icons": [
     {

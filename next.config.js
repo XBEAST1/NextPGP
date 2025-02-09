@@ -13,7 +13,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       // Cache all main pages permanently
       {
         urlPattern: /^https:\/\/nextpgp\.vercel\.app\/$/,
-        handler: "CacheFirst",
+        handler: "NetworkFirst",
         options: {
           cacheName: "main-page-cache",
           expiration: {
@@ -23,7 +23,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       },
       {
         urlPattern: /^https:\/\/nextpgp\.vercel\.app\/generate$/,
-        handler: "CacheFirst",
+        handler: "NetworkFirst",
         options: {
           cacheName: "generate-page-cache",
           expiration: {
@@ -33,7 +33,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       },
       {
         urlPattern: /^https:\/\/nextpgp\.vercel\.app\/import$/,
-        handler: "CacheFirst",
+        handler: "NetworkFirst",
         options: {
           cacheName: "import-page-cache",
           expiration: {
@@ -43,7 +43,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       },
       {
         urlPattern: /^https:\/\/nextpgp\.vercel\.app\/encrypt$/,
-        handler: "CacheFirst",
+        handler: "NetworkFirst",
         options: {
           cacheName: "encrypt-page-cache",
           expiration: {
@@ -53,7 +53,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       },
       {
         urlPattern: /^https:\/\/nextpgp\.vercel\.app\/decrypt$/,
-        handler: "CacheFirst",
+        handler: "NetworkFirst",
         options: {
           cacheName: "decrypt-page-cache",
           expiration: {
@@ -72,7 +72,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       },
       {
         urlPattern: ({ request }) => request.destination === "image",
-        handler: "CacheFirst",
+        handler: "NetworkFirst",
         options: {
           cacheName: "image-cache",
         },
