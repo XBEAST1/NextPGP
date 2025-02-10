@@ -312,9 +312,6 @@ export default function App() {
     try {
       // If the message is empty then don't push anything to output
       if (!message.trim()) {
-        toast.error("Please Enter a Message or Select a File", {
-          position: "top-right",
-        });
         return;
       }
       const recipientKeysPublic = recipientKeys
@@ -503,8 +500,14 @@ export default function App() {
   };
 
   const handleEncrypt = async () => {
-    await encryptMessage();
-    await encryptFiles();
+    if (message || files) {
+      await encryptMessage();
+      await encryptFiles();
+    } else {
+      toast.error("Please Enter a Message or Select a File", {
+        position: "top-right",
+      });
+    }
   };
 
   return (
