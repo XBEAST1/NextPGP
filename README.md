@@ -10,8 +10,15 @@
 <ul>
   <li><b>Key Generation:</b> Effortlessly generate secure PGP keys to protect sensitive information.</li>
   <li><b>Keyring Management:</b> Easily add, manage, and delete keyrings for seamless key organization.</li>
-  <li><b>Encryption & Decryption:</b> Encrypt and decrypt messages securely with an intuitive user interface.</li>
-  <li><b>Progressive Web App (PWA):</b> Experience app-like responsiveness with offline capabilities.</li>
+  <li><b>Encryption & Decryption:</b> Encrypt and decrypt messages and files securely with an intuitive user interface.</li>
+</ul>
+
+---
+
+<h2>❓ Why Next PGP?</h2>
+<ul>
+  <li><b>Cross-Platform Progressive Web App (PWA):</b> Web-based application that works on every device — Windows, macOS, Linux, Android, and iOS with offline capabilities.</li>
+  <li><b>Secure Local Storage:</b> Utilizes IndexedDB to store keys locally, encrypted by the Web Crypto API.</li>
   <li><b>Modern UI:</b> Clean and elegant user experience built on modern design principles.</li>
   <li><b>Blazing Fast Performance:</b> Built with <b>Next.js</b> to deliver superior speed and performance.</li>
 </ul>
