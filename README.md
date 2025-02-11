@@ -47,7 +47,7 @@
 
 <h2>💻 Click To Watch Preview</h2>
 
-[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/1gl4OlUaibY/maxresdefault.jpg)](https://www.youtube.com/watch?v=1gl4OlUaibY)
+[![Next PGP](https://img.youtube.com/vi/1gl4OlUaibY/maxresdefault.jpg)](https://www.youtube.com/watch?v=1gl4OlUaibY)
 
 ---
 
