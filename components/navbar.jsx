@@ -156,13 +156,6 @@ export const Navbar = () => {
         justify="end"
       >
         <NavbarItem className="hidden sm:flex gap-2">
-          <Link
-            isExternal
-            aria-label="Github"
-            href="https://github.com/XBEAST1"
-          >
-            <GithubIcon className="text-default-500" />
-          </Link>
           <ThemeSwitch />
         </NavbarItem>
         <NavbarItem className="hidden md:flex">
