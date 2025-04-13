@@ -78,7 +78,7 @@ export const Navbar = () => {
               base: "gap-4",
             }}
           >
-            <DropdownItem key="manage_keyrings" textValue="Manage Keyrings">
+            <DropdownItem textValue="Manage Keyrings">
               <Link className="text-decoration-none" href="/">
                 <div>
                   Manage Keyrings
@@ -88,7 +88,7 @@ export const Navbar = () => {
                 </div>
               </Link>
             </DropdownItem>
-            <DropdownItem key="generate_keyring" textValue="Generate Keyrings">
+            <DropdownItem textValue="Generate Keyrings">
               <Link className="text-decoration-none" href="/generate">
                 <div>
                   Generate Keyring
@@ -99,7 +99,7 @@ export const Navbar = () => {
                 </div>
               </Link>
             </DropdownItem>
-            <DropdownItem key="import_key" textValue="Import Key">
+            <DropdownItem textValue="Import Key">
               <Link className="text-decoration-none" href="/import">
                 <div>
                   Import Key
@@ -127,7 +127,7 @@ export const Navbar = () => {
               base: "gap-4",
             }}
           >
-            <DropdownItem key="encrypt_data" textValue="Encrypt">
+            <DropdownItem textValue="Encrypt">
               <Link className="text-decoration-none" href="/encrypt">
                 <div>
                   Encrypt
@@ -137,12 +137,50 @@ export const Navbar = () => {
                 </div>
               </Link>
             </DropdownItem>
-            <DropdownItem key="decrypt_data" textValue="Decrypt">
+            <DropdownItem textValue="Decrypt">
               <Link className="text-decoration-none" href="/decrypt">
                 <div>
                   Decrypt
                   <p className="text-default-500 text-xs">
                     Decrypt data using a PGP private key.
+                  </p>
+                </div>
+              </Link>
+            </DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
+      </NavbarContent>
+
+      <NavbarContent className="hidden sm:flex gap-4" justify="center">
+        <Dropdown>
+          <NavbarItem>
+            <DropdownTrigger>
+              <Button size="md">Cloud Storage</Button>
+            </DropdownTrigger>
+          </NavbarItem>
+          <DropdownMenu
+            aria-label="Encrypt or Decrypt Data"
+            className="w-[340px]"
+            itemClasses={{
+              base: "gap-4",
+            }}
+          >
+            <DropdownItem textValue="Backup">
+              <Link className="text-decoration-none" href="/cloud-backup">
+                <div>
+                  Backup
+                  <p className="text-default-500 text-xs">
+                    Backip PGP keys on cloud storage.
+                  </p>
+                </div>
+              </Link>
+            </DropdownItem>
+            <DropdownItem textValue="Import">
+              <Link className="text-decoration-none" href="/cloud-import">
+                <div>
+                  Import
+                  <p className="text-default-500 text-xs">
+                    Import PGP keys from cloud storage.
                   </p>
                 </div>
               </Link>

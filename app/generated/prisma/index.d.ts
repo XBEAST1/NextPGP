@@ -24,20 +24,10 @@ export type User = $Result.DefaultSelection<Prisma.$UserPayload>
  */
 export type Account = $Result.DefaultSelection<Prisma.$AccountPayload>
 /**
- * Model Session
+ * Model Vault
  * 
  */
-export type Session = $Result.DefaultSelection<Prisma.$SessionPayload>
-/**
- * Model VerificationToken
- * 
- */
-export type VerificationToken = $Result.DefaultSelection<Prisma.$VerificationTokenPayload>
-/**
- * Model Authenticator
- * 
- */
-export type Authenticator = $Result.DefaultSelection<Prisma.$AuthenticatorPayload>
+export type Vault = $Result.DefaultSelection<Prisma.$VaultPayload>
 
 /**
  * ##  Prisma Client ʲˢ
@@ -152,34 +142,14 @@ export class PrismaClient<
   get account(): Prisma.AccountDelegate<ExtArgs, ClientOptions>;
 
   /**
-   * `prisma.session`: Exposes CRUD operations for the **Session** model.
+   * `prisma.vault`: Exposes CRUD operations for the **Vault** model.
     * Example usage:
     * ```ts
-    * // Fetch zero or more Sessions
-    * const sessions = await prisma.session.findMany()
+    * // Fetch zero or more Vaults
+    * const vaults = await prisma.vault.findMany()
     * ```
     */
-  get session(): Prisma.SessionDelegate<ExtArgs, ClientOptions>;
-
-  /**
-   * `prisma.verificationToken`: Exposes CRUD operations for the **VerificationToken** model.
-    * Example usage:
-    * ```ts
-    * // Fetch zero or more VerificationTokens
-    * const verificationTokens = await prisma.verificationToken.findMany()
-    * ```
-    */
-  get verificationToken(): Prisma.VerificationTokenDelegate<ExtArgs, ClientOptions>;
-
-  /**
-   * `prisma.authenticator`: Exposes CRUD operations for the **Authenticator** model.
-    * Example usage:
-    * ```ts
-    * // Fetch zero or more Authenticators
-    * const authenticators = await prisma.authenticator.findMany()
-    * ```
-    */
-  get authenticator(): Prisma.AuthenticatorDelegate<ExtArgs, ClientOptions>;
+  get vault(): Prisma.VaultDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -622,9 +592,7 @@ export namespace Prisma {
   export const ModelName: {
     User: 'User',
     Account: 'Account',
-    Session: 'Session',
-    VerificationToken: 'VerificationToken',
-    Authenticator: 'Authenticator'
+    Vault: 'Vault'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -643,7 +611,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "account" | "session" | "verificationToken" | "authenticator"
+      modelProps: "user" | "account" | "vault"
       txIsolationLevel: never
     }
     model: {
@@ -795,225 +763,77 @@ export namespace Prisma {
           }
         }
       }
-      Session: {
-        payload: Prisma.$SessionPayload<ExtArgs>
-        fields: Prisma.SessionFieldRefs
+      Vault: {
+        payload: Prisma.$VaultPayload<ExtArgs>
+        fields: Prisma.VaultFieldRefs
         operations: {
           findUnique: {
-            args: Prisma.SessionFindUniqueArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$SessionPayload> | null
+            args: Prisma.VaultFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$VaultPayload> | null
           }
           findUniqueOrThrow: {
-            args: Prisma.SessionFindUniqueOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$SessionPayload>
+            args: Prisma.VaultFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$VaultPayload>
           }
           findFirst: {
-            args: Prisma.SessionFindFirstArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$SessionPayload> | null
+            args: Prisma.VaultFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$VaultPayload> | null
           }
           findFirstOrThrow: {
-            args: Prisma.SessionFindFirstOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$SessionPayload>
+            args: Prisma.VaultFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$VaultPayload>
           }
           findMany: {
-            args: Prisma.SessionFindManyArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$SessionPayload>[]
+            args: Prisma.VaultFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$VaultPayload>[]
           }
           create: {
-            args: Prisma.SessionCreateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$SessionPayload>
+            args: Prisma.VaultCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$VaultPayload>
           }
           createMany: {
-            args: Prisma.SessionCreateManyArgs<ExtArgs>
+            args: Prisma.VaultCreateManyArgs<ExtArgs>
             result: BatchPayload
           }
           delete: {
-            args: Prisma.SessionDeleteArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$SessionPayload>
+            args: Prisma.VaultDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$VaultPayload>
           }
           update: {
-            args: Prisma.SessionUpdateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$SessionPayload>
+            args: Prisma.VaultUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$VaultPayload>
           }
           deleteMany: {
-            args: Prisma.SessionDeleteManyArgs<ExtArgs>
+            args: Prisma.VaultDeleteManyArgs<ExtArgs>
             result: BatchPayload
           }
           updateMany: {
-            args: Prisma.SessionUpdateManyArgs<ExtArgs>
+            args: Prisma.VaultUpdateManyArgs<ExtArgs>
             result: BatchPayload
           }
           upsert: {
-            args: Prisma.SessionUpsertArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$SessionPayload>
+            args: Prisma.VaultUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$VaultPayload>
           }
           aggregate: {
-            args: Prisma.SessionAggregateArgs<ExtArgs>
-            result: $Utils.Optional<AggregateSession>
+            args: Prisma.VaultAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateVault>
           }
           groupBy: {
-            args: Prisma.SessionGroupByArgs<ExtArgs>
-            result: $Utils.Optional<SessionGroupByOutputType>[]
+            args: Prisma.VaultGroupByArgs<ExtArgs>
+            result: $Utils.Optional<VaultGroupByOutputType>[]
           }
           findRaw: {
-            args: Prisma.SessionFindRawArgs<ExtArgs>
+            args: Prisma.VaultFindRawArgs<ExtArgs>
             result: JsonObject
           }
           aggregateRaw: {
-            args: Prisma.SessionAggregateRawArgs<ExtArgs>
+            args: Prisma.VaultAggregateRawArgs<ExtArgs>
             result: JsonObject
           }
           count: {
-            args: Prisma.SessionCountArgs<ExtArgs>
-            result: $Utils.Optional<SessionCountAggregateOutputType> | number
-          }
-        }
-      }
-      VerificationToken: {
-        payload: Prisma.$VerificationTokenPayload<ExtArgs>
-        fields: Prisma.VerificationTokenFieldRefs
-        operations: {
-          findUnique: {
-            args: Prisma.VerificationTokenFindUniqueArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$VerificationTokenPayload> | null
-          }
-          findUniqueOrThrow: {
-            args: Prisma.VerificationTokenFindUniqueOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$VerificationTokenPayload>
-          }
-          findFirst: {
-            args: Prisma.VerificationTokenFindFirstArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$VerificationTokenPayload> | null
-          }
-          findFirstOrThrow: {
-            args: Prisma.VerificationTokenFindFirstOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$VerificationTokenPayload>
-          }
-          findMany: {
-            args: Prisma.VerificationTokenFindManyArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$VerificationTokenPayload>[]
-          }
-          create: {
-            args: Prisma.VerificationTokenCreateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$VerificationTokenPayload>
-          }
-          createMany: {
-            args: Prisma.VerificationTokenCreateManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          delete: {
-            args: Prisma.VerificationTokenDeleteArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$VerificationTokenPayload>
-          }
-          update: {
-            args: Prisma.VerificationTokenUpdateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$VerificationTokenPayload>
-          }
-          deleteMany: {
-            args: Prisma.VerificationTokenDeleteManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          updateMany: {
-            args: Prisma.VerificationTokenUpdateManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          upsert: {
-            args: Prisma.VerificationTokenUpsertArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$VerificationTokenPayload>
-          }
-          aggregate: {
-            args: Prisma.VerificationTokenAggregateArgs<ExtArgs>
-            result: $Utils.Optional<AggregateVerificationToken>
-          }
-          groupBy: {
-            args: Prisma.VerificationTokenGroupByArgs<ExtArgs>
-            result: $Utils.Optional<VerificationTokenGroupByOutputType>[]
-          }
-          findRaw: {
-            args: Prisma.VerificationTokenFindRawArgs<ExtArgs>
-            result: JsonObject
-          }
-          aggregateRaw: {
-            args: Prisma.VerificationTokenAggregateRawArgs<ExtArgs>
-            result: JsonObject
-          }
-          count: {
-            args: Prisma.VerificationTokenCountArgs<ExtArgs>
-            result: $Utils.Optional<VerificationTokenCountAggregateOutputType> | number
-          }
-        }
-      }
-      Authenticator: {
-        payload: Prisma.$AuthenticatorPayload<ExtArgs>
-        fields: Prisma.AuthenticatorFieldRefs
-        operations: {
-          findUnique: {
-            args: Prisma.AuthenticatorFindUniqueArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$AuthenticatorPayload> | null
-          }
-          findUniqueOrThrow: {
-            args: Prisma.AuthenticatorFindUniqueOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$AuthenticatorPayload>
-          }
-          findFirst: {
-            args: Prisma.AuthenticatorFindFirstArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$AuthenticatorPayload> | null
-          }
-          findFirstOrThrow: {
-            args: Prisma.AuthenticatorFindFirstOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$AuthenticatorPayload>
-          }
-          findMany: {
-            args: Prisma.AuthenticatorFindManyArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$AuthenticatorPayload>[]
-          }
-          create: {
-            args: Prisma.AuthenticatorCreateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$AuthenticatorPayload>
-          }
-          createMany: {
-            args: Prisma.AuthenticatorCreateManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          delete: {
-            args: Prisma.AuthenticatorDeleteArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$AuthenticatorPayload>
-          }
-          update: {
-            args: Prisma.AuthenticatorUpdateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$AuthenticatorPayload>
-          }
-          deleteMany: {
-            args: Prisma.AuthenticatorDeleteManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          updateMany: {
-            args: Prisma.AuthenticatorUpdateManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          upsert: {
-            args: Prisma.AuthenticatorUpsertArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$AuthenticatorPayload>
-          }
-          aggregate: {
-            args: Prisma.AuthenticatorAggregateArgs<ExtArgs>
-            result: $Utils.Optional<AggregateAuthenticator>
-          }
-          groupBy: {
-            args: Prisma.AuthenticatorGroupByArgs<ExtArgs>
-            result: $Utils.Optional<AuthenticatorGroupByOutputType>[]
-          }
-          findRaw: {
-            args: Prisma.AuthenticatorFindRawArgs<ExtArgs>
-            result: JsonObject
-          }
-          aggregateRaw: {
-            args: Prisma.AuthenticatorAggregateRawArgs<ExtArgs>
-            result: JsonObject
-          }
-          count: {
-            args: Prisma.AuthenticatorCountArgs<ExtArgs>
-            result: $Utils.Optional<AuthenticatorCountAggregateOutputType> | number
+            args: Prisma.VaultCountArgs<ExtArgs>
+            result: $Utils.Optional<VaultCountAggregateOutputType> | number
           }
         }
       }
@@ -1090,9 +910,7 @@ export namespace Prisma {
   export type GlobalOmitConfig = {
     user?: UserOmit
     account?: AccountOmit
-    session?: SessionOmit
-    verificationToken?: VerificationTokenOmit
-    authenticator?: AuthenticatorOmit
+    vault?: VaultOmit
   }
 
   /* Types for Logging */
@@ -1188,14 +1006,12 @@ export namespace Prisma {
 
   export type UserCountOutputType = {
     accounts: number
-    sessions: number
-    Authenticator: number
+    vaults: number
   }
 
   export type UserCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     accounts?: boolean | UserCountOutputTypeCountAccountsArgs
-    sessions?: boolean | UserCountOutputTypeCountSessionsArgs
-    Authenticator?: boolean | UserCountOutputTypeCountAuthenticatorArgs
+    vaults?: boolean | UserCountOutputTypeCountVaultsArgs
   }
 
   // Custom InputTypes
@@ -1219,15 +1035,8 @@ export namespace Prisma {
   /**
    * UserCountOutputType without action
    */
-  export type UserCountOutputTypeCountSessionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: SessionWhereInput
-  }
-
-  /**
-   * UserCountOutputType without action
-   */
-  export type UserCountOutputTypeCountAuthenticatorArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: AuthenticatorWhereInput
+  export type UserCountOutputTypeCountVaultsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: VaultWhereInput
   }
 
 
@@ -1416,8 +1225,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     accounts?: boolean | User$accountsArgs<ExtArgs>
-    sessions?: boolean | User$sessionsArgs<ExtArgs>
-    Authenticator?: boolean | User$AuthenticatorArgs<ExtArgs>
+    vaults?: boolean | User$vaultsArgs<ExtArgs>
     _count?: boolean | UserCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["user"]>
 
@@ -1436,8 +1244,7 @@ export namespace Prisma {
   export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
   export type UserInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     accounts?: boolean | User$accountsArgs<ExtArgs>
-    sessions?: boolean | User$sessionsArgs<ExtArgs>
-    Authenticator?: boolean | User$AuthenticatorArgs<ExtArgs>
+    vaults?: boolean | User$vaultsArgs<ExtArgs>
     _count?: boolean | UserCountOutputTypeDefaultArgs<ExtArgs>
   }
 
@@ -1445,8 +1252,7 @@ export namespace Prisma {
     name: "User"
     objects: {
       accounts: Prisma.$AccountPayload<ExtArgs>[]
-      sessions: Prisma.$SessionPayload<ExtArgs>[]
-      Authenticator: Prisma.$AuthenticatorPayload<ExtArgs>[]
+      vaults: Prisma.$VaultPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -1820,8 +1626,7 @@ export namespace Prisma {
   export interface Prisma__UserClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     accounts<T extends User$accountsArgs<ExtArgs> = {}>(args?: Subset<T, User$accountsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AccountPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-    sessions<T extends User$sessionsArgs<ExtArgs> = {}>(args?: Subset<T, User$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-    Authenticator<T extends User$AuthenticatorArgs<ExtArgs> = {}>(args?: Subset<T, User$AuthenticatorArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AuthenticatorPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    vaults<T extends User$vaultsArgs<ExtArgs> = {}>(args?: Subset<T, User$vaultsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$VaultPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2252,51 +2057,27 @@ export namespace Prisma {
   }
 
   /**
-   * User.sessions
+   * User.vaults
    */
-  export type User$sessionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type User$vaultsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Session
+     * Select specific fields to fetch from the Vault
      */
-    select?: SessionSelect<ExtArgs> | null
+    select?: VaultSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Session
+     * Omit specific fields from the Vault
      */
-    omit?: SessionOmit<ExtArgs> | null
+    omit?: VaultOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: SessionInclude<ExtArgs> | null
-    where?: SessionWhereInput
-    orderBy?: SessionOrderByWithRelationInput | SessionOrderByWithRelationInput[]
-    cursor?: SessionWhereUniqueInput
+    include?: VaultInclude<ExtArgs> | null
+    where?: VaultWhereInput
+    orderBy?: VaultOrderByWithRelationInput | VaultOrderByWithRelationInput[]
+    cursor?: VaultWhereUniqueInput
     take?: number
     skip?: number
-    distinct?: SessionScalarFieldEnum | SessionScalarFieldEnum[]
-  }
-
-  /**
-   * User.Authenticator
-   */
-  export type User$AuthenticatorArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Authenticator
-     */
-    select?: AuthenticatorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Authenticator
-     */
-    omit?: AuthenticatorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: AuthenticatorInclude<ExtArgs> | null
-    where?: AuthenticatorWhereInput
-    orderBy?: AuthenticatorOrderByWithRelationInput | AuthenticatorOrderByWithRelationInput[]
-    cursor?: AuthenticatorWhereUniqueInput
-    take?: number
-    skip?: number
-    distinct?: AuthenticatorScalarFieldEnum | AuthenticatorScalarFieldEnum[]
+    distinct?: VaultScalarFieldEnum | VaultScalarFieldEnum[]
   }
 
   /**
@@ -3431,345 +3212,335 @@ export namespace Prisma {
 
 
   /**
-   * Model Session
+   * Model Vault
    */
 
-  export type AggregateSession = {
-    _count: SessionCountAggregateOutputType | null
-    _min: SessionMinAggregateOutputType | null
-    _max: SessionMaxAggregateOutputType | null
+  export type AggregateVault = {
+    _count: VaultCountAggregateOutputType | null
+    _min: VaultMinAggregateOutputType | null
+    _max: VaultMaxAggregateOutputType | null
   }
 
-  export type SessionMinAggregateOutputType = {
+  export type VaultMinAggregateOutputType = {
     id: string | null
-    sessionToken: string | null
+    name: string | null
+    password: string | null
     userId: string | null
-    expires: Date | null
     createdAt: Date | null
-    updatedAt: Date | null
   }
 
-  export type SessionMaxAggregateOutputType = {
+  export type VaultMaxAggregateOutputType = {
     id: string | null
-    sessionToken: string | null
+    name: string | null
+    password: string | null
     userId: string | null
-    expires: Date | null
     createdAt: Date | null
-    updatedAt: Date | null
   }
 
-  export type SessionCountAggregateOutputType = {
+  export type VaultCountAggregateOutputType = {
     id: number
-    sessionToken: number
+    name: number
+    password: number
     userId: number
-    expires: number
     createdAt: number
-    updatedAt: number
     _all: number
   }
 
 
-  export type SessionMinAggregateInputType = {
+  export type VaultMinAggregateInputType = {
     id?: true
-    sessionToken?: true
+    name?: true
+    password?: true
     userId?: true
-    expires?: true
     createdAt?: true
-    updatedAt?: true
   }
 
-  export type SessionMaxAggregateInputType = {
+  export type VaultMaxAggregateInputType = {
     id?: true
-    sessionToken?: true
+    name?: true
+    password?: true
     userId?: true
-    expires?: true
     createdAt?: true
-    updatedAt?: true
   }
 
-  export type SessionCountAggregateInputType = {
+  export type VaultCountAggregateInputType = {
     id?: true
-    sessionToken?: true
+    name?: true
+    password?: true
     userId?: true
-    expires?: true
     createdAt?: true
-    updatedAt?: true
     _all?: true
   }
 
-  export type SessionAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Filter which Session to aggregate.
+     * Filter which Vault to aggregate.
      */
-    where?: SessionWhereInput
+    where?: VaultWhereInput
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
-     * Determine the order of Sessions to fetch.
+     * Determine the order of Vaults to fetch.
      */
-    orderBy?: SessionOrderByWithRelationInput | SessionOrderByWithRelationInput[]
+    orderBy?: VaultOrderByWithRelationInput | VaultOrderByWithRelationInput[]
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the start position
      */
-    cursor?: SessionWhereUniqueInput
+    cursor?: VaultWhereUniqueInput
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` Sessions from the position of the cursor.
+     * Take `±n` Vaults from the position of the cursor.
      */
     take?: number
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Skip the first `n` Sessions.
+     * Skip the first `n` Vaults.
      */
     skip?: number
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
-     * Count returned Sessions
+     * Count returned Vaults
     **/
-    _count?: true | SessionCountAggregateInputType
+    _count?: true | VaultCountAggregateInputType
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to find the minimum value
     **/
-    _min?: SessionMinAggregateInputType
+    _min?: VaultMinAggregateInputType
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to find the maximum value
     **/
-    _max?: SessionMaxAggregateInputType
+    _max?: VaultMaxAggregateInputType
   }
 
-  export type GetSessionAggregateType<T extends SessionAggregateArgs> = {
-        [P in keyof T & keyof AggregateSession]: P extends '_count' | 'count'
+  export type GetVaultAggregateType<T extends VaultAggregateArgs> = {
+        [P in keyof T & keyof AggregateVault]: P extends '_count' | 'count'
       ? T[P] extends true
         ? number
-        : GetScalarType<T[P], AggregateSession[P]>
-      : GetScalarType<T[P], AggregateSession[P]>
+        : GetScalarType<T[P], AggregateVault[P]>
+      : GetScalarType<T[P], AggregateVault[P]>
   }
 
 
 
 
-  export type SessionGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: SessionWhereInput
-    orderBy?: SessionOrderByWithAggregationInput | SessionOrderByWithAggregationInput[]
-    by: SessionScalarFieldEnum[] | SessionScalarFieldEnum
-    having?: SessionScalarWhereWithAggregatesInput
+  export type VaultGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: VaultWhereInput
+    orderBy?: VaultOrderByWithAggregationInput | VaultOrderByWithAggregationInput[]
+    by: VaultScalarFieldEnum[] | VaultScalarFieldEnum
+    having?: VaultScalarWhereWithAggregatesInput
     take?: number
     skip?: number
-    _count?: SessionCountAggregateInputType | true
-    _min?: SessionMinAggregateInputType
-    _max?: SessionMaxAggregateInputType
+    _count?: VaultCountAggregateInputType | true
+    _min?: VaultMinAggregateInputType
+    _max?: VaultMaxAggregateInputType
   }
 
-  export type SessionGroupByOutputType = {
+  export type VaultGroupByOutputType = {
     id: string
-    sessionToken: string
+    name: string
+    password: string
     userId: string
-    expires: Date
     createdAt: Date
-    updatedAt: Date
-    _count: SessionCountAggregateOutputType | null
-    _min: SessionMinAggregateOutputType | null
-    _max: SessionMaxAggregateOutputType | null
+    _count: VaultCountAggregateOutputType | null
+    _min: VaultMinAggregateOutputType | null
+    _max: VaultMaxAggregateOutputType | null
   }
 
-  type GetSessionGroupByPayload<T extends SessionGroupByArgs> = Prisma.PrismaPromise<
+  type GetVaultGroupByPayload<T extends VaultGroupByArgs> = Prisma.PrismaPromise<
     Array<
-      PickEnumerable<SessionGroupByOutputType, T['by']> &
+      PickEnumerable<VaultGroupByOutputType, T['by']> &
         {
-          [P in ((keyof T) & (keyof SessionGroupByOutputType))]: P extends '_count'
+          [P in ((keyof T) & (keyof VaultGroupByOutputType))]: P extends '_count'
             ? T[P] extends boolean
               ? number
-              : GetScalarType<T[P], SessionGroupByOutputType[P]>
-            : GetScalarType<T[P], SessionGroupByOutputType[P]>
+              : GetScalarType<T[P], VaultGroupByOutputType[P]>
+            : GetScalarType<T[P], VaultGroupByOutputType[P]>
         }
       >
     >
 
 
-  export type SessionSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+  export type VaultSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
-    sessionToken?: boolean
+    name?: boolean
+    password?: boolean
     userId?: boolean
-    expires?: boolean
     createdAt?: boolean
-    updatedAt?: boolean
     user?: boolean | UserDefaultArgs<ExtArgs>
-  }, ExtArgs["result"]["session"]>
+  }, ExtArgs["result"]["vault"]>
 
 
 
-  export type SessionSelectScalar = {
+  export type VaultSelectScalar = {
     id?: boolean
-    sessionToken?: boolean
+    name?: boolean
+    password?: boolean
     userId?: boolean
-    expires?: boolean
     createdAt?: boolean
-    updatedAt?: boolean
   }
 
-  export type SessionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "sessionToken" | "userId" | "expires" | "createdAt" | "updatedAt", ExtArgs["result"]["session"]>
-  export type SessionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "password" | "userId" | "createdAt", ExtArgs["result"]["vault"]>
+  export type VaultInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     user?: boolean | UserDefaultArgs<ExtArgs>
   }
 
-  export type $SessionPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    name: "Session"
+  export type $VaultPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "Vault"
     objects: {
       user: Prisma.$UserPayload<ExtArgs>
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
-      sessionToken: string
+      name: string
+      password: string
       userId: string
-      expires: Date
       createdAt: Date
-      updatedAt: Date
-    }, ExtArgs["result"]["session"]>
+    }, ExtArgs["result"]["vault"]>
     composites: {}
   }
 
-  type SessionGetPayload<S extends boolean | null | undefined | SessionDefaultArgs> = $Result.GetResult<Prisma.$SessionPayload, S>
+  type VaultGetPayload<S extends boolean | null | undefined | VaultDefaultArgs> = $Result.GetResult<Prisma.$VaultPayload, S>
 
-  type SessionCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
-    Omit<SessionFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
-      select?: SessionCountAggregateInputType | true
+  type VaultCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<VaultFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: VaultCountAggregateInputType | true
     }
 
-  export interface SessionDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
-    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['Session'], meta: { name: 'Session' } }
+  export interface VaultDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['Vault'], meta: { name: 'Vault' } }
     /**
-     * Find zero or one Session that matches the filter.
-     * @param {SessionFindUniqueArgs} args - Arguments to find a Session
+     * Find zero or one Vault that matches the filter.
+     * @param {VaultFindUniqueArgs} args - Arguments to find a Vault
      * @example
-     * // Get one Session
-     * const session = await prisma.session.findUnique({
+     * // Get one Vault
+     * const vault = await prisma.vault.findUnique({
      *   where: {
      *     // ... provide filter here
      *   }
      * })
      */
-    findUnique<T extends SessionFindUniqueArgs>(args: SelectSubset<T, SessionFindUniqueArgs<ExtArgs>>): Prisma__SessionClient<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    findUnique<T extends VaultFindUniqueArgs>(args: SelectSubset<T, VaultFindUniqueArgs<ExtArgs>>): Prisma__VaultClient<$Result.GetResult<Prisma.$VaultPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
 
     /**
-     * Find one Session that matches the filter or throw an error with `error.code='P2025'`
+     * Find one Vault that matches the filter or throw an error with `error.code='P2025'`
      * if no matches were found.
-     * @param {SessionFindUniqueOrThrowArgs} args - Arguments to find a Session
+     * @param {VaultFindUniqueOrThrowArgs} args - Arguments to find a Vault
      * @example
-     * // Get one Session
-     * const session = await prisma.session.findUniqueOrThrow({
+     * // Get one Vault
+     * const vault = await prisma.vault.findUniqueOrThrow({
      *   where: {
      *     // ... provide filter here
      *   }
      * })
      */
-    findUniqueOrThrow<T extends SessionFindUniqueOrThrowArgs>(args: SelectSubset<T, SessionFindUniqueOrThrowArgs<ExtArgs>>): Prisma__SessionClient<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+    findUniqueOrThrow<T extends VaultFindUniqueOrThrowArgs>(args: SelectSubset<T, VaultFindUniqueOrThrowArgs<ExtArgs>>): Prisma__VaultClient<$Result.GetResult<Prisma.$VaultPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
 
     /**
-     * Find the first Session that matches the filter.
+     * Find the first Vault that matches the filter.
      * Note, that providing `undefined` is treated as the value not being there.
      * Read more here: https://pris.ly/d/null-undefined
-     * @param {SessionFindFirstArgs} args - Arguments to find a Session
+     * @param {VaultFindFirstArgs} args - Arguments to find a Vault
      * @example
-     * // Get one Session
-     * const session = await prisma.session.findFirst({
+     * // Get one Vault
+     * const vault = await prisma.vault.findFirst({
      *   where: {
      *     // ... provide filter here
      *   }
      * })
      */
-    findFirst<T extends SessionFindFirstArgs>(args?: SelectSubset<T, SessionFindFirstArgs<ExtArgs>>): Prisma__SessionClient<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    findFirst<T extends VaultFindFirstArgs>(args?: SelectSubset<T, VaultFindFirstArgs<ExtArgs>>): Prisma__VaultClient<$Result.GetResult<Prisma.$VaultPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
 
     /**
-     * Find the first Session that matches the filter or
+     * Find the first Vault that matches the filter or
      * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
      * Note, that providing `undefined` is treated as the value not being there.
      * Read more here: https://pris.ly/d/null-undefined
-     * @param {SessionFindFirstOrThrowArgs} args - Arguments to find a Session
+     * @param {VaultFindFirstOrThrowArgs} args - Arguments to find a Vault
      * @example
-     * // Get one Session
-     * const session = await prisma.session.findFirstOrThrow({
+     * // Get one Vault
+     * const vault = await prisma.vault.findFirstOrThrow({
      *   where: {
      *     // ... provide filter here
      *   }
      * })
      */
-    findFirstOrThrow<T extends SessionFindFirstOrThrowArgs>(args?: SelectSubset<T, SessionFindFirstOrThrowArgs<ExtArgs>>): Prisma__SessionClient<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+    findFirstOrThrow<T extends VaultFindFirstOrThrowArgs>(args?: SelectSubset<T, VaultFindFirstOrThrowArgs<ExtArgs>>): Prisma__VaultClient<$Result.GetResult<Prisma.$VaultPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
 
     /**
-     * Find zero or more Sessions that matches the filter.
+     * Find zero or more Vaults that matches the filter.
      * Note, that providing `undefined` is treated as the value not being there.
      * Read more here: https://pris.ly/d/null-undefined
-     * @param {SessionFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @param {VaultFindManyArgs} args - Arguments to filter and select certain fields only.
      * @example
-     * // Get all Sessions
-     * const sessions = await prisma.session.findMany()
+     * // Get all Vaults
+     * const vaults = await prisma.vault.findMany()
      * 
-     * // Get first 10 Sessions
-     * const sessions = await prisma.session.findMany({ take: 10 })
+     * // Get first 10 Vaults
+     * const vaults = await prisma.vault.findMany({ take: 10 })
      * 
      * // Only select the `id`
-     * const sessionWithIdOnly = await prisma.session.findMany({ select: { id: true } })
+     * const vaultWithIdOnly = await prisma.vault.findMany({ select: { id: true } })
      * 
      */
-    findMany<T extends SessionFindManyArgs>(args?: SelectSubset<T, SessionFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+    findMany<T extends VaultFindManyArgs>(args?: SelectSubset<T, VaultFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$VaultPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
 
     /**
-     * Create a Session.
-     * @param {SessionCreateArgs} args - Arguments to create a Session.
+     * Create a Vault.
+     * @param {VaultCreateArgs} args - Arguments to create a Vault.
      * @example
-     * // Create one Session
-     * const Session = await prisma.session.create({
+     * // Create one Vault
+     * const Vault = await prisma.vault.create({
      *   data: {
-     *     // ... data to create a Session
+     *     // ... data to create a Vault
      *   }
      * })
      * 
      */
-    create<T extends SessionCreateArgs>(args: SelectSubset<T, SessionCreateArgs<ExtArgs>>): Prisma__SessionClient<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+    create<T extends VaultCreateArgs>(args: SelectSubset<T, VaultCreateArgs<ExtArgs>>): Prisma__VaultClient<$Result.GetResult<Prisma.$VaultPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
 
     /**
-     * Create many Sessions.
-     * @param {SessionCreateManyArgs} args - Arguments to create many Sessions.
+     * Create many Vaults.
+     * @param {VaultCreateManyArgs} args - Arguments to create many Vaults.
      * @example
-     * // Create many Sessions
-     * const session = await prisma.session.createMany({
+     * // Create many Vaults
+     * const vault = await prisma.vault.createMany({
      *   data: [
      *     // ... provide data here
      *   ]
      * })
      *     
      */
-    createMany<T extends SessionCreateManyArgs>(args?: SelectSubset<T, SessionCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+    createMany<T extends VaultCreateManyArgs>(args?: SelectSubset<T, VaultCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
 
     /**
-     * Delete a Session.
-     * @param {SessionDeleteArgs} args - Arguments to delete one Session.
+     * Delete a Vault.
+     * @param {VaultDeleteArgs} args - Arguments to delete one Vault.
      * @example
-     * // Delete one Session
-     * const Session = await prisma.session.delete({
+     * // Delete one Vault
+     * const Vault = await prisma.vault.delete({
      *   where: {
-     *     // ... filter to delete one Session
+     *     // ... filter to delete one Vault
      *   }
      * })
      * 
      */
-    delete<T extends SessionDeleteArgs>(args: SelectSubset<T, SessionDeleteArgs<ExtArgs>>): Prisma__SessionClient<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+    delete<T extends VaultDeleteArgs>(args: SelectSubset<T, VaultDeleteArgs<ExtArgs>>): Prisma__VaultClient<$Result.GetResult<Prisma.$VaultPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
 
     /**
-     * Update one Session.
-     * @param {SessionUpdateArgs} args - Arguments to update one Session.
+     * Update one Vault.
+     * @param {VaultUpdateArgs} args - Arguments to update one Vault.
      * @example
-     * // Update one Session
-     * const session = await prisma.session.update({
+     * // Update one Vault
+     * const vault = await prisma.vault.update({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -3779,30 +3550,30 @@ export namespace Prisma {
      * })
      * 
      */
-    update<T extends SessionUpdateArgs>(args: SelectSubset<T, SessionUpdateArgs<ExtArgs>>): Prisma__SessionClient<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+    update<T extends VaultUpdateArgs>(args: SelectSubset<T, VaultUpdateArgs<ExtArgs>>): Prisma__VaultClient<$Result.GetResult<Prisma.$VaultPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
 
     /**
-     * Delete zero or more Sessions.
-     * @param {SessionDeleteManyArgs} args - Arguments to filter Sessions to delete.
+     * Delete zero or more Vaults.
+     * @param {VaultDeleteManyArgs} args - Arguments to filter Vaults to delete.
      * @example
-     * // Delete a few Sessions
-     * const { count } = await prisma.session.deleteMany({
+     * // Delete a few Vaults
+     * const { count } = await prisma.vault.deleteMany({
      *   where: {
      *     // ... provide filter here
      *   }
      * })
      * 
      */
-    deleteMany<T extends SessionDeleteManyArgs>(args?: SelectSubset<T, SessionDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+    deleteMany<T extends VaultDeleteManyArgs>(args?: SelectSubset<T, VaultDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
 
     /**
-     * Update zero or more Sessions.
+     * Update zero or more Vaults.
      * Note, that providing `undefined` is treated as the value not being there.
      * Read more here: https://pris.ly/d/null-undefined
-     * @param {SessionUpdateManyArgs} args - Arguments to update one or more rows.
+     * @param {VaultUpdateManyArgs} args - Arguments to update one or more rows.
      * @example
-     * // Update many Sessions
-     * const session = await prisma.session.updateMany({
+     * // Update many Vaults
+     * const vault = await prisma.vault.updateMany({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -3812,79 +3583,79 @@ export namespace Prisma {
      * })
      * 
      */
-    updateMany<T extends SessionUpdateManyArgs>(args: SelectSubset<T, SessionUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+    updateMany<T extends VaultUpdateManyArgs>(args: SelectSubset<T, VaultUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
 
     /**
-     * Create or update one Session.
-     * @param {SessionUpsertArgs} args - Arguments to update or create a Session.
+     * Create or update one Vault.
+     * @param {VaultUpsertArgs} args - Arguments to update or create a Vault.
      * @example
-     * // Update or create a Session
-     * const session = await prisma.session.upsert({
+     * // Update or create a Vault
+     * const vault = await prisma.vault.upsert({
      *   create: {
-     *     // ... data to create a Session
+     *     // ... data to create a Vault
      *   },
      *   update: {
      *     // ... in case it already exists, update
      *   },
      *   where: {
-     *     // ... the filter for the Session we want to update
+     *     // ... the filter for the Vault we want to update
      *   }
      * })
      */
-    upsert<T extends SessionUpsertArgs>(args: SelectSubset<T, SessionUpsertArgs<ExtArgs>>): Prisma__SessionClient<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+    upsert<T extends VaultUpsertArgs>(args: SelectSubset<T, VaultUpsertArgs<ExtArgs>>): Prisma__VaultClient<$Result.GetResult<Prisma.$VaultPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
 
     /**
-     * Find zero or more Sessions that matches the filter.
-     * @param {SessionFindRawArgs} args - Select which filters you would like to apply.
+     * Find zero or more Vaults that matches the filter.
+     * @param {VaultFindRawArgs} args - Select which filters you would like to apply.
      * @example
-     * const session = await prisma.session.findRaw({
+     * const vault = await prisma.vault.findRaw({
      *   filter: { age: { $gt: 25 } }
      * })
      */
-    findRaw(args?: SessionFindRawArgs): Prisma.PrismaPromise<JsonObject>
+    findRaw(args?: VaultFindRawArgs): Prisma.PrismaPromise<JsonObject>
 
     /**
-     * Perform aggregation operations on a Session.
-     * @param {SessionAggregateRawArgs} args - Select which aggregations you would like to apply.
+     * Perform aggregation operations on a Vault.
+     * @param {VaultAggregateRawArgs} args - Select which aggregations you would like to apply.
      * @example
-     * const session = await prisma.session.aggregateRaw({
+     * const vault = await prisma.vault.aggregateRaw({
      *   pipeline: [
      *     { $match: { status: "registered" } },
      *     { $group: { _id: "$country", total: { $sum: 1 } } }
      *   ]
      * })
      */
-    aggregateRaw(args?: SessionAggregateRawArgs): Prisma.PrismaPromise<JsonObject>
+    aggregateRaw(args?: VaultAggregateRawArgs): Prisma.PrismaPromise<JsonObject>
 
 
     /**
-     * Count the number of Sessions.
+     * Count the number of Vaults.
      * Note, that providing `undefined` is treated as the value not being there.
      * Read more here: https://pris.ly/d/null-undefined
-     * @param {SessionCountArgs} args - Arguments to filter Sessions to count.
+     * @param {VaultCountArgs} args - Arguments to filter Vaults to count.
      * @example
-     * // Count the number of Sessions
-     * const count = await prisma.session.count({
+     * // Count the number of Vaults
+     * const count = await prisma.vault.count({
      *   where: {
-     *     // ... the filter for the Sessions we want to count
+     *     // ... the filter for the Vaults we want to count
      *   }
      * })
     **/
-    count<T extends SessionCountArgs>(
-      args?: Subset<T, SessionCountArgs>,
+    count<T extends VaultCountArgs>(
+      args?: Subset<T, VaultCountArgs>,
     ): Prisma.PrismaPromise<
       T extends $Utils.Record<'select', any>
         ? T['select'] extends true
           ? number
-          : GetScalarType<T['select'], SessionCountAggregateOutputType>
+          : GetScalarType<T['select'], VaultCountAggregateOutputType>
         : number
     >
 
     /**
-     * Allows you to perform aggregations operations on a Session.
+     * Allows you to perform aggregations operations on a Vault.
      * Note, that providing `undefined` is treated as the value not being there.
      * Read more here: https://pris.ly/d/null-undefined
-     * @param {SessionAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @param {VaultAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
      * @example
      * // Ordered by age ascending
      * // Where email contains prisma.io
@@ -3904,13 +3675,13 @@ export namespace Prisma {
      *   take: 10,
      * })
     **/
-    aggregate<T extends SessionAggregateArgs>(args: Subset<T, SessionAggregateArgs>): Prisma.PrismaPromise<GetSessionAggregateType<T>>
+    aggregate<T extends VaultAggregateArgs>(args: Subset<T, VaultAggregateArgs>): Prisma.PrismaPromise<GetVaultAggregateType<T>>
 
     /**
-     * Group by Session.
+     * Group by Vault.
      * Note, that providing `undefined` is treated as the value not being there.
      * Read more here: https://pris.ly/d/null-undefined
-     * @param {SessionGroupByArgs} args - Group by arguments.
+     * @param {VaultGroupByArgs} args - Group by arguments.
      * @example
      * // Group by city, order by createdAt, get count
      * const result = await prisma.user.groupBy({
@@ -3925,14 +3696,14 @@ export namespace Prisma {
      * 
     **/
     groupBy<
-      T extends SessionGroupByArgs,
+      T extends VaultGroupByArgs,
       HasSelectOrTake extends Or<
         Extends<'skip', Keys<T>>,
         Extends<'take', Keys<T>>
       >,
       OrderByArg extends True extends HasSelectOrTake
-        ? { orderBy: SessionGroupByArgs['orderBy'] }
-        : { orderBy?: SessionGroupByArgs['orderBy'] },
+        ? { orderBy: VaultGroupByArgs['orderBy'] }
+        : { orderBy?: VaultGroupByArgs['orderBy'] },
       OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
       ByFields extends MaybeTupleToUnion<T['by']>,
       ByValid extends Has<ByFields, OrderFields>,
@@ -3981,20 +3752,20 @@ export namespace Prisma {
             ? never
             : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
         }[OrderFields]
-    >(args: SubsetIntersection<T, SessionGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetSessionGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+    >(args: SubsetIntersection<T, VaultGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetVaultGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
   /**
-   * Fields of the Session model
+   * Fields of the Vault model
    */
-  readonly fields: SessionFieldRefs;
+  readonly fields: VaultFieldRefs;
   }
 
   /**
-   * The delegate class that acts as a "Promise-like" for Session.
+   * The delegate class that acts as a "Promise-like" for Vault.
    * Why is this prefixed with `Prisma__`?
    * Because we want to prevent naming conflicts as mentioned in
    * https://github.com/prisma/prisma-client-js/issues/707
    */
-  export interface Prisma__SessionClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+  export interface Prisma__VaultClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     user<T extends UserDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UserDefaultArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     /**
@@ -4023,360 +3794,359 @@ export namespace Prisma {
 
 
   /**
-   * Fields of the Session model
+   * Fields of the Vault model
    */
-  interface SessionFieldRefs {
-    readonly id: FieldRef<"Session", 'String'>
-    readonly sessionToken: FieldRef<"Session", 'String'>
-    readonly userId: FieldRef<"Session", 'String'>
-    readonly expires: FieldRef<"Session", 'DateTime'>
-    readonly createdAt: FieldRef<"Session", 'DateTime'>
-    readonly updatedAt: FieldRef<"Session", 'DateTime'>
+  interface VaultFieldRefs {
+    readonly id: FieldRef<"Vault", 'String'>
+    readonly name: FieldRef<"Vault", 'String'>
+    readonly password: FieldRef<"Vault", 'String'>
+    readonly userId: FieldRef<"Vault", 'String'>
+    readonly createdAt: FieldRef<"Vault", 'DateTime'>
   }
     
 
   // Custom InputTypes
   /**
-   * Session findUnique
+   * Vault findUnique
    */
-  export type SessionFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Session
+     * Select specific fields to fetch from the Vault
      */
-    select?: SessionSelect<ExtArgs> | null
+    select?: VaultSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Session
+     * Omit specific fields from the Vault
      */
-    omit?: SessionOmit<ExtArgs> | null
+    omit?: VaultOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: SessionInclude<ExtArgs> | null
+    include?: VaultInclude<ExtArgs> | null
     /**
-     * Filter, which Session to fetch.
+     * Filter, which Vault to fetch.
      */
-    where: SessionWhereUniqueInput
+    where: VaultWhereUniqueInput
   }
 
   /**
-   * Session findUniqueOrThrow
+   * Vault findUniqueOrThrow
    */
-  export type SessionFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Session
+     * Select specific fields to fetch from the Vault
      */
-    select?: SessionSelect<ExtArgs> | null
+    select?: VaultSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Session
+     * Omit specific fields from the Vault
      */
-    omit?: SessionOmit<ExtArgs> | null
+    omit?: VaultOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: SessionInclude<ExtArgs> | null
+    include?: VaultInclude<ExtArgs> | null
     /**
-     * Filter, which Session to fetch.
+     * Filter, which Vault to fetch.
      */
-    where: SessionWhereUniqueInput
+    where: VaultWhereUniqueInput
   }
 
   /**
-   * Session findFirst
+   * Vault findFirst
    */
-  export type SessionFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Session
+     * Select specific fields to fetch from the Vault
      */
-    select?: SessionSelect<ExtArgs> | null
+    select?: VaultSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Session
+     * Omit specific fields from the Vault
      */
-    omit?: SessionOmit<ExtArgs> | null
+    omit?: VaultOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: SessionInclude<ExtArgs> | null
+    include?: VaultInclude<ExtArgs> | null
     /**
-     * Filter, which Session to fetch.
+     * Filter, which Vault to fetch.
      */
-    where?: SessionWhereInput
+    where?: VaultWhereInput
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
-     * Determine the order of Sessions to fetch.
+     * Determine the order of Vaults to fetch.
      */
-    orderBy?: SessionOrderByWithRelationInput | SessionOrderByWithRelationInput[]
+    orderBy?: VaultOrderByWithRelationInput | VaultOrderByWithRelationInput[]
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
-     * Sets the position for searching for Sessions.
+     * Sets the position for searching for Vaults.
      */
-    cursor?: SessionWhereUniqueInput
+    cursor?: VaultWhereUniqueInput
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` Sessions from the position of the cursor.
+     * Take `±n` Vaults from the position of the cursor.
      */
     take?: number
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Skip the first `n` Sessions.
+     * Skip the first `n` Vaults.
      */
     skip?: number
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
      * 
-     * Filter by unique combinations of Sessions.
+     * Filter by unique combinations of Vaults.
      */
-    distinct?: SessionScalarFieldEnum | SessionScalarFieldEnum[]
+    distinct?: VaultScalarFieldEnum | VaultScalarFieldEnum[]
   }
 
   /**
-   * Session findFirstOrThrow
+   * Vault findFirstOrThrow
    */
-  export type SessionFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Session
+     * Select specific fields to fetch from the Vault
      */
-    select?: SessionSelect<ExtArgs> | null
+    select?: VaultSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Session
+     * Omit specific fields from the Vault
      */
-    omit?: SessionOmit<ExtArgs> | null
+    omit?: VaultOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: SessionInclude<ExtArgs> | null
+    include?: VaultInclude<ExtArgs> | null
     /**
-     * Filter, which Session to fetch.
+     * Filter, which Vault to fetch.
      */
-    where?: SessionWhereInput
+    where?: VaultWhereInput
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
-     * Determine the order of Sessions to fetch.
+     * Determine the order of Vaults to fetch.
      */
-    orderBy?: SessionOrderByWithRelationInput | SessionOrderByWithRelationInput[]
+    orderBy?: VaultOrderByWithRelationInput | VaultOrderByWithRelationInput[]
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
-     * Sets the position for searching for Sessions.
+     * Sets the position for searching for Vaults.
      */
-    cursor?: SessionWhereUniqueInput
+    cursor?: VaultWhereUniqueInput
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` Sessions from the position of the cursor.
+     * Take `±n` Vaults from the position of the cursor.
      */
     take?: number
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Skip the first `n` Sessions.
+     * Skip the first `n` Vaults.
      */
     skip?: number
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
      * 
-     * Filter by unique combinations of Sessions.
+     * Filter by unique combinations of Vaults.
      */
-    distinct?: SessionScalarFieldEnum | SessionScalarFieldEnum[]
+    distinct?: VaultScalarFieldEnum | VaultScalarFieldEnum[]
   }
 
   /**
-   * Session findMany
+   * Vault findMany
    */
-  export type SessionFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Session
+     * Select specific fields to fetch from the Vault
      */
-    select?: SessionSelect<ExtArgs> | null
+    select?: VaultSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Session
+     * Omit specific fields from the Vault
      */
-    omit?: SessionOmit<ExtArgs> | null
+    omit?: VaultOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: SessionInclude<ExtArgs> | null
+    include?: VaultInclude<ExtArgs> | null
     /**
-     * Filter, which Sessions to fetch.
+     * Filter, which Vaults to fetch.
      */
-    where?: SessionWhereInput
+    where?: VaultWhereInput
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
-     * Determine the order of Sessions to fetch.
+     * Determine the order of Vaults to fetch.
      */
-    orderBy?: SessionOrderByWithRelationInput | SessionOrderByWithRelationInput[]
+    orderBy?: VaultOrderByWithRelationInput | VaultOrderByWithRelationInput[]
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
-     * Sets the position for listing Sessions.
+     * Sets the position for listing Vaults.
      */
-    cursor?: SessionWhereUniqueInput
+    cursor?: VaultWhereUniqueInput
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Take `±n` Sessions from the position of the cursor.
+     * Take `±n` Vaults from the position of the cursor.
      */
     take?: number
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
-     * Skip the first `n` Sessions.
+     * Skip the first `n` Vaults.
      */
     skip?: number
-    distinct?: SessionScalarFieldEnum | SessionScalarFieldEnum[]
+    distinct?: VaultScalarFieldEnum | VaultScalarFieldEnum[]
   }
 
   /**
-   * Session create
+   * Vault create
    */
-  export type SessionCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Session
+     * Select specific fields to fetch from the Vault
      */
-    select?: SessionSelect<ExtArgs> | null
+    select?: VaultSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Session
+     * Omit specific fields from the Vault
      */
-    omit?: SessionOmit<ExtArgs> | null
+    omit?: VaultOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: SessionInclude<ExtArgs> | null
+    include?: VaultInclude<ExtArgs> | null
     /**
-     * The data needed to create a Session.
+     * The data needed to create a Vault.
      */
-    data: XOR<SessionCreateInput, SessionUncheckedCreateInput>
+    data: XOR<VaultCreateInput, VaultUncheckedCreateInput>
   }
 
   /**
-   * Session createMany
+   * Vault createMany
    */
-  export type SessionCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * The data used to create many Sessions.
+     * The data used to create many Vaults.
      */
-    data: SessionCreateManyInput | SessionCreateManyInput[]
+    data: VaultCreateManyInput | VaultCreateManyInput[]
   }
 
   /**
-   * Session update
+   * Vault update
    */
-  export type SessionUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Session
+     * Select specific fields to fetch from the Vault
      */
-    select?: SessionSelect<ExtArgs> | null
+    select?: VaultSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Session
+     * Omit specific fields from the Vault
      */
-    omit?: SessionOmit<ExtArgs> | null
+    omit?: VaultOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: SessionInclude<ExtArgs> | null
+    include?: VaultInclude<ExtArgs> | null
     /**
-     * The data needed to update a Session.
+     * The data needed to update a Vault.
      */
-    data: XOR<SessionUpdateInput, SessionUncheckedUpdateInput>
+    data: XOR<VaultUpdateInput, VaultUncheckedUpdateInput>
     /**
-     * Choose, which Session to update.
+     * Choose, which Vault to update.
      */
-    where: SessionWhereUniqueInput
+    where: VaultWhereUniqueInput
   }
 
   /**
-   * Session updateMany
+   * Vault updateMany
    */
-  export type SessionUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * The data used to update Sessions.
+     * The data used to update Vaults.
      */
-    data: XOR<SessionUpdateManyMutationInput, SessionUncheckedUpdateManyInput>
+    data: XOR<VaultUpdateManyMutationInput, VaultUncheckedUpdateManyInput>
     /**
-     * Filter which Sessions to update
+     * Filter which Vaults to update
      */
-    where?: SessionWhereInput
+    where?: VaultWhereInput
     /**
-     * Limit how many Sessions to update.
+     * Limit how many Vaults to update.
      */
     limit?: number
   }
 
   /**
-   * Session upsert
+   * Vault upsert
    */
-  export type SessionUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Session
+     * Select specific fields to fetch from the Vault
      */
-    select?: SessionSelect<ExtArgs> | null
+    select?: VaultSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Session
+     * Omit specific fields from the Vault
      */
-    omit?: SessionOmit<ExtArgs> | null
+    omit?: VaultOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: SessionInclude<ExtArgs> | null
+    include?: VaultInclude<ExtArgs> | null
     /**
-     * The filter to search for the Session to update in case it exists.
+     * The filter to search for the Vault to update in case it exists.
      */
-    where: SessionWhereUniqueInput
+    where: VaultWhereUniqueInput
     /**
-     * In case the Session found by the `where` argument doesn't exist, create a new Session with this data.
+     * In case the Vault found by the `where` argument doesn't exist, create a new Vault with this data.
      */
-    create: XOR<SessionCreateInput, SessionUncheckedCreateInput>
+    create: XOR<VaultCreateInput, VaultUncheckedCreateInput>
     /**
-     * In case the Session was found with the provided `where` argument, update it with this data.
+     * In case the Vault was found with the provided `where` argument, update it with this data.
      */
-    update: XOR<SessionUpdateInput, SessionUncheckedUpdateInput>
+    update: XOR<VaultUpdateInput, VaultUncheckedUpdateInput>
   }
 
   /**
-   * Session delete
+   * Vault delete
    */
-  export type SessionDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Session
+     * Select specific fields to fetch from the Vault
      */
-    select?: SessionSelect<ExtArgs> | null
+    select?: VaultSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Session
+     * Omit specific fields from the Vault
      */
-    omit?: SessionOmit<ExtArgs> | null
+    omit?: VaultOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: SessionInclude<ExtArgs> | null
+    include?: VaultInclude<ExtArgs> | null
     /**
-     * Filter which Session to delete.
+     * Filter which Vault to delete.
      */
-    where: SessionWhereUniqueInput
+    where: VaultWhereUniqueInput
   }
 
   /**
-   * Session deleteMany
+   * Vault deleteMany
    */
-  export type SessionDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Filter which Sessions to delete
+     * Filter which Vaults to delete
      */
-    where?: SessionWhereInput
+    where?: VaultWhereInput
     /**
-     * Limit how many Sessions to delete.
+     * Limit how many Vaults to delete.
      */
     limit?: number
   }
 
   /**
-   * Session findRaw
+   * Vault findRaw
    */
-  export type SessionFindRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultFindRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
      * The query predicate filter. If unspecified, then all documents in the collection will match the predicate. ${@link https://docs.mongodb.com/manual/reference/operator/query MongoDB Docs}.
      */
@@ -4388,9 +4158,9 @@ export namespace Prisma {
   }
 
   /**
-   * Session aggregateRaw
+   * Vault aggregateRaw
    */
-  export type SessionAggregateRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultAggregateRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
      * An array of aggregation stages to process and transform the document stream via the aggregation pipeline. ${@link https://docs.mongodb.com/manual/reference/operator/aggregation-pipeline MongoDB Docs}.
      */
@@ -4402,1988 +4172,21 @@ export namespace Prisma {
   }
 
   /**
-   * Session without action
+   * Vault without action
    */
-  export type SessionDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type VaultDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Session
+     * Select specific fields to fetch from the Vault
      */
-    select?: SessionSelect<ExtArgs> | null
+    select?: VaultSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Session
+     * Omit specific fields from the Vault
      */
-    omit?: SessionOmit<ExtArgs> | null
+    omit?: VaultOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: SessionInclude<ExtArgs> | null
-  }
-
-
-  /**
-   * Model VerificationToken
-   */
-
-  export type AggregateVerificationToken = {
-    _count: VerificationTokenCountAggregateOutputType | null
-    _min: VerificationTokenMinAggregateOutputType | null
-    _max: VerificationTokenMaxAggregateOutputType | null
-  }
-
-  export type VerificationTokenMinAggregateOutputType = {
-    id: string | null
-    identifier: string | null
-    token: string | null
-    expires: Date | null
-  }
-
-  export type VerificationTokenMaxAggregateOutputType = {
-    id: string | null
-    identifier: string | null
-    token: string | null
-    expires: Date | null
-  }
-
-  export type VerificationTokenCountAggregateOutputType = {
-    id: number
-    identifier: number
-    token: number
-    expires: number
-    _all: number
-  }
-
-
-  export type VerificationTokenMinAggregateInputType = {
-    id?: true
-    identifier?: true
-    token?: true
-    expires?: true
-  }
-
-  export type VerificationTokenMaxAggregateInputType = {
-    id?: true
-    identifier?: true
-    token?: true
-    expires?: true
-  }
-
-  export type VerificationTokenCountAggregateInputType = {
-    id?: true
-    identifier?: true
-    token?: true
-    expires?: true
-    _all?: true
-  }
-
-  export type VerificationTokenAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Filter which VerificationToken to aggregate.
-     */
-    where?: VerificationTokenWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of VerificationTokens to fetch.
-     */
-    orderBy?: VerificationTokenOrderByWithRelationInput | VerificationTokenOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the start position
-     */
-    cursor?: VerificationTokenWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` VerificationTokens from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` VerificationTokens.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Count returned VerificationTokens
-    **/
-    _count?: true | VerificationTokenCountAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to find the minimum value
-    **/
-    _min?: VerificationTokenMinAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to find the maximum value
-    **/
-    _max?: VerificationTokenMaxAggregateInputType
-  }
-
-  export type GetVerificationTokenAggregateType<T extends VerificationTokenAggregateArgs> = {
-        [P in keyof T & keyof AggregateVerificationToken]: P extends '_count' | 'count'
-      ? T[P] extends true
-        ? number
-        : GetScalarType<T[P], AggregateVerificationToken[P]>
-      : GetScalarType<T[P], AggregateVerificationToken[P]>
-  }
-
-
-
-
-  export type VerificationTokenGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: VerificationTokenWhereInput
-    orderBy?: VerificationTokenOrderByWithAggregationInput | VerificationTokenOrderByWithAggregationInput[]
-    by: VerificationTokenScalarFieldEnum[] | VerificationTokenScalarFieldEnum
-    having?: VerificationTokenScalarWhereWithAggregatesInput
-    take?: number
-    skip?: number
-    _count?: VerificationTokenCountAggregateInputType | true
-    _min?: VerificationTokenMinAggregateInputType
-    _max?: VerificationTokenMaxAggregateInputType
-  }
-
-  export type VerificationTokenGroupByOutputType = {
-    id: string
-    identifier: string
-    token: string
-    expires: Date
-    _count: VerificationTokenCountAggregateOutputType | null
-    _min: VerificationTokenMinAggregateOutputType | null
-    _max: VerificationTokenMaxAggregateOutputType | null
-  }
-
-  type GetVerificationTokenGroupByPayload<T extends VerificationTokenGroupByArgs> = Prisma.PrismaPromise<
-    Array<
-      PickEnumerable<VerificationTokenGroupByOutputType, T['by']> &
-        {
-          [P in ((keyof T) & (keyof VerificationTokenGroupByOutputType))]: P extends '_count'
-            ? T[P] extends boolean
-              ? number
-              : GetScalarType<T[P], VerificationTokenGroupByOutputType[P]>
-            : GetScalarType<T[P], VerificationTokenGroupByOutputType[P]>
-        }
-      >
-    >
-
-
-  export type VerificationTokenSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    identifier?: boolean
-    token?: boolean
-    expires?: boolean
-  }, ExtArgs["result"]["verificationToken"]>
-
-
-
-  export type VerificationTokenSelectScalar = {
-    id?: boolean
-    identifier?: boolean
-    token?: boolean
-    expires?: boolean
-  }
-
-  export type VerificationTokenOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "identifier" | "token" | "expires", ExtArgs["result"]["verificationToken"]>
-
-  export type $VerificationTokenPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    name: "VerificationToken"
-    objects: {}
-    scalars: $Extensions.GetPayloadResult<{
-      id: string
-      identifier: string
-      token: string
-      expires: Date
-    }, ExtArgs["result"]["verificationToken"]>
-    composites: {}
-  }
-
-  type VerificationTokenGetPayload<S extends boolean | null | undefined | VerificationTokenDefaultArgs> = $Result.GetResult<Prisma.$VerificationTokenPayload, S>
-
-  type VerificationTokenCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
-    Omit<VerificationTokenFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
-      select?: VerificationTokenCountAggregateInputType | true
-    }
-
-  export interface VerificationTokenDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
-    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['VerificationToken'], meta: { name: 'VerificationToken' } }
-    /**
-     * Find zero or one VerificationToken that matches the filter.
-     * @param {VerificationTokenFindUniqueArgs} args - Arguments to find a VerificationToken
-     * @example
-     * // Get one VerificationToken
-     * const verificationToken = await prisma.verificationToken.findUnique({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findUnique<T extends VerificationTokenFindUniqueArgs>(args: SelectSubset<T, VerificationTokenFindUniqueArgs<ExtArgs>>): Prisma__VerificationTokenClient<$Result.GetResult<Prisma.$VerificationTokenPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find one VerificationToken that matches the filter or throw an error with `error.code='P2025'`
-     * if no matches were found.
-     * @param {VerificationTokenFindUniqueOrThrowArgs} args - Arguments to find a VerificationToken
-     * @example
-     * // Get one VerificationToken
-     * const verificationToken = await prisma.verificationToken.findUniqueOrThrow({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findUniqueOrThrow<T extends VerificationTokenFindUniqueOrThrowArgs>(args: SelectSubset<T, VerificationTokenFindUniqueOrThrowArgs<ExtArgs>>): Prisma__VerificationTokenClient<$Result.GetResult<Prisma.$VerificationTokenPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find the first VerificationToken that matches the filter.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {VerificationTokenFindFirstArgs} args - Arguments to find a VerificationToken
-     * @example
-     * // Get one VerificationToken
-     * const verificationToken = await prisma.verificationToken.findFirst({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findFirst<T extends VerificationTokenFindFirstArgs>(args?: SelectSubset<T, VerificationTokenFindFirstArgs<ExtArgs>>): Prisma__VerificationTokenClient<$Result.GetResult<Prisma.$VerificationTokenPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find the first VerificationToken that matches the filter or
-     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {VerificationTokenFindFirstOrThrowArgs} args - Arguments to find a VerificationToken
-     * @example
-     * // Get one VerificationToken
-     * const verificationToken = await prisma.verificationToken.findFirstOrThrow({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findFirstOrThrow<T extends VerificationTokenFindFirstOrThrowArgs>(args?: SelectSubset<T, VerificationTokenFindFirstOrThrowArgs<ExtArgs>>): Prisma__VerificationTokenClient<$Result.GetResult<Prisma.$VerificationTokenPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find zero or more VerificationTokens that matches the filter.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {VerificationTokenFindManyArgs} args - Arguments to filter and select certain fields only.
-     * @example
-     * // Get all VerificationTokens
-     * const verificationTokens = await prisma.verificationToken.findMany()
-     * 
-     * // Get first 10 VerificationTokens
-     * const verificationTokens = await prisma.verificationToken.findMany({ take: 10 })
-     * 
-     * // Only select the `id`
-     * const verificationTokenWithIdOnly = await prisma.verificationToken.findMany({ select: { id: true } })
-     * 
-     */
-    findMany<T extends VerificationTokenFindManyArgs>(args?: SelectSubset<T, VerificationTokenFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$VerificationTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
-
-    /**
-     * Create a VerificationToken.
-     * @param {VerificationTokenCreateArgs} args - Arguments to create a VerificationToken.
-     * @example
-     * // Create one VerificationToken
-     * const VerificationToken = await prisma.verificationToken.create({
-     *   data: {
-     *     // ... data to create a VerificationToken
-     *   }
-     * })
-     * 
-     */
-    create<T extends VerificationTokenCreateArgs>(args: SelectSubset<T, VerificationTokenCreateArgs<ExtArgs>>): Prisma__VerificationTokenClient<$Result.GetResult<Prisma.$VerificationTokenPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Create many VerificationTokens.
-     * @param {VerificationTokenCreateManyArgs} args - Arguments to create many VerificationTokens.
-     * @example
-     * // Create many VerificationTokens
-     * const verificationToken = await prisma.verificationToken.createMany({
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     *     
-     */
-    createMany<T extends VerificationTokenCreateManyArgs>(args?: SelectSubset<T, VerificationTokenCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Delete a VerificationToken.
-     * @param {VerificationTokenDeleteArgs} args - Arguments to delete one VerificationToken.
-     * @example
-     * // Delete one VerificationToken
-     * const VerificationToken = await prisma.verificationToken.delete({
-     *   where: {
-     *     // ... filter to delete one VerificationToken
-     *   }
-     * })
-     * 
-     */
-    delete<T extends VerificationTokenDeleteArgs>(args: SelectSubset<T, VerificationTokenDeleteArgs<ExtArgs>>): Prisma__VerificationTokenClient<$Result.GetResult<Prisma.$VerificationTokenPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Update one VerificationToken.
-     * @param {VerificationTokenUpdateArgs} args - Arguments to update one VerificationToken.
-     * @example
-     * // Update one VerificationToken
-     * const verificationToken = await prisma.verificationToken.update({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: {
-     *     // ... provide data here
-     *   }
-     * })
-     * 
-     */
-    update<T extends VerificationTokenUpdateArgs>(args: SelectSubset<T, VerificationTokenUpdateArgs<ExtArgs>>): Prisma__VerificationTokenClient<$Result.GetResult<Prisma.$VerificationTokenPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Delete zero or more VerificationTokens.
-     * @param {VerificationTokenDeleteManyArgs} args - Arguments to filter VerificationTokens to delete.
-     * @example
-     * // Delete a few VerificationTokens
-     * const { count } = await prisma.verificationToken.deleteMany({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     * 
-     */
-    deleteMany<T extends VerificationTokenDeleteManyArgs>(args?: SelectSubset<T, VerificationTokenDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Update zero or more VerificationTokens.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {VerificationTokenUpdateManyArgs} args - Arguments to update one or more rows.
-     * @example
-     * // Update many VerificationTokens
-     * const verificationToken = await prisma.verificationToken.updateMany({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: {
-     *     // ... provide data here
-     *   }
-     * })
-     * 
-     */
-    updateMany<T extends VerificationTokenUpdateManyArgs>(args: SelectSubset<T, VerificationTokenUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Create or update one VerificationToken.
-     * @param {VerificationTokenUpsertArgs} args - Arguments to update or create a VerificationToken.
-     * @example
-     * // Update or create a VerificationToken
-     * const verificationToken = await prisma.verificationToken.upsert({
-     *   create: {
-     *     // ... data to create a VerificationToken
-     *   },
-     *   update: {
-     *     // ... in case it already exists, update
-     *   },
-     *   where: {
-     *     // ... the filter for the VerificationToken we want to update
-     *   }
-     * })
-     */
-    upsert<T extends VerificationTokenUpsertArgs>(args: SelectSubset<T, VerificationTokenUpsertArgs<ExtArgs>>): Prisma__VerificationTokenClient<$Result.GetResult<Prisma.$VerificationTokenPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find zero or more VerificationTokens that matches the filter.
-     * @param {VerificationTokenFindRawArgs} args - Select which filters you would like to apply.
-     * @example
-     * const verificationToken = await prisma.verificationToken.findRaw({
-     *   filter: { age: { $gt: 25 } }
-     * })
-     */
-    findRaw(args?: VerificationTokenFindRawArgs): Prisma.PrismaPromise<JsonObject>
-
-    /**
-     * Perform aggregation operations on a VerificationToken.
-     * @param {VerificationTokenAggregateRawArgs} args - Select which aggregations you would like to apply.
-     * @example
-     * const verificationToken = await prisma.verificationToken.aggregateRaw({
-     *   pipeline: [
-     *     { $match: { status: "registered" } },
-     *     { $group: { _id: "$country", total: { $sum: 1 } } }
-     *   ]
-     * })
-     */
-    aggregateRaw(args?: VerificationTokenAggregateRawArgs): Prisma.PrismaPromise<JsonObject>
-
-
-    /**
-     * Count the number of VerificationTokens.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {VerificationTokenCountArgs} args - Arguments to filter VerificationTokens to count.
-     * @example
-     * // Count the number of VerificationTokens
-     * const count = await prisma.verificationToken.count({
-     *   where: {
-     *     // ... the filter for the VerificationTokens we want to count
-     *   }
-     * })
-    **/
-    count<T extends VerificationTokenCountArgs>(
-      args?: Subset<T, VerificationTokenCountArgs>,
-    ): Prisma.PrismaPromise<
-      T extends $Utils.Record<'select', any>
-        ? T['select'] extends true
-          ? number
-          : GetScalarType<T['select'], VerificationTokenCountAggregateOutputType>
-        : number
-    >
-
-    /**
-     * Allows you to perform aggregations operations on a VerificationToken.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {VerificationTokenAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
-     * @example
-     * // Ordered by age ascending
-     * // Where email contains prisma.io
-     * // Limited to the 10 users
-     * const aggregations = await prisma.user.aggregate({
-     *   _avg: {
-     *     age: true,
-     *   },
-     *   where: {
-     *     email: {
-     *       contains: "prisma.io",
-     *     },
-     *   },
-     *   orderBy: {
-     *     age: "asc",
-     *   },
-     *   take: 10,
-     * })
-    **/
-    aggregate<T extends VerificationTokenAggregateArgs>(args: Subset<T, VerificationTokenAggregateArgs>): Prisma.PrismaPromise<GetVerificationTokenAggregateType<T>>
-
-    /**
-     * Group by VerificationToken.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {VerificationTokenGroupByArgs} args - Group by arguments.
-     * @example
-     * // Group by city, order by createdAt, get count
-     * const result = await prisma.user.groupBy({
-     *   by: ['city', 'createdAt'],
-     *   orderBy: {
-     *     createdAt: true
-     *   },
-     *   _count: {
-     *     _all: true
-     *   },
-     * })
-     * 
-    **/
-    groupBy<
-      T extends VerificationTokenGroupByArgs,
-      HasSelectOrTake extends Or<
-        Extends<'skip', Keys<T>>,
-        Extends<'take', Keys<T>>
-      >,
-      OrderByArg extends True extends HasSelectOrTake
-        ? { orderBy: VerificationTokenGroupByArgs['orderBy'] }
-        : { orderBy?: VerificationTokenGroupByArgs['orderBy'] },
-      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
-      ByFields extends MaybeTupleToUnion<T['by']>,
-      ByValid extends Has<ByFields, OrderFields>,
-      HavingFields extends GetHavingFields<T['having']>,
-      HavingValid extends Has<ByFields, HavingFields>,
-      ByEmpty extends T['by'] extends never[] ? True : False,
-      InputErrors extends ByEmpty extends True
-      ? `Error: "by" must not be empty.`
-      : HavingValid extends False
-      ? {
-          [P in HavingFields]: P extends ByFields
-            ? never
-            : P extends string
-            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
-            : [
-                Error,
-                'Field ',
-                P,
-                ` in "having" needs to be provided in "by"`,
-              ]
-        }[HavingFields]
-      : 'take' extends Keys<T>
-      ? 'orderBy' extends Keys<T>
-        ? ByValid extends True
-          ? {}
-          : {
-              [P in OrderFields]: P extends ByFields
-                ? never
-                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-            }[OrderFields]
-        : 'Error: If you provide "take", you also need to provide "orderBy"'
-      : 'skip' extends Keys<T>
-      ? 'orderBy' extends Keys<T>
-        ? ByValid extends True
-          ? {}
-          : {
-              [P in OrderFields]: P extends ByFields
-                ? never
-                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-            }[OrderFields]
-        : 'Error: If you provide "skip", you also need to provide "orderBy"'
-      : ByValid extends True
-      ? {}
-      : {
-          [P in OrderFields]: P extends ByFields
-            ? never
-            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-        }[OrderFields]
-    >(args: SubsetIntersection<T, VerificationTokenGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetVerificationTokenGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
-  /**
-   * Fields of the VerificationToken model
-   */
-  readonly fields: VerificationTokenFieldRefs;
-  }
-
-  /**
-   * The delegate class that acts as a "Promise-like" for VerificationToken.
-   * Why is this prefixed with `Prisma__`?
-   * Because we want to prevent naming conflicts as mentioned in
-   * https://github.com/prisma/prisma-client-js/issues/707
-   */
-  export interface Prisma__VerificationTokenClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
-    readonly [Symbol.toStringTag]: "PrismaPromise"
-    /**
-     * Attaches callbacks for the resolution and/or rejection of the Promise.
-     * @param onfulfilled The callback to execute when the Promise is resolved.
-     * @param onrejected The callback to execute when the Promise is rejected.
-     * @returns A Promise for the completion of which ever callback is executed.
-     */
-    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
-    /**
-     * Attaches a callback for only the rejection of the Promise.
-     * @param onrejected The callback to execute when the Promise is rejected.
-     * @returns A Promise for the completion of the callback.
-     */
-    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
-    /**
-     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
-     * resolved value cannot be modified from the callback.
-     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
-     * @returns A Promise for the completion of the callback.
-     */
-    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
-  }
-
-
-
-
-  /**
-   * Fields of the VerificationToken model
-   */
-  interface VerificationTokenFieldRefs {
-    readonly id: FieldRef<"VerificationToken", 'String'>
-    readonly identifier: FieldRef<"VerificationToken", 'String'>
-    readonly token: FieldRef<"VerificationToken", 'String'>
-    readonly expires: FieldRef<"VerificationToken", 'DateTime'>
-  }
-    
-
-  // Custom InputTypes
-  /**
-   * VerificationToken findUnique
-   */
-  export type VerificationTokenFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the VerificationToken
-     */
-    select?: VerificationTokenSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the VerificationToken
-     */
-    omit?: VerificationTokenOmit<ExtArgs> | null
-    /**
-     * Filter, which VerificationToken to fetch.
-     */
-    where: VerificationTokenWhereUniqueInput
-  }
-
-  /**
-   * VerificationToken findUniqueOrThrow
-   */
-  export type VerificationTokenFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the VerificationToken
-     */
-    select?: VerificationTokenSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the VerificationToken
-     */
-    omit?: VerificationTokenOmit<ExtArgs> | null
-    /**
-     * Filter, which VerificationToken to fetch.
-     */
-    where: VerificationTokenWhereUniqueInput
-  }
-
-  /**
-   * VerificationToken findFirst
-   */
-  export type VerificationTokenFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the VerificationToken
-     */
-    select?: VerificationTokenSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the VerificationToken
-     */
-    omit?: VerificationTokenOmit<ExtArgs> | null
-    /**
-     * Filter, which VerificationToken to fetch.
-     */
-    where?: VerificationTokenWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of VerificationTokens to fetch.
-     */
-    orderBy?: VerificationTokenOrderByWithRelationInput | VerificationTokenOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for searching for VerificationTokens.
-     */
-    cursor?: VerificationTokenWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` VerificationTokens from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` VerificationTokens.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of VerificationTokens.
-     */
-    distinct?: VerificationTokenScalarFieldEnum | VerificationTokenScalarFieldEnum[]
-  }
-
-  /**
-   * VerificationToken findFirstOrThrow
-   */
-  export type VerificationTokenFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the VerificationToken
-     */
-    select?: VerificationTokenSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the VerificationToken
-     */
-    omit?: VerificationTokenOmit<ExtArgs> | null
-    /**
-     * Filter, which VerificationToken to fetch.
-     */
-    where?: VerificationTokenWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of VerificationTokens to fetch.
-     */
-    orderBy?: VerificationTokenOrderByWithRelationInput | VerificationTokenOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for searching for VerificationTokens.
-     */
-    cursor?: VerificationTokenWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` VerificationTokens from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` VerificationTokens.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of VerificationTokens.
-     */
-    distinct?: VerificationTokenScalarFieldEnum | VerificationTokenScalarFieldEnum[]
-  }
-
-  /**
-   * VerificationToken findMany
-   */
-  export type VerificationTokenFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the VerificationToken
-     */
-    select?: VerificationTokenSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the VerificationToken
-     */
-    omit?: VerificationTokenOmit<ExtArgs> | null
-    /**
-     * Filter, which VerificationTokens to fetch.
-     */
-    where?: VerificationTokenWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of VerificationTokens to fetch.
-     */
-    orderBy?: VerificationTokenOrderByWithRelationInput | VerificationTokenOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for listing VerificationTokens.
-     */
-    cursor?: VerificationTokenWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` VerificationTokens from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` VerificationTokens.
-     */
-    skip?: number
-    distinct?: VerificationTokenScalarFieldEnum | VerificationTokenScalarFieldEnum[]
-  }
-
-  /**
-   * VerificationToken create
-   */
-  export type VerificationTokenCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the VerificationToken
-     */
-    select?: VerificationTokenSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the VerificationToken
-     */
-    omit?: VerificationTokenOmit<ExtArgs> | null
-    /**
-     * The data needed to create a VerificationToken.
-     */
-    data: XOR<VerificationTokenCreateInput, VerificationTokenUncheckedCreateInput>
-  }
-
-  /**
-   * VerificationToken createMany
-   */
-  export type VerificationTokenCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The data used to create many VerificationTokens.
-     */
-    data: VerificationTokenCreateManyInput | VerificationTokenCreateManyInput[]
-  }
-
-  /**
-   * VerificationToken update
-   */
-  export type VerificationTokenUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the VerificationToken
-     */
-    select?: VerificationTokenSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the VerificationToken
-     */
-    omit?: VerificationTokenOmit<ExtArgs> | null
-    /**
-     * The data needed to update a VerificationToken.
-     */
-    data: XOR<VerificationTokenUpdateInput, VerificationTokenUncheckedUpdateInput>
-    /**
-     * Choose, which VerificationToken to update.
-     */
-    where: VerificationTokenWhereUniqueInput
-  }
-
-  /**
-   * VerificationToken updateMany
-   */
-  export type VerificationTokenUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The data used to update VerificationTokens.
-     */
-    data: XOR<VerificationTokenUpdateManyMutationInput, VerificationTokenUncheckedUpdateManyInput>
-    /**
-     * Filter which VerificationTokens to update
-     */
-    where?: VerificationTokenWhereInput
-    /**
-     * Limit how many VerificationTokens to update.
-     */
-    limit?: number
-  }
-
-  /**
-   * VerificationToken upsert
-   */
-  export type VerificationTokenUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the VerificationToken
-     */
-    select?: VerificationTokenSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the VerificationToken
-     */
-    omit?: VerificationTokenOmit<ExtArgs> | null
-    /**
-     * The filter to search for the VerificationToken to update in case it exists.
-     */
-    where: VerificationTokenWhereUniqueInput
-    /**
-     * In case the VerificationToken found by the `where` argument doesn't exist, create a new VerificationToken with this data.
-     */
-    create: XOR<VerificationTokenCreateInput, VerificationTokenUncheckedCreateInput>
-    /**
-     * In case the VerificationToken was found with the provided `where` argument, update it with this data.
-     */
-    update: XOR<VerificationTokenUpdateInput, VerificationTokenUncheckedUpdateInput>
-  }
-
-  /**
-   * VerificationToken delete
-   */
-  export type VerificationTokenDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the VerificationToken
-     */
-    select?: VerificationTokenSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the VerificationToken
-     */
-    omit?: VerificationTokenOmit<ExtArgs> | null
-    /**
-     * Filter which VerificationToken to delete.
-     */
-    where: VerificationTokenWhereUniqueInput
-  }
-
-  /**
-   * VerificationToken deleteMany
-   */
-  export type VerificationTokenDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Filter which VerificationTokens to delete
-     */
-    where?: VerificationTokenWhereInput
-    /**
-     * Limit how many VerificationTokens to delete.
-     */
-    limit?: number
-  }
-
-  /**
-   * VerificationToken findRaw
-   */
-  export type VerificationTokenFindRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The query predicate filter. If unspecified, then all documents in the collection will match the predicate. ${@link https://docs.mongodb.com/manual/reference/operator/query MongoDB Docs}.
-     */
-    filter?: InputJsonValue
-    /**
-     * Additional options to pass to the `find` command ${@link https://docs.mongodb.com/manual/reference/command/find/#command-fields MongoDB Docs}.
-     */
-    options?: InputJsonValue
-  }
-
-  /**
-   * VerificationToken aggregateRaw
-   */
-  export type VerificationTokenAggregateRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * An array of aggregation stages to process and transform the document stream via the aggregation pipeline. ${@link https://docs.mongodb.com/manual/reference/operator/aggregation-pipeline MongoDB Docs}.
-     */
-    pipeline?: InputJsonValue[]
-    /**
-     * Additional options to pass to the `aggregate` command ${@link https://docs.mongodb.com/manual/reference/command/aggregate/#command-fields MongoDB Docs}.
-     */
-    options?: InputJsonValue
-  }
-
-  /**
-   * VerificationToken without action
-   */
-  export type VerificationTokenDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the VerificationToken
-     */
-    select?: VerificationTokenSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the VerificationToken
-     */
-    omit?: VerificationTokenOmit<ExtArgs> | null
-  }
-
-
-  /**
-   * Model Authenticator
-   */
-
-  export type AggregateAuthenticator = {
-    _count: AuthenticatorCountAggregateOutputType | null
-    _avg: AuthenticatorAvgAggregateOutputType | null
-    _sum: AuthenticatorSumAggregateOutputType | null
-    _min: AuthenticatorMinAggregateOutputType | null
-    _max: AuthenticatorMaxAggregateOutputType | null
-  }
-
-  export type AuthenticatorAvgAggregateOutputType = {
-    counter: number | null
-  }
-
-  export type AuthenticatorSumAggregateOutputType = {
-    counter: number | null
-  }
-
-  export type AuthenticatorMinAggregateOutputType = {
-    credentialID: string | null
-    userId: string | null
-    providerAccountId: string | null
-    credentialPublicKey: string | null
-    counter: number | null
-    credentialDeviceType: string | null
-    credentialBackedUp: boolean | null
-    transports: string | null
-  }
-
-  export type AuthenticatorMaxAggregateOutputType = {
-    credentialID: string | null
-    userId: string | null
-    providerAccountId: string | null
-    credentialPublicKey: string | null
-    counter: number | null
-    credentialDeviceType: string | null
-    credentialBackedUp: boolean | null
-    transports: string | null
-  }
-
-  export type AuthenticatorCountAggregateOutputType = {
-    credentialID: number
-    userId: number
-    providerAccountId: number
-    credentialPublicKey: number
-    counter: number
-    credentialDeviceType: number
-    credentialBackedUp: number
-    transports: number
-    _all: number
-  }
-
-
-  export type AuthenticatorAvgAggregateInputType = {
-    counter?: true
-  }
-
-  export type AuthenticatorSumAggregateInputType = {
-    counter?: true
-  }
-
-  export type AuthenticatorMinAggregateInputType = {
-    credentialID?: true
-    userId?: true
-    providerAccountId?: true
-    credentialPublicKey?: true
-    counter?: true
-    credentialDeviceType?: true
-    credentialBackedUp?: true
-    transports?: true
-  }
-
-  export type AuthenticatorMaxAggregateInputType = {
-    credentialID?: true
-    userId?: true
-    providerAccountId?: true
-    credentialPublicKey?: true
-    counter?: true
-    credentialDeviceType?: true
-    credentialBackedUp?: true
-    transports?: true
-  }
-
-  export type AuthenticatorCountAggregateInputType = {
-    credentialID?: true
-    userId?: true
-    providerAccountId?: true
-    credentialPublicKey?: true
-    counter?: true
-    credentialDeviceType?: true
-    credentialBackedUp?: true
-    transports?: true
-    _all?: true
-  }
-
-  export type AuthenticatorAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Filter which Authenticator to aggregate.
-     */
-    where?: AuthenticatorWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of Authenticators to fetch.
-     */
-    orderBy?: AuthenticatorOrderByWithRelationInput | AuthenticatorOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the start position
-     */
-    cursor?: AuthenticatorWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` Authenticators from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` Authenticators.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Count returned Authenticators
-    **/
-    _count?: true | AuthenticatorCountAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to average
-    **/
-    _avg?: AuthenticatorAvgAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to sum
-    **/
-    _sum?: AuthenticatorSumAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to find the minimum value
-    **/
-    _min?: AuthenticatorMinAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to find the maximum value
-    **/
-    _max?: AuthenticatorMaxAggregateInputType
-  }
-
-  export type GetAuthenticatorAggregateType<T extends AuthenticatorAggregateArgs> = {
-        [P in keyof T & keyof AggregateAuthenticator]: P extends '_count' | 'count'
-      ? T[P] extends true
-        ? number
-        : GetScalarType<T[P], AggregateAuthenticator[P]>
-      : GetScalarType<T[P], AggregateAuthenticator[P]>
-  }
-
-
-
-
-  export type AuthenticatorGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: AuthenticatorWhereInput
-    orderBy?: AuthenticatorOrderByWithAggregationInput | AuthenticatorOrderByWithAggregationInput[]
-    by: AuthenticatorScalarFieldEnum[] | AuthenticatorScalarFieldEnum
-    having?: AuthenticatorScalarWhereWithAggregatesInput
-    take?: number
-    skip?: number
-    _count?: AuthenticatorCountAggregateInputType | true
-    _avg?: AuthenticatorAvgAggregateInputType
-    _sum?: AuthenticatorSumAggregateInputType
-    _min?: AuthenticatorMinAggregateInputType
-    _max?: AuthenticatorMaxAggregateInputType
-  }
-
-  export type AuthenticatorGroupByOutputType = {
-    credentialID: string
-    userId: string
-    providerAccountId: string
-    credentialPublicKey: string
-    counter: number
-    credentialDeviceType: string
-    credentialBackedUp: boolean
-    transports: string | null
-    _count: AuthenticatorCountAggregateOutputType | null
-    _avg: AuthenticatorAvgAggregateOutputType | null
-    _sum: AuthenticatorSumAggregateOutputType | null
-    _min: AuthenticatorMinAggregateOutputType | null
-    _max: AuthenticatorMaxAggregateOutputType | null
-  }
-
-  type GetAuthenticatorGroupByPayload<T extends AuthenticatorGroupByArgs> = Prisma.PrismaPromise<
-    Array<
-      PickEnumerable<AuthenticatorGroupByOutputType, T['by']> &
-        {
-          [P in ((keyof T) & (keyof AuthenticatorGroupByOutputType))]: P extends '_count'
-            ? T[P] extends boolean
-              ? number
-              : GetScalarType<T[P], AuthenticatorGroupByOutputType[P]>
-            : GetScalarType<T[P], AuthenticatorGroupByOutputType[P]>
-        }
-      >
-    >
-
-
-  export type AuthenticatorSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    credentialID?: boolean
-    userId?: boolean
-    providerAccountId?: boolean
-    credentialPublicKey?: boolean
-    counter?: boolean
-    credentialDeviceType?: boolean
-    credentialBackedUp?: boolean
-    transports?: boolean
-    user?: boolean | UserDefaultArgs<ExtArgs>
-  }, ExtArgs["result"]["authenticator"]>
-
-
-
-  export type AuthenticatorSelectScalar = {
-    credentialID?: boolean
-    userId?: boolean
-    providerAccountId?: boolean
-    credentialPublicKey?: boolean
-    counter?: boolean
-    credentialDeviceType?: boolean
-    credentialBackedUp?: boolean
-    transports?: boolean
-  }
-
-  export type AuthenticatorOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"credentialID" | "userId" | "providerAccountId" | "credentialPublicKey" | "counter" | "credentialDeviceType" | "credentialBackedUp" | "transports", ExtArgs["result"]["authenticator"]>
-  export type AuthenticatorInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    user?: boolean | UserDefaultArgs<ExtArgs>
-  }
-
-  export type $AuthenticatorPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    name: "Authenticator"
-    objects: {
-      user: Prisma.$UserPayload<ExtArgs>
-    }
-    scalars: $Extensions.GetPayloadResult<{
-      credentialID: string
-      userId: string
-      providerAccountId: string
-      credentialPublicKey: string
-      counter: number
-      credentialDeviceType: string
-      credentialBackedUp: boolean
-      transports: string | null
-    }, ExtArgs["result"]["authenticator"]>
-    composites: {}
-  }
-
-  type AuthenticatorGetPayload<S extends boolean | null | undefined | AuthenticatorDefaultArgs> = $Result.GetResult<Prisma.$AuthenticatorPayload, S>
-
-  type AuthenticatorCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
-    Omit<AuthenticatorFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
-      select?: AuthenticatorCountAggregateInputType | true
-    }
-
-  export interface AuthenticatorDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
-    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['Authenticator'], meta: { name: 'Authenticator' } }
-    /**
-     * Find zero or one Authenticator that matches the filter.
-     * @param {AuthenticatorFindUniqueArgs} args - Arguments to find a Authenticator
-     * @example
-     * // Get one Authenticator
-     * const authenticator = await prisma.authenticator.findUnique({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findUnique<T extends AuthenticatorFindUniqueArgs>(args: SelectSubset<T, AuthenticatorFindUniqueArgs<ExtArgs>>): Prisma__AuthenticatorClient<$Result.GetResult<Prisma.$AuthenticatorPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find one Authenticator that matches the filter or throw an error with `error.code='P2025'`
-     * if no matches were found.
-     * @param {AuthenticatorFindUniqueOrThrowArgs} args - Arguments to find a Authenticator
-     * @example
-     * // Get one Authenticator
-     * const authenticator = await prisma.authenticator.findUniqueOrThrow({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findUniqueOrThrow<T extends AuthenticatorFindUniqueOrThrowArgs>(args: SelectSubset<T, AuthenticatorFindUniqueOrThrowArgs<ExtArgs>>): Prisma__AuthenticatorClient<$Result.GetResult<Prisma.$AuthenticatorPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find the first Authenticator that matches the filter.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {AuthenticatorFindFirstArgs} args - Arguments to find a Authenticator
-     * @example
-     * // Get one Authenticator
-     * const authenticator = await prisma.authenticator.findFirst({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findFirst<T extends AuthenticatorFindFirstArgs>(args?: SelectSubset<T, AuthenticatorFindFirstArgs<ExtArgs>>): Prisma__AuthenticatorClient<$Result.GetResult<Prisma.$AuthenticatorPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find the first Authenticator that matches the filter or
-     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {AuthenticatorFindFirstOrThrowArgs} args - Arguments to find a Authenticator
-     * @example
-     * // Get one Authenticator
-     * const authenticator = await prisma.authenticator.findFirstOrThrow({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findFirstOrThrow<T extends AuthenticatorFindFirstOrThrowArgs>(args?: SelectSubset<T, AuthenticatorFindFirstOrThrowArgs<ExtArgs>>): Prisma__AuthenticatorClient<$Result.GetResult<Prisma.$AuthenticatorPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find zero or more Authenticators that matches the filter.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {AuthenticatorFindManyArgs} args - Arguments to filter and select certain fields only.
-     * @example
-     * // Get all Authenticators
-     * const authenticators = await prisma.authenticator.findMany()
-     * 
-     * // Get first 10 Authenticators
-     * const authenticators = await prisma.authenticator.findMany({ take: 10 })
-     * 
-     * // Only select the `credentialID`
-     * const authenticatorWithCredentialIDOnly = await prisma.authenticator.findMany({ select: { credentialID: true } })
-     * 
-     */
-    findMany<T extends AuthenticatorFindManyArgs>(args?: SelectSubset<T, AuthenticatorFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AuthenticatorPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
-
-    /**
-     * Create a Authenticator.
-     * @param {AuthenticatorCreateArgs} args - Arguments to create a Authenticator.
-     * @example
-     * // Create one Authenticator
-     * const Authenticator = await prisma.authenticator.create({
-     *   data: {
-     *     // ... data to create a Authenticator
-     *   }
-     * })
-     * 
-     */
-    create<T extends AuthenticatorCreateArgs>(args: SelectSubset<T, AuthenticatorCreateArgs<ExtArgs>>): Prisma__AuthenticatorClient<$Result.GetResult<Prisma.$AuthenticatorPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Create many Authenticators.
-     * @param {AuthenticatorCreateManyArgs} args - Arguments to create many Authenticators.
-     * @example
-     * // Create many Authenticators
-     * const authenticator = await prisma.authenticator.createMany({
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     *     
-     */
-    createMany<T extends AuthenticatorCreateManyArgs>(args?: SelectSubset<T, AuthenticatorCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Delete a Authenticator.
-     * @param {AuthenticatorDeleteArgs} args - Arguments to delete one Authenticator.
-     * @example
-     * // Delete one Authenticator
-     * const Authenticator = await prisma.authenticator.delete({
-     *   where: {
-     *     // ... filter to delete one Authenticator
-     *   }
-     * })
-     * 
-     */
-    delete<T extends AuthenticatorDeleteArgs>(args: SelectSubset<T, AuthenticatorDeleteArgs<ExtArgs>>): Prisma__AuthenticatorClient<$Result.GetResult<Prisma.$AuthenticatorPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Update one Authenticator.
-     * @param {AuthenticatorUpdateArgs} args - Arguments to update one Authenticator.
-     * @example
-     * // Update one Authenticator
-     * const authenticator = await prisma.authenticator.update({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: {
-     *     // ... provide data here
-     *   }
-     * })
-     * 
-     */
-    update<T extends AuthenticatorUpdateArgs>(args: SelectSubset<T, AuthenticatorUpdateArgs<ExtArgs>>): Prisma__AuthenticatorClient<$Result.GetResult<Prisma.$AuthenticatorPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Delete zero or more Authenticators.
-     * @param {AuthenticatorDeleteManyArgs} args - Arguments to filter Authenticators to delete.
-     * @example
-     * // Delete a few Authenticators
-     * const { count } = await prisma.authenticator.deleteMany({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     * 
-     */
-    deleteMany<T extends AuthenticatorDeleteManyArgs>(args?: SelectSubset<T, AuthenticatorDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Update zero or more Authenticators.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {AuthenticatorUpdateManyArgs} args - Arguments to update one or more rows.
-     * @example
-     * // Update many Authenticators
-     * const authenticator = await prisma.authenticator.updateMany({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: {
-     *     // ... provide data here
-     *   }
-     * })
-     * 
-     */
-    updateMany<T extends AuthenticatorUpdateManyArgs>(args: SelectSubset<T, AuthenticatorUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Create or update one Authenticator.
-     * @param {AuthenticatorUpsertArgs} args - Arguments to update or create a Authenticator.
-     * @example
-     * // Update or create a Authenticator
-     * const authenticator = await prisma.authenticator.upsert({
-     *   create: {
-     *     // ... data to create a Authenticator
-     *   },
-     *   update: {
-     *     // ... in case it already exists, update
-     *   },
-     *   where: {
-     *     // ... the filter for the Authenticator we want to update
-     *   }
-     * })
-     */
-    upsert<T extends AuthenticatorUpsertArgs>(args: SelectSubset<T, AuthenticatorUpsertArgs<ExtArgs>>): Prisma__AuthenticatorClient<$Result.GetResult<Prisma.$AuthenticatorPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find zero or more Authenticators that matches the filter.
-     * @param {AuthenticatorFindRawArgs} args - Select which filters you would like to apply.
-     * @example
-     * const authenticator = await prisma.authenticator.findRaw({
-     *   filter: { age: { $gt: 25 } }
-     * })
-     */
-    findRaw(args?: AuthenticatorFindRawArgs): Prisma.PrismaPromise<JsonObject>
-
-    /**
-     * Perform aggregation operations on a Authenticator.
-     * @param {AuthenticatorAggregateRawArgs} args - Select which aggregations you would like to apply.
-     * @example
-     * const authenticator = await prisma.authenticator.aggregateRaw({
-     *   pipeline: [
-     *     { $match: { status: "registered" } },
-     *     { $group: { _id: "$country", total: { $sum: 1 } } }
-     *   ]
-     * })
-     */
-    aggregateRaw(args?: AuthenticatorAggregateRawArgs): Prisma.PrismaPromise<JsonObject>
-
-
-    /**
-     * Count the number of Authenticators.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {AuthenticatorCountArgs} args - Arguments to filter Authenticators to count.
-     * @example
-     * // Count the number of Authenticators
-     * const count = await prisma.authenticator.count({
-     *   where: {
-     *     // ... the filter for the Authenticators we want to count
-     *   }
-     * })
-    **/
-    count<T extends AuthenticatorCountArgs>(
-      args?: Subset<T, AuthenticatorCountArgs>,
-    ): Prisma.PrismaPromise<
-      T extends $Utils.Record<'select', any>
-        ? T['select'] extends true
-          ? number
-          : GetScalarType<T['select'], AuthenticatorCountAggregateOutputType>
-        : number
-    >
-
-    /**
-     * Allows you to perform aggregations operations on a Authenticator.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {AuthenticatorAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
-     * @example
-     * // Ordered by age ascending
-     * // Where email contains prisma.io
-     * // Limited to the 10 users
-     * const aggregations = await prisma.user.aggregate({
-     *   _avg: {
-     *     age: true,
-     *   },
-     *   where: {
-     *     email: {
-     *       contains: "prisma.io",
-     *     },
-     *   },
-     *   orderBy: {
-     *     age: "asc",
-     *   },
-     *   take: 10,
-     * })
-    **/
-    aggregate<T extends AuthenticatorAggregateArgs>(args: Subset<T, AuthenticatorAggregateArgs>): Prisma.PrismaPromise<GetAuthenticatorAggregateType<T>>
-
-    /**
-     * Group by Authenticator.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {AuthenticatorGroupByArgs} args - Group by arguments.
-     * @example
-     * // Group by city, order by createdAt, get count
-     * const result = await prisma.user.groupBy({
-     *   by: ['city', 'createdAt'],
-     *   orderBy: {
-     *     createdAt: true
-     *   },
-     *   _count: {
-     *     _all: true
-     *   },
-     * })
-     * 
-    **/
-    groupBy<
-      T extends AuthenticatorGroupByArgs,
-      HasSelectOrTake extends Or<
-        Extends<'skip', Keys<T>>,
-        Extends<'take', Keys<T>>
-      >,
-      OrderByArg extends True extends HasSelectOrTake
-        ? { orderBy: AuthenticatorGroupByArgs['orderBy'] }
-        : { orderBy?: AuthenticatorGroupByArgs['orderBy'] },
-      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
-      ByFields extends MaybeTupleToUnion<T['by']>,
-      ByValid extends Has<ByFields, OrderFields>,
-      HavingFields extends GetHavingFields<T['having']>,
-      HavingValid extends Has<ByFields, HavingFields>,
-      ByEmpty extends T['by'] extends never[] ? True : False,
-      InputErrors extends ByEmpty extends True
-      ? `Error: "by" must not be empty.`
-      : HavingValid extends False
-      ? {
-          [P in HavingFields]: P extends ByFields
-            ? never
-            : P extends string
-            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
-            : [
-                Error,
-                'Field ',
-                P,
-                ` in "having" needs to be provided in "by"`,
-              ]
-        }[HavingFields]
-      : 'take' extends Keys<T>
-      ? 'orderBy' extends Keys<T>
-        ? ByValid extends True
-          ? {}
-          : {
-              [P in OrderFields]: P extends ByFields
-                ? never
-                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-            }[OrderFields]
-        : 'Error: If you provide "take", you also need to provide "orderBy"'
-      : 'skip' extends Keys<T>
-      ? 'orderBy' extends Keys<T>
-        ? ByValid extends True
-          ? {}
-          : {
-              [P in OrderFields]: P extends ByFields
-                ? never
-                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-            }[OrderFields]
-        : 'Error: If you provide "skip", you also need to provide "orderBy"'
-      : ByValid extends True
-      ? {}
-      : {
-          [P in OrderFields]: P extends ByFields
-            ? never
-            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-        }[OrderFields]
-    >(args: SubsetIntersection<T, AuthenticatorGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetAuthenticatorGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
-  /**
-   * Fields of the Authenticator model
-   */
-  readonly fields: AuthenticatorFieldRefs;
-  }
-
-  /**
-   * The delegate class that acts as a "Promise-like" for Authenticator.
-   * Why is this prefixed with `Prisma__`?
-   * Because we want to prevent naming conflicts as mentioned in
-   * https://github.com/prisma/prisma-client-js/issues/707
-   */
-  export interface Prisma__AuthenticatorClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
-    readonly [Symbol.toStringTag]: "PrismaPromise"
-    user<T extends UserDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UserDefaultArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-    /**
-     * Attaches callbacks for the resolution and/or rejection of the Promise.
-     * @param onfulfilled The callback to execute when the Promise is resolved.
-     * @param onrejected The callback to execute when the Promise is rejected.
-     * @returns A Promise for the completion of which ever callback is executed.
-     */
-    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
-    /**
-     * Attaches a callback for only the rejection of the Promise.
-     * @param onrejected The callback to execute when the Promise is rejected.
-     * @returns A Promise for the completion of the callback.
-     */
-    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
-    /**
-     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
-     * resolved value cannot be modified from the callback.
-     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
-     * @returns A Promise for the completion of the callback.
-     */
-    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
-  }
-
-
-
-
-  /**
-   * Fields of the Authenticator model
-   */
-  interface AuthenticatorFieldRefs {
-    readonly credentialID: FieldRef<"Authenticator", 'String'>
-    readonly userId: FieldRef<"Authenticator", 'String'>
-    readonly providerAccountId: FieldRef<"Authenticator", 'String'>
-    readonly credentialPublicKey: FieldRef<"Authenticator", 'String'>
-    readonly counter: FieldRef<"Authenticator", 'Int'>
-    readonly credentialDeviceType: FieldRef<"Authenticator", 'String'>
-    readonly credentialBackedUp: FieldRef<"Authenticator", 'Boolean'>
-    readonly transports: FieldRef<"Authenticator", 'String'>
-  }
-    
-
-  // Custom InputTypes
-  /**
-   * Authenticator findUnique
-   */
-  export type AuthenticatorFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Authenticator
-     */
-    select?: AuthenticatorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Authenticator
-     */
-    omit?: AuthenticatorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: AuthenticatorInclude<ExtArgs> | null
-    /**
-     * Filter, which Authenticator to fetch.
-     */
-    where: AuthenticatorWhereUniqueInput
-  }
-
-  /**
-   * Authenticator findUniqueOrThrow
-   */
-  export type AuthenticatorFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Authenticator
-     */
-    select?: AuthenticatorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Authenticator
-     */
-    omit?: AuthenticatorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: AuthenticatorInclude<ExtArgs> | null
-    /**
-     * Filter, which Authenticator to fetch.
-     */
-    where: AuthenticatorWhereUniqueInput
-  }
-
-  /**
-   * Authenticator findFirst
-   */
-  export type AuthenticatorFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Authenticator
-     */
-    select?: AuthenticatorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Authenticator
-     */
-    omit?: AuthenticatorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: AuthenticatorInclude<ExtArgs> | null
-    /**
-     * Filter, which Authenticator to fetch.
-     */
-    where?: AuthenticatorWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of Authenticators to fetch.
-     */
-    orderBy?: AuthenticatorOrderByWithRelationInput | AuthenticatorOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for searching for Authenticators.
-     */
-    cursor?: AuthenticatorWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` Authenticators from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` Authenticators.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of Authenticators.
-     */
-    distinct?: AuthenticatorScalarFieldEnum | AuthenticatorScalarFieldEnum[]
-  }
-
-  /**
-   * Authenticator findFirstOrThrow
-   */
-  export type AuthenticatorFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Authenticator
-     */
-    select?: AuthenticatorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Authenticator
-     */
-    omit?: AuthenticatorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: AuthenticatorInclude<ExtArgs> | null
-    /**
-     * Filter, which Authenticator to fetch.
-     */
-    where?: AuthenticatorWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of Authenticators to fetch.
-     */
-    orderBy?: AuthenticatorOrderByWithRelationInput | AuthenticatorOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for searching for Authenticators.
-     */
-    cursor?: AuthenticatorWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` Authenticators from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` Authenticators.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of Authenticators.
-     */
-    distinct?: AuthenticatorScalarFieldEnum | AuthenticatorScalarFieldEnum[]
-  }
-
-  /**
-   * Authenticator findMany
-   */
-  export type AuthenticatorFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Authenticator
-     */
-    select?: AuthenticatorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Authenticator
-     */
-    omit?: AuthenticatorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: AuthenticatorInclude<ExtArgs> | null
-    /**
-     * Filter, which Authenticators to fetch.
-     */
-    where?: AuthenticatorWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of Authenticators to fetch.
-     */
-    orderBy?: AuthenticatorOrderByWithRelationInput | AuthenticatorOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for listing Authenticators.
-     */
-    cursor?: AuthenticatorWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` Authenticators from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` Authenticators.
-     */
-    skip?: number
-    distinct?: AuthenticatorScalarFieldEnum | AuthenticatorScalarFieldEnum[]
-  }
-
-  /**
-   * Authenticator create
-   */
-  export type AuthenticatorCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Authenticator
-     */
-    select?: AuthenticatorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Authenticator
-     */
-    omit?: AuthenticatorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: AuthenticatorInclude<ExtArgs> | null
-    /**
-     * The data needed to create a Authenticator.
-     */
-    data: XOR<AuthenticatorCreateInput, AuthenticatorUncheckedCreateInput>
-  }
-
-  /**
-   * Authenticator createMany
-   */
-  export type AuthenticatorCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The data used to create many Authenticators.
-     */
-    data: AuthenticatorCreateManyInput | AuthenticatorCreateManyInput[]
-  }
-
-  /**
-   * Authenticator update
-   */
-  export type AuthenticatorUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Authenticator
-     */
-    select?: AuthenticatorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Authenticator
-     */
-    omit?: AuthenticatorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: AuthenticatorInclude<ExtArgs> | null
-    /**
-     * The data needed to update a Authenticator.
-     */
-    data: XOR<AuthenticatorUpdateInput, AuthenticatorUncheckedUpdateInput>
-    /**
-     * Choose, which Authenticator to update.
-     */
-    where: AuthenticatorWhereUniqueInput
-  }
-
-  /**
-   * Authenticator updateMany
-   */
-  export type AuthenticatorUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The data used to update Authenticators.
-     */
-    data: XOR<AuthenticatorUpdateManyMutationInput, AuthenticatorUncheckedUpdateManyInput>
-    /**
-     * Filter which Authenticators to update
-     */
-    where?: AuthenticatorWhereInput
-    /**
-     * Limit how many Authenticators to update.
-     */
-    limit?: number
-  }
-
-  /**
-   * Authenticator upsert
-   */
-  export type AuthenticatorUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Authenticator
-     */
-    select?: AuthenticatorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Authenticator
-     */
-    omit?: AuthenticatorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: AuthenticatorInclude<ExtArgs> | null
-    /**
-     * The filter to search for the Authenticator to update in case it exists.
-     */
-    where: AuthenticatorWhereUniqueInput
-    /**
-     * In case the Authenticator found by the `where` argument doesn't exist, create a new Authenticator with this data.
-     */
-    create: XOR<AuthenticatorCreateInput, AuthenticatorUncheckedCreateInput>
-    /**
-     * In case the Authenticator was found with the provided `where` argument, update it with this data.
-     */
-    update: XOR<AuthenticatorUpdateInput, AuthenticatorUncheckedUpdateInput>
-  }
-
-  /**
-   * Authenticator delete
-   */
-  export type AuthenticatorDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Authenticator
-     */
-    select?: AuthenticatorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Authenticator
-     */
-    omit?: AuthenticatorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: AuthenticatorInclude<ExtArgs> | null
-    /**
-     * Filter which Authenticator to delete.
-     */
-    where: AuthenticatorWhereUniqueInput
-  }
-
-  /**
-   * Authenticator deleteMany
-   */
-  export type AuthenticatorDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Filter which Authenticators to delete
-     */
-    where?: AuthenticatorWhereInput
-    /**
-     * Limit how many Authenticators to delete.
-     */
-    limit?: number
-  }
-
-  /**
-   * Authenticator findRaw
-   */
-  export type AuthenticatorFindRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The query predicate filter. If unspecified, then all documents in the collection will match the predicate. ${@link https://docs.mongodb.com/manual/reference/operator/query MongoDB Docs}.
-     */
-    filter?: InputJsonValue
-    /**
-     * Additional options to pass to the `find` command ${@link https://docs.mongodb.com/manual/reference/command/find/#command-fields MongoDB Docs}.
-     */
-    options?: InputJsonValue
-  }
-
-  /**
-   * Authenticator aggregateRaw
-   */
-  export type AuthenticatorAggregateRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * An array of aggregation stages to process and transform the document stream via the aggregation pipeline. ${@link https://docs.mongodb.com/manual/reference/operator/aggregation-pipeline MongoDB Docs}.
-     */
-    pipeline?: InputJsonValue[]
-    /**
-     * Additional options to pass to the `aggregate` command ${@link https://docs.mongodb.com/manual/reference/command/aggregate/#command-fields MongoDB Docs}.
-     */
-    options?: InputJsonValue
-  }
-
-  /**
-   * Authenticator without action
-   */
-  export type AuthenticatorDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Authenticator
-     */
-    select?: AuthenticatorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Authenticator
-     */
-    omit?: AuthenticatorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: AuthenticatorInclude<ExtArgs> | null
+    include?: VaultInclude<ExtArgs> | null
   }
 
 
@@ -6424,40 +4227,15 @@ export namespace Prisma {
   export type AccountScalarFieldEnum = (typeof AccountScalarFieldEnum)[keyof typeof AccountScalarFieldEnum]
 
 
-  export const SessionScalarFieldEnum: {
+  export const VaultScalarFieldEnum: {
     id: 'id',
-    sessionToken: 'sessionToken',
+    name: 'name',
+    password: 'password',
     userId: 'userId',
-    expires: 'expires',
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    createdAt: 'createdAt'
   };
 
-  export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
-
-
-  export const VerificationTokenScalarFieldEnum: {
-    id: 'id',
-    identifier: 'identifier',
-    token: 'token',
-    expires: 'expires'
-  };
-
-  export type VerificationTokenScalarFieldEnum = (typeof VerificationTokenScalarFieldEnum)[keyof typeof VerificationTokenScalarFieldEnum]
-
-
-  export const AuthenticatorScalarFieldEnum: {
-    credentialID: 'credentialID',
-    userId: 'userId',
-    providerAccountId: 'providerAccountId',
-    credentialPublicKey: 'credentialPublicKey',
-    counter: 'counter',
-    credentialDeviceType: 'credentialDeviceType',
-    credentialBackedUp: 'credentialBackedUp',
-    transports: 'transports'
-  };
-
-  export type AuthenticatorScalarFieldEnum = (typeof AuthenticatorScalarFieldEnum)[keyof typeof AuthenticatorScalarFieldEnum]
+  export type VaultScalarFieldEnum = (typeof VaultScalarFieldEnum)[keyof typeof VaultScalarFieldEnum]
 
 
   export const SortOrder: {
@@ -6524,13 +4302,6 @@ export namespace Prisma {
 
 
   /**
-   * Reference to a field of type 'Boolean'
-   */
-  export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
-    
-
-
-  /**
    * Reference to a field of type 'Float'
    */
   export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -6559,8 +4330,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
     accounts?: AccountListRelationFilter
-    sessions?: SessionListRelationFilter
-    Authenticator?: AuthenticatorListRelationFilter
+    vaults?: VaultListRelationFilter
   }
 
   export type UserOrderByWithRelationInput = {
@@ -6572,8 +4342,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     accounts?: AccountOrderByRelationAggregateInput
-    sessions?: SessionOrderByRelationAggregateInput
-    Authenticator?: AuthenticatorOrderByRelationAggregateInput
+    vaults?: VaultOrderByRelationAggregateInput
   }
 
   export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -6588,8 +4357,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
     accounts?: AccountListRelationFilter
-    sessions?: SessionListRelationFilter
-    Authenticator?: AuthenticatorListRelationFilter
+    vaults?: VaultListRelationFilter
   }, "id" | "email">
 
   export type UserOrderByWithAggregationInput = {
@@ -6721,185 +4489,59 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"Account"> | Date | string
   }
 
-  export type SessionWhereInput = {
-    AND?: SessionWhereInput | SessionWhereInput[]
-    OR?: SessionWhereInput[]
-    NOT?: SessionWhereInput | SessionWhereInput[]
-    id?: StringFilter<"Session"> | string
-    sessionToken?: StringFilter<"Session"> | string
-    userId?: StringFilter<"Session"> | string
-    expires?: DateTimeFilter<"Session"> | Date | string
-    createdAt?: DateTimeFilter<"Session"> | Date | string
-    updatedAt?: DateTimeFilter<"Session"> | Date | string
+  export type VaultWhereInput = {
+    AND?: VaultWhereInput | VaultWhereInput[]
+    OR?: VaultWhereInput[]
+    NOT?: VaultWhereInput | VaultWhereInput[]
+    id?: StringFilter<"Vault"> | string
+    name?: StringFilter<"Vault"> | string
+    password?: StringFilter<"Vault"> | string
+    userId?: StringFilter<"Vault"> | string
+    createdAt?: DateTimeFilter<"Vault"> | Date | string
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
   }
 
-  export type SessionOrderByWithRelationInput = {
+  export type VaultOrderByWithRelationInput = {
     id?: SortOrder
-    sessionToken?: SortOrder
+    name?: SortOrder
+    password?: SortOrder
     userId?: SortOrder
-    expires?: SortOrder
     createdAt?: SortOrder
-    updatedAt?: SortOrder
     user?: UserOrderByWithRelationInput
   }
 
-  export type SessionWhereUniqueInput = Prisma.AtLeast<{
+  export type VaultWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    sessionToken?: string
-    AND?: SessionWhereInput | SessionWhereInput[]
-    OR?: SessionWhereInput[]
-    NOT?: SessionWhereInput | SessionWhereInput[]
-    userId?: StringFilter<"Session"> | string
-    expires?: DateTimeFilter<"Session"> | Date | string
-    createdAt?: DateTimeFilter<"Session"> | Date | string
-    updatedAt?: DateTimeFilter<"Session"> | Date | string
+    AND?: VaultWhereInput | VaultWhereInput[]
+    OR?: VaultWhereInput[]
+    NOT?: VaultWhereInput | VaultWhereInput[]
+    name?: StringFilter<"Vault"> | string
+    password?: StringFilter<"Vault"> | string
+    userId?: StringFilter<"Vault"> | string
+    createdAt?: DateTimeFilter<"Vault"> | Date | string
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
-  }, "id" | "sessionToken">
+  }, "id">
 
-  export type SessionOrderByWithAggregationInput = {
+  export type VaultOrderByWithAggregationInput = {
     id?: SortOrder
-    sessionToken?: SortOrder
+    name?: SortOrder
+    password?: SortOrder
     userId?: SortOrder
-    expires?: SortOrder
     createdAt?: SortOrder
-    updatedAt?: SortOrder
-    _count?: SessionCountOrderByAggregateInput
-    _max?: SessionMaxOrderByAggregateInput
-    _min?: SessionMinOrderByAggregateInput
+    _count?: VaultCountOrderByAggregateInput
+    _max?: VaultMaxOrderByAggregateInput
+    _min?: VaultMinOrderByAggregateInput
   }
 
-  export type SessionScalarWhereWithAggregatesInput = {
-    AND?: SessionScalarWhereWithAggregatesInput | SessionScalarWhereWithAggregatesInput[]
-    OR?: SessionScalarWhereWithAggregatesInput[]
-    NOT?: SessionScalarWhereWithAggregatesInput | SessionScalarWhereWithAggregatesInput[]
-    id?: StringWithAggregatesFilter<"Session"> | string
-    sessionToken?: StringWithAggregatesFilter<"Session"> | string
-    userId?: StringWithAggregatesFilter<"Session"> | string
-    expires?: DateTimeWithAggregatesFilter<"Session"> | Date | string
-    createdAt?: DateTimeWithAggregatesFilter<"Session"> | Date | string
-    updatedAt?: DateTimeWithAggregatesFilter<"Session"> | Date | string
-  }
-
-  export type VerificationTokenWhereInput = {
-    AND?: VerificationTokenWhereInput | VerificationTokenWhereInput[]
-    OR?: VerificationTokenWhereInput[]
-    NOT?: VerificationTokenWhereInput | VerificationTokenWhereInput[]
-    id?: StringFilter<"VerificationToken"> | string
-    identifier?: StringFilter<"VerificationToken"> | string
-    token?: StringFilter<"VerificationToken"> | string
-    expires?: DateTimeFilter<"VerificationToken"> | Date | string
-  }
-
-  export type VerificationTokenOrderByWithRelationInput = {
-    id?: SortOrder
-    identifier?: SortOrder
-    token?: SortOrder
-    expires?: SortOrder
-  }
-
-  export type VerificationTokenWhereUniqueInput = Prisma.AtLeast<{
-    id?: string
-    identifier_token?: VerificationTokenIdentifierTokenCompoundUniqueInput
-    AND?: VerificationTokenWhereInput | VerificationTokenWhereInput[]
-    OR?: VerificationTokenWhereInput[]
-    NOT?: VerificationTokenWhereInput | VerificationTokenWhereInput[]
-    identifier?: StringFilter<"VerificationToken"> | string
-    token?: StringFilter<"VerificationToken"> | string
-    expires?: DateTimeFilter<"VerificationToken"> | Date | string
-  }, "id" | "identifier_token">
-
-  export type VerificationTokenOrderByWithAggregationInput = {
-    id?: SortOrder
-    identifier?: SortOrder
-    token?: SortOrder
-    expires?: SortOrder
-    _count?: VerificationTokenCountOrderByAggregateInput
-    _max?: VerificationTokenMaxOrderByAggregateInput
-    _min?: VerificationTokenMinOrderByAggregateInput
-  }
-
-  export type VerificationTokenScalarWhereWithAggregatesInput = {
-    AND?: VerificationTokenScalarWhereWithAggregatesInput | VerificationTokenScalarWhereWithAggregatesInput[]
-    OR?: VerificationTokenScalarWhereWithAggregatesInput[]
-    NOT?: VerificationTokenScalarWhereWithAggregatesInput | VerificationTokenScalarWhereWithAggregatesInput[]
-    id?: StringWithAggregatesFilter<"VerificationToken"> | string
-    identifier?: StringWithAggregatesFilter<"VerificationToken"> | string
-    token?: StringWithAggregatesFilter<"VerificationToken"> | string
-    expires?: DateTimeWithAggregatesFilter<"VerificationToken"> | Date | string
-  }
-
-  export type AuthenticatorWhereInput = {
-    AND?: AuthenticatorWhereInput | AuthenticatorWhereInput[]
-    OR?: AuthenticatorWhereInput[]
-    NOT?: AuthenticatorWhereInput | AuthenticatorWhereInput[]
-    credentialID?: StringFilter<"Authenticator"> | string
-    userId?: StringFilter<"Authenticator"> | string
-    providerAccountId?: StringFilter<"Authenticator"> | string
-    credentialPublicKey?: StringFilter<"Authenticator"> | string
-    counter?: IntFilter<"Authenticator"> | number
-    credentialDeviceType?: StringFilter<"Authenticator"> | string
-    credentialBackedUp?: BoolFilter<"Authenticator"> | boolean
-    transports?: StringNullableFilter<"Authenticator"> | string | null
-    user?: XOR<UserScalarRelationFilter, UserWhereInput>
-  }
-
-  export type AuthenticatorOrderByWithRelationInput = {
-    credentialID?: SortOrder
-    userId?: SortOrder
-    providerAccountId?: SortOrder
-    credentialPublicKey?: SortOrder
-    counter?: SortOrder
-    credentialDeviceType?: SortOrder
-    credentialBackedUp?: SortOrder
-    transports?: SortOrder
-    user?: UserOrderByWithRelationInput
-  }
-
-  export type AuthenticatorWhereUniqueInput = Prisma.AtLeast<{
-    credentialID?: string
-    userId_credentialID?: AuthenticatorUserIdCredentialIDCompoundUniqueInput
-    AND?: AuthenticatorWhereInput | AuthenticatorWhereInput[]
-    OR?: AuthenticatorWhereInput[]
-    NOT?: AuthenticatorWhereInput | AuthenticatorWhereInput[]
-    userId?: StringFilter<"Authenticator"> | string
-    providerAccountId?: StringFilter<"Authenticator"> | string
-    credentialPublicKey?: StringFilter<"Authenticator"> | string
-    counter?: IntFilter<"Authenticator"> | number
-    credentialDeviceType?: StringFilter<"Authenticator"> | string
-    credentialBackedUp?: BoolFilter<"Authenticator"> | boolean
-    transports?: StringNullableFilter<"Authenticator"> | string | null
-    user?: XOR<UserScalarRelationFilter, UserWhereInput>
-  }, "credentialID" | "userId_credentialID">
-
-  export type AuthenticatorOrderByWithAggregationInput = {
-    credentialID?: SortOrder
-    userId?: SortOrder
-    providerAccountId?: SortOrder
-    credentialPublicKey?: SortOrder
-    counter?: SortOrder
-    credentialDeviceType?: SortOrder
-    credentialBackedUp?: SortOrder
-    transports?: SortOrder
-    _count?: AuthenticatorCountOrderByAggregateInput
-    _avg?: AuthenticatorAvgOrderByAggregateInput
-    _max?: AuthenticatorMaxOrderByAggregateInput
-    _min?: AuthenticatorMinOrderByAggregateInput
-    _sum?: AuthenticatorSumOrderByAggregateInput
-  }
-
-  export type AuthenticatorScalarWhereWithAggregatesInput = {
-    AND?: AuthenticatorScalarWhereWithAggregatesInput | AuthenticatorScalarWhereWithAggregatesInput[]
-    OR?: AuthenticatorScalarWhereWithAggregatesInput[]
-    NOT?: AuthenticatorScalarWhereWithAggregatesInput | AuthenticatorScalarWhereWithAggregatesInput[]
-    credentialID?: StringWithAggregatesFilter<"Authenticator"> | string
-    userId?: StringWithAggregatesFilter<"Authenticator"> | string
-    providerAccountId?: StringWithAggregatesFilter<"Authenticator"> | string
-    credentialPublicKey?: StringWithAggregatesFilter<"Authenticator"> | string
-    counter?: IntWithAggregatesFilter<"Authenticator"> | number
-    credentialDeviceType?: StringWithAggregatesFilter<"Authenticator"> | string
-    credentialBackedUp?: BoolWithAggregatesFilter<"Authenticator"> | boolean
-    transports?: StringNullableWithAggregatesFilter<"Authenticator"> | string | null
+  export type VaultScalarWhereWithAggregatesInput = {
+    AND?: VaultScalarWhereWithAggregatesInput | VaultScalarWhereWithAggregatesInput[]
+    OR?: VaultScalarWhereWithAggregatesInput[]
+    NOT?: VaultScalarWhereWithAggregatesInput | VaultScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"Vault"> | string
+    name?: StringWithAggregatesFilter<"Vault"> | string
+    password?: StringWithAggregatesFilter<"Vault"> | string
+    userId?: StringWithAggregatesFilter<"Vault"> | string
+    createdAt?: DateTimeWithAggregatesFilter<"Vault"> | Date | string
   }
 
   export type UserCreateInput = {
@@ -6911,8 +4553,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     accounts?: AccountCreateNestedManyWithoutUserInput
-    sessions?: SessionCreateNestedManyWithoutUserInput
-    Authenticator?: AuthenticatorCreateNestedManyWithoutUserInput
+    vaults?: VaultCreateNestedManyWithoutUserInput
   }
 
   export type UserUncheckedCreateInput = {
@@ -6924,8 +4565,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     accounts?: AccountUncheckedCreateNestedManyWithoutUserInput
-    sessions?: SessionUncheckedCreateNestedManyWithoutUserInput
-    Authenticator?: AuthenticatorUncheckedCreateNestedManyWithoutUserInput
+    vaults?: VaultUncheckedCreateNestedManyWithoutUserInput
   }
 
   export type UserUpdateInput = {
@@ -6936,8 +4576,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     accounts?: AccountUpdateManyWithoutUserNestedInput
-    sessions?: SessionUpdateManyWithoutUserNestedInput
-    Authenticator?: AuthenticatorUpdateManyWithoutUserNestedInput
+    vaults?: VaultUpdateManyWithoutUserNestedInput
   }
 
   export type UserUncheckedUpdateInput = {
@@ -6948,8 +4587,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     accounts?: AccountUncheckedUpdateManyWithoutUserNestedInput
-    sessions?: SessionUncheckedUpdateManyWithoutUserNestedInput
-    Authenticator?: AuthenticatorUncheckedUpdateManyWithoutUserNestedInput
+    vaults?: VaultUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type UserCreateManyInput = {
@@ -7094,179 +4732,55 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
-  export type SessionCreateInput = {
+  export type VaultCreateInput = {
     id?: string
-    sessionToken: string
-    expires: Date | string
+    name: string
+    password: string
     createdAt?: Date | string
-    updatedAt?: Date | string
-    user: UserCreateNestedOneWithoutSessionsInput
+    user: UserCreateNestedOneWithoutVaultsInput
   }
 
-  export type SessionUncheckedCreateInput = {
+  export type VaultUncheckedCreateInput = {
     id?: string
-    sessionToken: string
+    name: string
+    password: string
     userId: string
-    expires: Date | string
     createdAt?: Date | string
-    updatedAt?: Date | string
   }
 
-  export type SessionUpdateInput = {
-    sessionToken?: StringFieldUpdateOperationsInput | string
-    expires?: DateTimeFieldUpdateOperationsInput | Date | string
+  export type VaultUpdateInput = {
+    name?: StringFieldUpdateOperationsInput | string
+    password?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    user?: UserUpdateOneRequiredWithoutSessionsNestedInput
+    user?: UserUpdateOneRequiredWithoutVaultsNestedInput
   }
 
-  export type SessionUncheckedUpdateInput = {
-    sessionToken?: StringFieldUpdateOperationsInput | string
+  export type VaultUncheckedUpdateInput = {
+    name?: StringFieldUpdateOperationsInput | string
+    password?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
-    expires?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
-  export type SessionCreateManyInput = {
+  export type VaultCreateManyInput = {
     id?: string
-    sessionToken: string
+    name: string
+    password: string
     userId: string
-    expires: Date | string
     createdAt?: Date | string
-    updatedAt?: Date | string
   }
 
-  export type SessionUpdateManyMutationInput = {
-    sessionToken?: StringFieldUpdateOperationsInput | string
-    expires?: DateTimeFieldUpdateOperationsInput | Date | string
+  export type VaultUpdateManyMutationInput = {
+    name?: StringFieldUpdateOperationsInput | string
+    password?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
-  export type SessionUncheckedUpdateManyInput = {
-    sessionToken?: StringFieldUpdateOperationsInput | string
+  export type VaultUncheckedUpdateManyInput = {
+    name?: StringFieldUpdateOperationsInput | string
+    password?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
-    expires?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type VerificationTokenCreateInput = {
-    id?: string
-    identifier: string
-    token: string
-    expires: Date | string
-  }
-
-  export type VerificationTokenUncheckedCreateInput = {
-    id?: string
-    identifier: string
-    token: string
-    expires: Date | string
-  }
-
-  export type VerificationTokenUpdateInput = {
-    identifier?: StringFieldUpdateOperationsInput | string
-    token?: StringFieldUpdateOperationsInput | string
-    expires?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type VerificationTokenUncheckedUpdateInput = {
-    identifier?: StringFieldUpdateOperationsInput | string
-    token?: StringFieldUpdateOperationsInput | string
-    expires?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type VerificationTokenCreateManyInput = {
-    id?: string
-    identifier: string
-    token: string
-    expires: Date | string
-  }
-
-  export type VerificationTokenUpdateManyMutationInput = {
-    identifier?: StringFieldUpdateOperationsInput | string
-    token?: StringFieldUpdateOperationsInput | string
-    expires?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type VerificationTokenUncheckedUpdateManyInput = {
-    identifier?: StringFieldUpdateOperationsInput | string
-    token?: StringFieldUpdateOperationsInput | string
-    expires?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type AuthenticatorCreateInput = {
-    credentialID: string
-    providerAccountId: string
-    credentialPublicKey: string
-    counter: number
-    credentialDeviceType: string
-    credentialBackedUp: boolean
-    transports?: string | null
-    user: UserCreateNestedOneWithoutAuthenticatorInput
-  }
-
-  export type AuthenticatorUncheckedCreateInput = {
-    credentialID: string
-    userId: string
-    providerAccountId: string
-    credentialPublicKey: string
-    counter: number
-    credentialDeviceType: string
-    credentialBackedUp: boolean
-    transports?: string | null
-  }
-
-  export type AuthenticatorUpdateInput = {
-    providerAccountId?: StringFieldUpdateOperationsInput | string
-    credentialPublicKey?: StringFieldUpdateOperationsInput | string
-    counter?: IntFieldUpdateOperationsInput | number
-    credentialDeviceType?: StringFieldUpdateOperationsInput | string
-    credentialBackedUp?: BoolFieldUpdateOperationsInput | boolean
-    transports?: NullableStringFieldUpdateOperationsInput | string | null
-    user?: UserUpdateOneRequiredWithoutAuthenticatorNestedInput
-  }
-
-  export type AuthenticatorUncheckedUpdateInput = {
-    userId?: StringFieldUpdateOperationsInput | string
-    providerAccountId?: StringFieldUpdateOperationsInput | string
-    credentialPublicKey?: StringFieldUpdateOperationsInput | string
-    counter?: IntFieldUpdateOperationsInput | number
-    credentialDeviceType?: StringFieldUpdateOperationsInput | string
-    credentialBackedUp?: BoolFieldUpdateOperationsInput | boolean
-    transports?: NullableStringFieldUpdateOperationsInput | string | null
-  }
-
-  export type AuthenticatorCreateManyInput = {
-    credentialID: string
-    userId: string
-    providerAccountId: string
-    credentialPublicKey: string
-    counter: number
-    credentialDeviceType: string
-    credentialBackedUp: boolean
-    transports?: string | null
-  }
-
-  export type AuthenticatorUpdateManyMutationInput = {
-    providerAccountId?: StringFieldUpdateOperationsInput | string
-    credentialPublicKey?: StringFieldUpdateOperationsInput | string
-    counter?: IntFieldUpdateOperationsInput | number
-    credentialDeviceType?: StringFieldUpdateOperationsInput | string
-    credentialBackedUp?: BoolFieldUpdateOperationsInput | boolean
-    transports?: NullableStringFieldUpdateOperationsInput | string | null
-  }
-
-  export type AuthenticatorUncheckedUpdateManyInput = {
-    userId?: StringFieldUpdateOperationsInput | string
-    providerAccountId?: StringFieldUpdateOperationsInput | string
-    credentialPublicKey?: StringFieldUpdateOperationsInput | string
-    counter?: IntFieldUpdateOperationsInput | number
-    credentialDeviceType?: StringFieldUpdateOperationsInput | string
-    credentialBackedUp?: BoolFieldUpdateOperationsInput | boolean
-    transports?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type StringFilter<$PrismaModel = never> = {
@@ -7329,27 +4843,17 @@ export namespace Prisma {
     none?: AccountWhereInput
   }
 
-  export type SessionListRelationFilter = {
-    every?: SessionWhereInput
-    some?: SessionWhereInput
-    none?: SessionWhereInput
-  }
-
-  export type AuthenticatorListRelationFilter = {
-    every?: AuthenticatorWhereInput
-    some?: AuthenticatorWhereInput
-    none?: AuthenticatorWhereInput
+  export type VaultListRelationFilter = {
+    every?: VaultWhereInput
+    some?: VaultWhereInput
+    none?: VaultWhereInput
   }
 
   export type AccountOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
-  export type SessionOrderByRelationAggregateInput = {
-    _count?: SortOrder
-  }
-
-  export type AuthenticatorOrderByRelationAggregateInput = {
+  export type VaultOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -7547,143 +5051,28 @@ export namespace Prisma {
     isSet?: boolean
   }
 
-  export type SessionCountOrderByAggregateInput = {
+  export type VaultCountOrderByAggregateInput = {
     id?: SortOrder
-    sessionToken?: SortOrder
+    name?: SortOrder
+    password?: SortOrder
     userId?: SortOrder
-    expires?: SortOrder
     createdAt?: SortOrder
-    updatedAt?: SortOrder
   }
 
-  export type SessionMaxOrderByAggregateInput = {
+  export type VaultMaxOrderByAggregateInput = {
     id?: SortOrder
-    sessionToken?: SortOrder
+    name?: SortOrder
+    password?: SortOrder
     userId?: SortOrder
-    expires?: SortOrder
     createdAt?: SortOrder
-    updatedAt?: SortOrder
   }
 
-  export type SessionMinOrderByAggregateInput = {
+  export type VaultMinOrderByAggregateInput = {
     id?: SortOrder
-    sessionToken?: SortOrder
+    name?: SortOrder
+    password?: SortOrder
     userId?: SortOrder
-    expires?: SortOrder
     createdAt?: SortOrder
-    updatedAt?: SortOrder
-  }
-
-  export type VerificationTokenIdentifierTokenCompoundUniqueInput = {
-    identifier: string
-    token: string
-  }
-
-  export type VerificationTokenCountOrderByAggregateInput = {
-    id?: SortOrder
-    identifier?: SortOrder
-    token?: SortOrder
-    expires?: SortOrder
-  }
-
-  export type VerificationTokenMaxOrderByAggregateInput = {
-    id?: SortOrder
-    identifier?: SortOrder
-    token?: SortOrder
-    expires?: SortOrder
-  }
-
-  export type VerificationTokenMinOrderByAggregateInput = {
-    id?: SortOrder
-    identifier?: SortOrder
-    token?: SortOrder
-    expires?: SortOrder
-  }
-
-  export type IntFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel>
-    in?: number[] | ListIntFieldRefInput<$PrismaModel>
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntFilter<$PrismaModel> | number
-  }
-
-  export type BoolFilter<$PrismaModel = never> = {
-    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolFilter<$PrismaModel> | boolean
-  }
-
-  export type AuthenticatorUserIdCredentialIDCompoundUniqueInput = {
-    userId: string
-    credentialID: string
-  }
-
-  export type AuthenticatorCountOrderByAggregateInput = {
-    credentialID?: SortOrder
-    userId?: SortOrder
-    providerAccountId?: SortOrder
-    credentialPublicKey?: SortOrder
-    counter?: SortOrder
-    credentialDeviceType?: SortOrder
-    credentialBackedUp?: SortOrder
-    transports?: SortOrder
-  }
-
-  export type AuthenticatorAvgOrderByAggregateInput = {
-    counter?: SortOrder
-  }
-
-  export type AuthenticatorMaxOrderByAggregateInput = {
-    credentialID?: SortOrder
-    userId?: SortOrder
-    providerAccountId?: SortOrder
-    credentialPublicKey?: SortOrder
-    counter?: SortOrder
-    credentialDeviceType?: SortOrder
-    credentialBackedUp?: SortOrder
-    transports?: SortOrder
-  }
-
-  export type AuthenticatorMinOrderByAggregateInput = {
-    credentialID?: SortOrder
-    userId?: SortOrder
-    providerAccountId?: SortOrder
-    credentialPublicKey?: SortOrder
-    counter?: SortOrder
-    credentialDeviceType?: SortOrder
-    credentialBackedUp?: SortOrder
-    transports?: SortOrder
-  }
-
-  export type AuthenticatorSumOrderByAggregateInput = {
-    counter?: SortOrder
-  }
-
-  export type IntWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel>
-    in?: number[] | ListIntFieldRefInput<$PrismaModel>
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntWithAggregatesFilter<$PrismaModel> | number
-    _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedFloatFilter<$PrismaModel>
-    _sum?: NestedIntFilter<$PrismaModel>
-    _min?: NestedIntFilter<$PrismaModel>
-    _max?: NestedIntFilter<$PrismaModel>
-  }
-
-  export type BoolWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolWithAggregatesFilter<$PrismaModel> | boolean
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedBoolFilter<$PrismaModel>
-    _max?: NestedBoolFilter<$PrismaModel>
   }
 
   export type AccountCreateNestedManyWithoutUserInput = {
@@ -7693,18 +5082,11 @@ export namespace Prisma {
     connect?: AccountWhereUniqueInput | AccountWhereUniqueInput[]
   }
 
-  export type SessionCreateNestedManyWithoutUserInput = {
-    create?: XOR<SessionCreateWithoutUserInput, SessionUncheckedCreateWithoutUserInput> | SessionCreateWithoutUserInput[] | SessionUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: SessionCreateOrConnectWithoutUserInput | SessionCreateOrConnectWithoutUserInput[]
-    createMany?: SessionCreateManyUserInputEnvelope
-    connect?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
-  }
-
-  export type AuthenticatorCreateNestedManyWithoutUserInput = {
-    create?: XOR<AuthenticatorCreateWithoutUserInput, AuthenticatorUncheckedCreateWithoutUserInput> | AuthenticatorCreateWithoutUserInput[] | AuthenticatorUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: AuthenticatorCreateOrConnectWithoutUserInput | AuthenticatorCreateOrConnectWithoutUserInput[]
-    createMany?: AuthenticatorCreateManyUserInputEnvelope
-    connect?: AuthenticatorWhereUniqueInput | AuthenticatorWhereUniqueInput[]
+  export type VaultCreateNestedManyWithoutUserInput = {
+    create?: XOR<VaultCreateWithoutUserInput, VaultUncheckedCreateWithoutUserInput> | VaultCreateWithoutUserInput[] | VaultUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: VaultCreateOrConnectWithoutUserInput | VaultCreateOrConnectWithoutUserInput[]
+    createMany?: VaultCreateManyUserInputEnvelope
+    connect?: VaultWhereUniqueInput | VaultWhereUniqueInput[]
   }
 
   export type AccountUncheckedCreateNestedManyWithoutUserInput = {
@@ -7714,18 +5096,11 @@ export namespace Prisma {
     connect?: AccountWhereUniqueInput | AccountWhereUniqueInput[]
   }
 
-  export type SessionUncheckedCreateNestedManyWithoutUserInput = {
-    create?: XOR<SessionCreateWithoutUserInput, SessionUncheckedCreateWithoutUserInput> | SessionCreateWithoutUserInput[] | SessionUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: SessionCreateOrConnectWithoutUserInput | SessionCreateOrConnectWithoutUserInput[]
-    createMany?: SessionCreateManyUserInputEnvelope
-    connect?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
-  }
-
-  export type AuthenticatorUncheckedCreateNestedManyWithoutUserInput = {
-    create?: XOR<AuthenticatorCreateWithoutUserInput, AuthenticatorUncheckedCreateWithoutUserInput> | AuthenticatorCreateWithoutUserInput[] | AuthenticatorUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: AuthenticatorCreateOrConnectWithoutUserInput | AuthenticatorCreateOrConnectWithoutUserInput[]
-    createMany?: AuthenticatorCreateManyUserInputEnvelope
-    connect?: AuthenticatorWhereUniqueInput | AuthenticatorWhereUniqueInput[]
+  export type VaultUncheckedCreateNestedManyWithoutUserInput = {
+    create?: XOR<VaultCreateWithoutUserInput, VaultUncheckedCreateWithoutUserInput> | VaultCreateWithoutUserInput[] | VaultUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: VaultCreateOrConnectWithoutUserInput | VaultCreateOrConnectWithoutUserInput[]
+    createMany?: VaultCreateManyUserInputEnvelope
+    connect?: VaultWhereUniqueInput | VaultWhereUniqueInput[]
   }
 
   export type NullableStringFieldUpdateOperationsInput = {
@@ -7756,32 +5131,18 @@ export namespace Prisma {
     deleteMany?: AccountScalarWhereInput | AccountScalarWhereInput[]
   }
 
-  export type SessionUpdateManyWithoutUserNestedInput = {
-    create?: XOR<SessionCreateWithoutUserInput, SessionUncheckedCreateWithoutUserInput> | SessionCreateWithoutUserInput[] | SessionUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: SessionCreateOrConnectWithoutUserInput | SessionCreateOrConnectWithoutUserInput[]
-    upsert?: SessionUpsertWithWhereUniqueWithoutUserInput | SessionUpsertWithWhereUniqueWithoutUserInput[]
-    createMany?: SessionCreateManyUserInputEnvelope
-    set?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
-    disconnect?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
-    delete?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
-    connect?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
-    update?: SessionUpdateWithWhereUniqueWithoutUserInput | SessionUpdateWithWhereUniqueWithoutUserInput[]
-    updateMany?: SessionUpdateManyWithWhereWithoutUserInput | SessionUpdateManyWithWhereWithoutUserInput[]
-    deleteMany?: SessionScalarWhereInput | SessionScalarWhereInput[]
-  }
-
-  export type AuthenticatorUpdateManyWithoutUserNestedInput = {
-    create?: XOR<AuthenticatorCreateWithoutUserInput, AuthenticatorUncheckedCreateWithoutUserInput> | AuthenticatorCreateWithoutUserInput[] | AuthenticatorUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: AuthenticatorCreateOrConnectWithoutUserInput | AuthenticatorCreateOrConnectWithoutUserInput[]
-    upsert?: AuthenticatorUpsertWithWhereUniqueWithoutUserInput | AuthenticatorUpsertWithWhereUniqueWithoutUserInput[]
-    createMany?: AuthenticatorCreateManyUserInputEnvelope
-    set?: AuthenticatorWhereUniqueInput | AuthenticatorWhereUniqueInput[]
-    disconnect?: AuthenticatorWhereUniqueInput | AuthenticatorWhereUniqueInput[]
-    delete?: AuthenticatorWhereUniqueInput | AuthenticatorWhereUniqueInput[]
-    connect?: AuthenticatorWhereUniqueInput | AuthenticatorWhereUniqueInput[]
-    update?: AuthenticatorUpdateWithWhereUniqueWithoutUserInput | AuthenticatorUpdateWithWhereUniqueWithoutUserInput[]
-    updateMany?: AuthenticatorUpdateManyWithWhereWithoutUserInput | AuthenticatorUpdateManyWithWhereWithoutUserInput[]
-    deleteMany?: AuthenticatorScalarWhereInput | AuthenticatorScalarWhereInput[]
+  export type VaultUpdateManyWithoutUserNestedInput = {
+    create?: XOR<VaultCreateWithoutUserInput, VaultUncheckedCreateWithoutUserInput> | VaultCreateWithoutUserInput[] | VaultUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: VaultCreateOrConnectWithoutUserInput | VaultCreateOrConnectWithoutUserInput[]
+    upsert?: VaultUpsertWithWhereUniqueWithoutUserInput | VaultUpsertWithWhereUniqueWithoutUserInput[]
+    createMany?: VaultCreateManyUserInputEnvelope
+    set?: VaultWhereUniqueInput | VaultWhereUniqueInput[]
+    disconnect?: VaultWhereUniqueInput | VaultWhereUniqueInput[]
+    delete?: VaultWhereUniqueInput | VaultWhereUniqueInput[]
+    connect?: VaultWhereUniqueInput | VaultWhereUniqueInput[]
+    update?: VaultUpdateWithWhereUniqueWithoutUserInput | VaultUpdateWithWhereUniqueWithoutUserInput[]
+    updateMany?: VaultUpdateManyWithWhereWithoutUserInput | VaultUpdateManyWithWhereWithoutUserInput[]
+    deleteMany?: VaultScalarWhereInput | VaultScalarWhereInput[]
   }
 
   export type AccountUncheckedUpdateManyWithoutUserNestedInput = {
@@ -7798,32 +5159,18 @@ export namespace Prisma {
     deleteMany?: AccountScalarWhereInput | AccountScalarWhereInput[]
   }
 
-  export type SessionUncheckedUpdateManyWithoutUserNestedInput = {
-    create?: XOR<SessionCreateWithoutUserInput, SessionUncheckedCreateWithoutUserInput> | SessionCreateWithoutUserInput[] | SessionUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: SessionCreateOrConnectWithoutUserInput | SessionCreateOrConnectWithoutUserInput[]
-    upsert?: SessionUpsertWithWhereUniqueWithoutUserInput | SessionUpsertWithWhereUniqueWithoutUserInput[]
-    createMany?: SessionCreateManyUserInputEnvelope
-    set?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
-    disconnect?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
-    delete?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
-    connect?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
-    update?: SessionUpdateWithWhereUniqueWithoutUserInput | SessionUpdateWithWhereUniqueWithoutUserInput[]
-    updateMany?: SessionUpdateManyWithWhereWithoutUserInput | SessionUpdateManyWithWhereWithoutUserInput[]
-    deleteMany?: SessionScalarWhereInput | SessionScalarWhereInput[]
-  }
-
-  export type AuthenticatorUncheckedUpdateManyWithoutUserNestedInput = {
-    create?: XOR<AuthenticatorCreateWithoutUserInput, AuthenticatorUncheckedCreateWithoutUserInput> | AuthenticatorCreateWithoutUserInput[] | AuthenticatorUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: AuthenticatorCreateOrConnectWithoutUserInput | AuthenticatorCreateOrConnectWithoutUserInput[]
-    upsert?: AuthenticatorUpsertWithWhereUniqueWithoutUserInput | AuthenticatorUpsertWithWhereUniqueWithoutUserInput[]
-    createMany?: AuthenticatorCreateManyUserInputEnvelope
-    set?: AuthenticatorWhereUniqueInput | AuthenticatorWhereUniqueInput[]
-    disconnect?: AuthenticatorWhereUniqueInput | AuthenticatorWhereUniqueInput[]
-    delete?: AuthenticatorWhereUniqueInput | AuthenticatorWhereUniqueInput[]
-    connect?: AuthenticatorWhereUniqueInput | AuthenticatorWhereUniqueInput[]
-    update?: AuthenticatorUpdateWithWhereUniqueWithoutUserInput | AuthenticatorUpdateWithWhereUniqueWithoutUserInput[]
-    updateMany?: AuthenticatorUpdateManyWithWhereWithoutUserInput | AuthenticatorUpdateManyWithWhereWithoutUserInput[]
-    deleteMany?: AuthenticatorScalarWhereInput | AuthenticatorScalarWhereInput[]
+  export type VaultUncheckedUpdateManyWithoutUserNestedInput = {
+    create?: XOR<VaultCreateWithoutUserInput, VaultUncheckedCreateWithoutUserInput> | VaultCreateWithoutUserInput[] | VaultUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: VaultCreateOrConnectWithoutUserInput | VaultCreateOrConnectWithoutUserInput[]
+    upsert?: VaultUpsertWithWhereUniqueWithoutUserInput | VaultUpsertWithWhereUniqueWithoutUserInput[]
+    createMany?: VaultCreateManyUserInputEnvelope
+    set?: VaultWhereUniqueInput | VaultWhereUniqueInput[]
+    disconnect?: VaultWhereUniqueInput | VaultWhereUniqueInput[]
+    delete?: VaultWhereUniqueInput | VaultWhereUniqueInput[]
+    connect?: VaultWhereUniqueInput | VaultWhereUniqueInput[]
+    update?: VaultUpdateWithWhereUniqueWithoutUserInput | VaultUpdateWithWhereUniqueWithoutUserInput[]
+    updateMany?: VaultUpdateManyWithWhereWithoutUserInput | VaultUpdateManyWithWhereWithoutUserInput[]
+    deleteMany?: VaultScalarWhereInput | VaultScalarWhereInput[]
   }
 
   export type UserCreateNestedOneWithoutAccountsInput = {
@@ -7853,44 +5200,18 @@ export namespace Prisma {
     update?: XOR<XOR<UserUpdateToOneWithWhereWithoutAccountsInput, UserUpdateWithoutAccountsInput>, UserUncheckedUpdateWithoutAccountsInput>
   }
 
-  export type UserCreateNestedOneWithoutSessionsInput = {
-    create?: XOR<UserCreateWithoutSessionsInput, UserUncheckedCreateWithoutSessionsInput>
-    connectOrCreate?: UserCreateOrConnectWithoutSessionsInput
+  export type UserCreateNestedOneWithoutVaultsInput = {
+    create?: XOR<UserCreateWithoutVaultsInput, UserUncheckedCreateWithoutVaultsInput>
+    connectOrCreate?: UserCreateOrConnectWithoutVaultsInput
     connect?: UserWhereUniqueInput
   }
 
-  export type UserUpdateOneRequiredWithoutSessionsNestedInput = {
-    create?: XOR<UserCreateWithoutSessionsInput, UserUncheckedCreateWithoutSessionsInput>
-    connectOrCreate?: UserCreateOrConnectWithoutSessionsInput
-    upsert?: UserUpsertWithoutSessionsInput
+  export type UserUpdateOneRequiredWithoutVaultsNestedInput = {
+    create?: XOR<UserCreateWithoutVaultsInput, UserUncheckedCreateWithoutVaultsInput>
+    connectOrCreate?: UserCreateOrConnectWithoutVaultsInput
+    upsert?: UserUpsertWithoutVaultsInput
     connect?: UserWhereUniqueInput
-    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutSessionsInput, UserUpdateWithoutSessionsInput>, UserUncheckedUpdateWithoutSessionsInput>
-  }
-
-  export type UserCreateNestedOneWithoutAuthenticatorInput = {
-    create?: XOR<UserCreateWithoutAuthenticatorInput, UserUncheckedCreateWithoutAuthenticatorInput>
-    connectOrCreate?: UserCreateOrConnectWithoutAuthenticatorInput
-    connect?: UserWhereUniqueInput
-  }
-
-  export type IntFieldUpdateOperationsInput = {
-    set?: number
-    increment?: number
-    decrement?: number
-    multiply?: number
-    divide?: number
-  }
-
-  export type BoolFieldUpdateOperationsInput = {
-    set?: boolean
-  }
-
-  export type UserUpdateOneRequiredWithoutAuthenticatorNestedInput = {
-    create?: XOR<UserCreateWithoutAuthenticatorInput, UserUncheckedCreateWithoutAuthenticatorInput>
-    connectOrCreate?: UserCreateOrConnectWithoutAuthenticatorInput
-    upsert?: UserUpsertWithoutAuthenticatorInput
-    connect?: UserWhereUniqueInput
-    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutAuthenticatorInput, UserUpdateWithoutAuthenticatorInput>, UserUncheckedUpdateWithoutAuthenticatorInput>
+    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutVaultsInput, UserUpdateWithoutVaultsInput>, UserUncheckedUpdateWithoutVaultsInput>
   }
 
   export type NestedStringFilter<$PrismaModel = never> = {
@@ -8061,46 +5382,6 @@ export namespace Prisma {
     isSet?: boolean
   }
 
-  export type NestedBoolFilter<$PrismaModel = never> = {
-    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolFilter<$PrismaModel> | boolean
-  }
-
-  export type NestedIntWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel>
-    in?: number[] | ListIntFieldRefInput<$PrismaModel>
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntWithAggregatesFilter<$PrismaModel> | number
-    _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedFloatFilter<$PrismaModel>
-    _sum?: NestedIntFilter<$PrismaModel>
-    _min?: NestedIntFilter<$PrismaModel>
-    _max?: NestedIntFilter<$PrismaModel>
-  }
-
-  export type NestedFloatFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel>
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    lt?: number | FloatFieldRefInput<$PrismaModel>
-    lte?: number | FloatFieldRefInput<$PrismaModel>
-    gt?: number | FloatFieldRefInput<$PrismaModel>
-    gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatFilter<$PrismaModel> | number
-  }
-
-  export type NestedBoolWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolWithAggregatesFilter<$PrismaModel> | boolean
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedBoolFilter<$PrismaModel>
-    _max?: NestedBoolFilter<$PrismaModel>
-  }
-
   export type AccountCreateWithoutUserInput = {
     id?: string
     type: string
@@ -8142,58 +5423,27 @@ export namespace Prisma {
     data: AccountCreateManyUserInput | AccountCreateManyUserInput[]
   }
 
-  export type SessionCreateWithoutUserInput = {
+  export type VaultCreateWithoutUserInput = {
     id?: string
-    sessionToken: string
-    expires: Date | string
+    name: string
+    password: string
     createdAt?: Date | string
-    updatedAt?: Date | string
   }
 
-  export type SessionUncheckedCreateWithoutUserInput = {
+  export type VaultUncheckedCreateWithoutUserInput = {
     id?: string
-    sessionToken: string
-    expires: Date | string
+    name: string
+    password: string
     createdAt?: Date | string
-    updatedAt?: Date | string
   }
 
-  export type SessionCreateOrConnectWithoutUserInput = {
-    where: SessionWhereUniqueInput
-    create: XOR<SessionCreateWithoutUserInput, SessionUncheckedCreateWithoutUserInput>
+  export type VaultCreateOrConnectWithoutUserInput = {
+    where: VaultWhereUniqueInput
+    create: XOR<VaultCreateWithoutUserInput, VaultUncheckedCreateWithoutUserInput>
   }
 
-  export type SessionCreateManyUserInputEnvelope = {
-    data: SessionCreateManyUserInput | SessionCreateManyUserInput[]
-  }
-
-  export type AuthenticatorCreateWithoutUserInput = {
-    credentialID: string
-    providerAccountId: string
-    credentialPublicKey: string
-    counter: number
-    credentialDeviceType: string
-    credentialBackedUp: boolean
-    transports?: string | null
-  }
-
-  export type AuthenticatorUncheckedCreateWithoutUserInput = {
-    credentialID: string
-    providerAccountId: string
-    credentialPublicKey: string
-    counter: number
-    credentialDeviceType: string
-    credentialBackedUp: boolean
-    transports?: string | null
-  }
-
-  export type AuthenticatorCreateOrConnectWithoutUserInput = {
-    where: AuthenticatorWhereUniqueInput
-    create: XOR<AuthenticatorCreateWithoutUserInput, AuthenticatorUncheckedCreateWithoutUserInput>
-  }
-
-  export type AuthenticatorCreateManyUserInputEnvelope = {
-    data: AuthenticatorCreateManyUserInput | AuthenticatorCreateManyUserInput[]
+  export type VaultCreateManyUserInputEnvelope = {
+    data: VaultCreateManyUserInput | VaultCreateManyUserInput[]
   }
 
   export type AccountUpsertWithWhereUniqueWithoutUserInput = {
@@ -8232,62 +5482,31 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"Account"> | Date | string
   }
 
-  export type SessionUpsertWithWhereUniqueWithoutUserInput = {
-    where: SessionWhereUniqueInput
-    update: XOR<SessionUpdateWithoutUserInput, SessionUncheckedUpdateWithoutUserInput>
-    create: XOR<SessionCreateWithoutUserInput, SessionUncheckedCreateWithoutUserInput>
+  export type VaultUpsertWithWhereUniqueWithoutUserInput = {
+    where: VaultWhereUniqueInput
+    update: XOR<VaultUpdateWithoutUserInput, VaultUncheckedUpdateWithoutUserInput>
+    create: XOR<VaultCreateWithoutUserInput, VaultUncheckedCreateWithoutUserInput>
   }
 
-  export type SessionUpdateWithWhereUniqueWithoutUserInput = {
-    where: SessionWhereUniqueInput
-    data: XOR<SessionUpdateWithoutUserInput, SessionUncheckedUpdateWithoutUserInput>
+  export type VaultUpdateWithWhereUniqueWithoutUserInput = {
+    where: VaultWhereUniqueInput
+    data: XOR<VaultUpdateWithoutUserInput, VaultUncheckedUpdateWithoutUserInput>
   }
 
-  export type SessionUpdateManyWithWhereWithoutUserInput = {
-    where: SessionScalarWhereInput
-    data: XOR<SessionUpdateManyMutationInput, SessionUncheckedUpdateManyWithoutUserInput>
+  export type VaultUpdateManyWithWhereWithoutUserInput = {
+    where: VaultScalarWhereInput
+    data: XOR<VaultUpdateManyMutationInput, VaultUncheckedUpdateManyWithoutUserInput>
   }
 
-  export type SessionScalarWhereInput = {
-    AND?: SessionScalarWhereInput | SessionScalarWhereInput[]
-    OR?: SessionScalarWhereInput[]
-    NOT?: SessionScalarWhereInput | SessionScalarWhereInput[]
-    id?: StringFilter<"Session"> | string
-    sessionToken?: StringFilter<"Session"> | string
-    userId?: StringFilter<"Session"> | string
-    expires?: DateTimeFilter<"Session"> | Date | string
-    createdAt?: DateTimeFilter<"Session"> | Date | string
-    updatedAt?: DateTimeFilter<"Session"> | Date | string
-  }
-
-  export type AuthenticatorUpsertWithWhereUniqueWithoutUserInput = {
-    where: AuthenticatorWhereUniqueInput
-    update: XOR<AuthenticatorUpdateWithoutUserInput, AuthenticatorUncheckedUpdateWithoutUserInput>
-    create: XOR<AuthenticatorCreateWithoutUserInput, AuthenticatorUncheckedCreateWithoutUserInput>
-  }
-
-  export type AuthenticatorUpdateWithWhereUniqueWithoutUserInput = {
-    where: AuthenticatorWhereUniqueInput
-    data: XOR<AuthenticatorUpdateWithoutUserInput, AuthenticatorUncheckedUpdateWithoutUserInput>
-  }
-
-  export type AuthenticatorUpdateManyWithWhereWithoutUserInput = {
-    where: AuthenticatorScalarWhereInput
-    data: XOR<AuthenticatorUpdateManyMutationInput, AuthenticatorUncheckedUpdateManyWithoutUserInput>
-  }
-
-  export type AuthenticatorScalarWhereInput = {
-    AND?: AuthenticatorScalarWhereInput | AuthenticatorScalarWhereInput[]
-    OR?: AuthenticatorScalarWhereInput[]
-    NOT?: AuthenticatorScalarWhereInput | AuthenticatorScalarWhereInput[]
-    credentialID?: StringFilter<"Authenticator"> | string
-    userId?: StringFilter<"Authenticator"> | string
-    providerAccountId?: StringFilter<"Authenticator"> | string
-    credentialPublicKey?: StringFilter<"Authenticator"> | string
-    counter?: IntFilter<"Authenticator"> | number
-    credentialDeviceType?: StringFilter<"Authenticator"> | string
-    credentialBackedUp?: BoolFilter<"Authenticator"> | boolean
-    transports?: StringNullableFilter<"Authenticator"> | string | null
+  export type VaultScalarWhereInput = {
+    AND?: VaultScalarWhereInput | VaultScalarWhereInput[]
+    OR?: VaultScalarWhereInput[]
+    NOT?: VaultScalarWhereInput | VaultScalarWhereInput[]
+    id?: StringFilter<"Vault"> | string
+    name?: StringFilter<"Vault"> | string
+    password?: StringFilter<"Vault"> | string
+    userId?: StringFilter<"Vault"> | string
+    createdAt?: DateTimeFilter<"Vault"> | Date | string
   }
 
   export type UserCreateWithoutAccountsInput = {
@@ -8298,8 +5517,7 @@ export namespace Prisma {
     image?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    sessions?: SessionCreateNestedManyWithoutUserInput
-    Authenticator?: AuthenticatorCreateNestedManyWithoutUserInput
+    vaults?: VaultCreateNestedManyWithoutUserInput
   }
 
   export type UserUncheckedCreateWithoutAccountsInput = {
@@ -8310,8 +5528,7 @@ export namespace Prisma {
     image?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    sessions?: SessionUncheckedCreateNestedManyWithoutUserInput
-    Authenticator?: AuthenticatorUncheckedCreateNestedManyWithoutUserInput
+    vaults?: VaultUncheckedCreateNestedManyWithoutUserInput
   }
 
   export type UserCreateOrConnectWithoutAccountsInput = {
@@ -8337,8 +5554,7 @@ export namespace Prisma {
     image?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    sessions?: SessionUpdateManyWithoutUserNestedInput
-    Authenticator?: AuthenticatorUpdateManyWithoutUserNestedInput
+    vaults?: VaultUpdateManyWithoutUserNestedInput
   }
 
   export type UserUncheckedUpdateWithoutAccountsInput = {
@@ -8348,11 +5564,10 @@ export namespace Prisma {
     image?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    sessions?: SessionUncheckedUpdateManyWithoutUserNestedInput
-    Authenticator?: AuthenticatorUncheckedUpdateManyWithoutUserNestedInput
+    vaults?: VaultUncheckedUpdateManyWithoutUserNestedInput
   }
 
-  export type UserCreateWithoutSessionsInput = {
+  export type UserCreateWithoutVaultsInput = {
     id?: string
     name?: string | null
     email?: string | null
@@ -8361,10 +5576,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     accounts?: AccountCreateNestedManyWithoutUserInput
-    Authenticator?: AuthenticatorCreateNestedManyWithoutUserInput
   }
 
-  export type UserUncheckedCreateWithoutSessionsInput = {
+  export type UserUncheckedCreateWithoutVaultsInput = {
     id?: string
     name?: string | null
     email?: string | null
@@ -8373,26 +5587,25 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     accounts?: AccountUncheckedCreateNestedManyWithoutUserInput
-    Authenticator?: AuthenticatorUncheckedCreateNestedManyWithoutUserInput
   }
 
-  export type UserCreateOrConnectWithoutSessionsInput = {
+  export type UserCreateOrConnectWithoutVaultsInput = {
     where: UserWhereUniqueInput
-    create: XOR<UserCreateWithoutSessionsInput, UserUncheckedCreateWithoutSessionsInput>
+    create: XOR<UserCreateWithoutVaultsInput, UserUncheckedCreateWithoutVaultsInput>
   }
 
-  export type UserUpsertWithoutSessionsInput = {
-    update: XOR<UserUpdateWithoutSessionsInput, UserUncheckedUpdateWithoutSessionsInput>
-    create: XOR<UserCreateWithoutSessionsInput, UserUncheckedCreateWithoutSessionsInput>
+  export type UserUpsertWithoutVaultsInput = {
+    update: XOR<UserUpdateWithoutVaultsInput, UserUncheckedUpdateWithoutVaultsInput>
+    create: XOR<UserCreateWithoutVaultsInput, UserUncheckedCreateWithoutVaultsInput>
     where?: UserWhereInput
   }
 
-  export type UserUpdateToOneWithWhereWithoutSessionsInput = {
+  export type UserUpdateToOneWithWhereWithoutVaultsInput = {
     where?: UserWhereInput
-    data: XOR<UserUpdateWithoutSessionsInput, UserUncheckedUpdateWithoutSessionsInput>
+    data: XOR<UserUpdateWithoutVaultsInput, UserUncheckedUpdateWithoutVaultsInput>
   }
 
-  export type UserUpdateWithoutSessionsInput = {
+  export type UserUpdateWithoutVaultsInput = {
     name?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerified?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -8400,10 +5613,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     accounts?: AccountUpdateManyWithoutUserNestedInput
-    Authenticator?: AuthenticatorUpdateManyWithoutUserNestedInput
   }
 
-  export type UserUncheckedUpdateWithoutSessionsInput = {
+  export type UserUncheckedUpdateWithoutVaultsInput = {
     name?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerified?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -8411,69 +5623,6 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     accounts?: AccountUncheckedUpdateManyWithoutUserNestedInput
-    Authenticator?: AuthenticatorUncheckedUpdateManyWithoutUserNestedInput
-  }
-
-  export type UserCreateWithoutAuthenticatorInput = {
-    id?: string
-    name?: string | null
-    email?: string | null
-    emailVerified?: Date | string | null
-    image?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    accounts?: AccountCreateNestedManyWithoutUserInput
-    sessions?: SessionCreateNestedManyWithoutUserInput
-  }
-
-  export type UserUncheckedCreateWithoutAuthenticatorInput = {
-    id?: string
-    name?: string | null
-    email?: string | null
-    emailVerified?: Date | string | null
-    image?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    accounts?: AccountUncheckedCreateNestedManyWithoutUserInput
-    sessions?: SessionUncheckedCreateNestedManyWithoutUserInput
-  }
-
-  export type UserCreateOrConnectWithoutAuthenticatorInput = {
-    where: UserWhereUniqueInput
-    create: XOR<UserCreateWithoutAuthenticatorInput, UserUncheckedCreateWithoutAuthenticatorInput>
-  }
-
-  export type UserUpsertWithoutAuthenticatorInput = {
-    update: XOR<UserUpdateWithoutAuthenticatorInput, UserUncheckedUpdateWithoutAuthenticatorInput>
-    create: XOR<UserCreateWithoutAuthenticatorInput, UserUncheckedCreateWithoutAuthenticatorInput>
-    where?: UserWhereInput
-  }
-
-  export type UserUpdateToOneWithWhereWithoutAuthenticatorInput = {
-    where?: UserWhereInput
-    data: XOR<UserUpdateWithoutAuthenticatorInput, UserUncheckedUpdateWithoutAuthenticatorInput>
-  }
-
-  export type UserUpdateWithoutAuthenticatorInput = {
-    name?: NullableStringFieldUpdateOperationsInput | string | null
-    email?: NullableStringFieldUpdateOperationsInput | string | null
-    emailVerified?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    image?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    accounts?: AccountUpdateManyWithoutUserNestedInput
-    sessions?: SessionUpdateManyWithoutUserNestedInput
-  }
-
-  export type UserUncheckedUpdateWithoutAuthenticatorInput = {
-    name?: NullableStringFieldUpdateOperationsInput | string | null
-    email?: NullableStringFieldUpdateOperationsInput | string | null
-    emailVerified?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    image?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    accounts?: AccountUncheckedUpdateManyWithoutUserNestedInput
-    sessions?: SessionUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type AccountCreateManyUserInput = {
@@ -8492,22 +5641,11 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
-  export type SessionCreateManyUserInput = {
+  export type VaultCreateManyUserInput = {
     id?: string
-    sessionToken: string
-    expires: Date | string
+    name: string
+    password: string
     createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type AuthenticatorCreateManyUserInput = {
-    credentialID: string
-    providerAccountId: string
-    credentialPublicKey: string
-    counter: number
-    credentialDeviceType: string
-    credentialBackedUp: boolean
-    transports?: string | null
   }
 
   export type AccountUpdateWithoutUserInput = {
@@ -8555,52 +5693,22 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
-  export type SessionUpdateWithoutUserInput = {
-    sessionToken?: StringFieldUpdateOperationsInput | string
-    expires?: DateTimeFieldUpdateOperationsInput | Date | string
+  export type VaultUpdateWithoutUserInput = {
+    name?: StringFieldUpdateOperationsInput | string
+    password?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
-  export type SessionUncheckedUpdateWithoutUserInput = {
-    sessionToken?: StringFieldUpdateOperationsInput | string
-    expires?: DateTimeFieldUpdateOperationsInput | Date | string
+  export type VaultUncheckedUpdateWithoutUserInput = {
+    name?: StringFieldUpdateOperationsInput | string
+    password?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
-  export type SessionUncheckedUpdateManyWithoutUserInput = {
-    sessionToken?: StringFieldUpdateOperationsInput | string
-    expires?: DateTimeFieldUpdateOperationsInput | Date | string
+  export type VaultUncheckedUpdateManyWithoutUserInput = {
+    name?: StringFieldUpdateOperationsInput | string
+    password?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type AuthenticatorUpdateWithoutUserInput = {
-    providerAccountId?: StringFieldUpdateOperationsInput | string
-    credentialPublicKey?: StringFieldUpdateOperationsInput | string
-    counter?: IntFieldUpdateOperationsInput | number
-    credentialDeviceType?: StringFieldUpdateOperationsInput | string
-    credentialBackedUp?: BoolFieldUpdateOperationsInput | boolean
-    transports?: NullableStringFieldUpdateOperationsInput | string | null
-  }
-
-  export type AuthenticatorUncheckedUpdateWithoutUserInput = {
-    providerAccountId?: StringFieldUpdateOperationsInput | string
-    credentialPublicKey?: StringFieldUpdateOperationsInput | string
-    counter?: IntFieldUpdateOperationsInput | number
-    credentialDeviceType?: StringFieldUpdateOperationsInput | string
-    credentialBackedUp?: BoolFieldUpdateOperationsInput | boolean
-    transports?: NullableStringFieldUpdateOperationsInput | string | null
-  }
-
-  export type AuthenticatorUncheckedUpdateManyWithoutUserInput = {
-    providerAccountId?: StringFieldUpdateOperationsInput | string
-    credentialPublicKey?: StringFieldUpdateOperationsInput | string
-    counter?: IntFieldUpdateOperationsInput | number
-    credentialDeviceType?: StringFieldUpdateOperationsInput | string
-    credentialBackedUp?: BoolFieldUpdateOperationsInput | boolean
-    transports?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
 
