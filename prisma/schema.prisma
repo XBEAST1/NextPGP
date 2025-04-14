@@ -6,7 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "./node_modules/@prisma/client"
 }
 
 datasource db {
@@ -57,4 +56,14 @@ model Vault {
   userId         String   @db.ObjectId
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
+  PGPKeys        PGPKey[]
+}
+
+model PGPKey {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  publicKey  String?
+  privateKey String?
+  createdAt  DateTime @default(now())
+  vaultId    String   @db.ObjectId
+  vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
 }

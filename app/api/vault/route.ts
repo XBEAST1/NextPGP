@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     }
 
     // Verify password against the hash stored in the database
-    const isValidPassword = await argon2.verify(vault.password, password);
+    const isValidPassword = await argon2.verify(vault.passwordHash, password);
 
     if (!isValidPassword) {
       return NextResponse.json(

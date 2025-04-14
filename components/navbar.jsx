@@ -155,7 +155,7 @@ export const Navbar = () => {
         <Dropdown>
           <NavbarItem>
             <DropdownTrigger>
-              <Button size="md">Cloud Storage</Button>
+              <Button size="md">Cloud Backup / Import</Button>
             </DropdownTrigger>
           </NavbarItem>
           <DropdownMenu

@@ -36,7 +36,8 @@ export async function POST(req: Request) {
     const vault = await prisma.vault.create({
       data: {
         name: session.user.name ? `${session.user.name}'s Vault` : "Vault",
-        password: hash,
+        passwordHash: hash,
+        encryptionSalt: crypto.randomUUID(),
         userId: session.user.id,
       },
     });
