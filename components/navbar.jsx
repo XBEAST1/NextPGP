@@ -64,7 +64,7 @@ export const Navbar = () => {
         </NavbarBrand>
       </NavbarContent>
 
-      <NavbarContent className="hidden sm:flex gap-4" justify="center">
+      <NavbarContent className="hidden sm:flex gap-4 ms-12" justify="center">
         <Dropdown>
           <NavbarItem>
             <DropdownTrigger>

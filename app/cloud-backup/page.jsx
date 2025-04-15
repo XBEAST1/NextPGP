@@ -10,10 +10,6 @@ import {
   TableCell,
   Input,
   Button,
-  DropdownTrigger,
-  Dropdown,
-  DropdownMenu,
-  DropdownItem,
   Chip,
   User,
   Pagination,
@@ -23,7 +19,6 @@ import {
 import {
   EyeFilledIcon,
   EyeSlashFilledIcon,
-  VerticalDotsIcon,
   SearchIcon,
 } from "@/components/icons";
 import Link from "next/link";
@@ -38,11 +33,6 @@ const statusColorMap = {
   "No Backed Up": "danger",
 };
 
-const passwordprotectedColorMap = {
-  Yes: "success",
-  No: "danger",
-};
-
 export default function App() {
   const [filterValue, setFilterValue] = useState("");
   const [users, setUsers] = useState([]);
@@ -55,7 +45,7 @@ export default function App() {
     { name: "EMAIL", uid: "email" },
     { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
     { name: "STATUS", uid: "status", sortable: true },
-    { name: "BACKUP", uid: "backup", sortable: true },
+    { name: "BACKUP", uid: "backup" },
     { name: "DELETE", uid: "delete" },
   ];
 
@@ -140,6 +130,17 @@ export default function App() {
       encryptedData
     );
     return JSON.parse(new TextDecoder().decode(decrypted));
+  };
+
+  // Add this new function alongside your other utility functions
+  const decryptVaultPassword = async (encryptedData, key, iv) => {
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      encryptedData
+    );
+    // Simply return the decoded string without JSON parsing
+    return new TextDecoder().decode(decrypted);
   };
 
   const loadKeysFromIndexedDB = async () => {
@@ -379,29 +380,92 @@ export default function App() {
 
   const backupKey = async (user, password = null) => {
     try {
+      let key = null;
+      let privateKey = null;
+
+      // Try loading private key if available
       if (user.privateKey) {
-        let key = await openpgp.readKey({ armoredKey: user.privateKey });
-        if (key.isPrivate() && !key.isDecrypted()) {
-          if (!password) {
-            const enteredPassword = await triggerPasswordModal(user);
-            password = enteredPassword;
+        try {
+          key = await openpgp.readKey({ armoredKey: user.privateKey });
+          if (key.isPrivate() && !key.isDecrypted()) {
+            if (!password) {
+              const enteredPassword = await triggerPasswordModal(user);
+              password = enteredPassword;
+            }
+            try {
+              key = await openpgp.decryptKey({
+                privateKey: key,
+                passphrase: password,
+              });
+            } catch {
+              toast.error("Incorrect Password", { position: "top-right" });
+              return;
+            }
           }
-          try {
-            key = await openpgp.decryptKey({
-              privateKey: key,
-              passphrase: password,
-            });
-          } catch (error) {
-            toast.error("Incorrect Password", { position: "top-right" });
-            return;
-          }
+          privateKey = user.privateKey;
+        } catch (e) {
+          console.warn(
+            "Failed to read or decrypt private key. Falling back to public key."
+          );
         }
       }
 
+      // If no usable private key, try reading public key
+      if (!key && user.publicKey) {
+        try {
+          key = await openpgp.readKey({ armoredKey: user.publicKey });
+          privateKey = null;
+        } catch {
+          throw new Error("Failed to read both private and public keys.");
+        }
+      }
+
+      if (!key) {
+        throw new Error("No valid PGP key found.");
+      }
+
+      let vaultPassword;
+      try {
+        const storedVaultData = sessionStorage.getItem(
+          "encryptedVaultPassword"
+        );
+        if (!storedVaultData)
+          throw new Error("No vault password found in sessionStorage.");
+
+        let parsedVaultData;
+        try {
+          parsedVaultData = JSON.parse(storedVaultData);
+        } catch {
+          vaultPassword = storedVaultData;
+        }
+
+        if (!vaultPassword) {
+          if (!parsedVaultData.iv || !parsedVaultData.data) {
+            throw new Error("Encrypted vault password data is incomplete.");
+          }
+          const ivBytes = new Uint8Array(parsedVaultData.iv);
+          const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
+          const encryptionKey = await getEncryptionKey();
+          vaultPassword = await decryptVaultPassword(
+            encryptedPasswordBytes,
+            encryptionKey,
+            ivBytes
+          );
+        }
+
+        if (!vaultPassword) throw new Error("Vault password is missing.");
+      } catch (e) {
+        console.error(e);
+        toast.error("Failed to decrypt vault password", {
+          position: "top-right",
+        });
+        return;
+      }
+
       const payload = {
-        vaultId: user.id.toString(),
-        privateKey: user.privateKey || null,
-        publicKey: user.publicKey || null,
+        privateKey: privateKey,
+        publicKey: user.publicKey,
+        vaultPassword,
       };
 
       const response = await fetch("/api/manage-keys", {
@@ -410,36 +474,25 @@ export default function App() {
         body: JSON.stringify(payload),
       });
 
+      const responseData = await response.json();
+
       if (response.ok) {
-        toast.success("Key successfully backed up to the database!", {
-          position: "top-right",
-        });
-      } else {
-        let errorMessage = "Unknown error";
-        const contentType = response.headers.get("content-type");
-
-        if (contentType && contentType.includes("application/json")) {
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } catch (jsonError) {
-            try {
-              const rawText = await response.text();
-              errorMessage = rawText || errorMessage;
-            } catch (textError) {}
-          }
+        if (responseData.message === "Key already backed up.") {
+          toast.info("This key has already been backed up.", {
+            position: "top-right",
+          });
         } else {
-          try {
-            const rawText = await response.text();
-            errorMessage = rawText || errorMessage;
-          } catch (textError) {}
+          toast.success("Key successfully backed up to the database!", {
+            position: "top-right",
+          });
         }
-
-        toast.error("Failed to back up the key", {
-          position: "top-right",
-        });
+      } else {
+        const errorMessage =
+          responseData?.error || "Failed to back up the key.";
+        toast.error(errorMessage, { position: "top-right" });
       }
     } catch (error) {
+      console.log(error);
       toast.error(
         "Failed to process the key. The key is not valid or there was an error.",
         { position: "top-right" }

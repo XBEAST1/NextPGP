@@ -63,6 +63,8 @@ model PGPKey {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   publicKey  String?
   privateKey String?
+  privateKeyHash  String? @unique
+  publicKeyHash   String? @unique
   createdAt  DateTime @default(now())
   vaultId    String   @db.ObjectId
   vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)

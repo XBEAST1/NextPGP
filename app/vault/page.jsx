@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button, Input, Modal, ModalContent } from "@heroui/react";
 import { logout } from "@/actions/auth";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
@@ -9,30 +9,101 @@ import { useRouter } from "next/navigation";
 import UserDetails from "@/components/userdetails";
 import "react-toastify/dist/ReactToastify.css";
 
+const dbName = "NextPGP";
+const dbPgpKeys = "pgpKeys";
+const selectedSigners = "selectedSigners";
+const selectedRecipients = "selectedRecipients";
+const dbCryptoKeys = "cryptoKeys";
+
+const openDB = () => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName, 1);
+
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+
+      if (!db.objectStoreNames.contains(dbPgpKeys)) {
+        db.createObjectStore(dbPgpKeys, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(selectedSigners)) {
+        db.createObjectStore(selectedSigners, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(selectedRecipients)) {
+        db.createObjectStore(selectedRecipients, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(dbCryptoKeys)) {
+        db.createObjectStore(dbCryptoKeys, { keyPath: "id" });
+      }
+    };
+
+    request.onsuccess = (e) => resolve(e.target.result);
+    request.onerror = (e) => reject(e.target.error);
+  });
+};
+
+// Retrieves (or generates) the master encryption key using the Web Crypto API.
+const getEncryptionKey = async () => {
+  const db = await openDB();
+  const tx = db.transaction(dbCryptoKeys, "readonly");
+  const store = tx.objectStore(dbCryptoKeys);
+  const request = store.get("mainKey");
+
+  return new Promise(async (resolve, reject) => {
+    request.onsuccess = async () => {
+      if (request.result) {
+        const importedKey = await crypto.subtle.importKey(
+          "raw",
+          request.result.key,
+          { name: "AES-GCM" },
+          true,
+          ["encrypt", "decrypt"]
+        );
+        resolve(importedKey);
+      } else {
+        // Generate key if not found
+        const key = await crypto.subtle.generateKey(
+          { name: "AES-GCM", length: 256 },
+          true,
+          ["encrypt", "decrypt"]
+        );
+        const exportedKey = await crypto.subtle.exportKey("raw", key);
+        const txWrite = db.transaction(dbCryptoKeys, "readwrite");
+        const storeWrite = txWrite.objectStore(dbCryptoKeys);
+        storeWrite.put({ id: "mainKey", key: new Uint8Array(exportedKey) });
+        resolve(key);
+      }
+    };
+    request.onerror = (e) => reject(e.target.error);
+  });
+};
+
+// Encrypts the vault password using the provided master key.
+const storeVaultPassword = async (password, masterKey) => {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encodedPassword = new TextEncoder().encode(password);
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    masterKey,
+    encodedPassword
+  );
+  const encryptedVaultPassword = {
+    iv: Array.from(iv),
+    data: Array.from(new Uint8Array(encryptedBuffer)),
+  };
+  sessionStorage.setItem(
+    "encryptedVaultPassword",
+    JSON.stringify(encryptedVaultPassword)
+  );
+};
+
 const Page = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [password, setPassword] = useState("");
   const [DeleteModal, setDeleteModal] = useState(false);
   const [confirmInput, setConfirmInput] = useState("");
-
   const router = useRouter();
 
   const toggleVisibility = () => setIsVisible(!isVisible);
-
-  useEffect(() => {
-    const checkVaultExists = async () => {
-      const res = await fetch("/api/vault");
-
-      if (res.ok) {
-        const { exists } = await res.json();
-        if (!exists) {
-          router.push("/create-vault");
-        }
-      }
-    };
-
-    checkVaultExists();
-  }, [router]);
 
   const onKeyPress = (e) => {
     if (e.key === "Enter") {
@@ -55,6 +126,12 @@ const Page = () => {
     });
 
     if (res.ok) {
+      const masterKey = await getEncryptionKey();
+      await storeVaultPassword(password, masterKey);
+
+      // Set a cookie to indicate vault is unlocked
+      await fetch("/api/vault/unlock", { method: "POST" });
+
       router.push("/cloud-backup");
     } else {
       toast.error("Incorrect password", {
