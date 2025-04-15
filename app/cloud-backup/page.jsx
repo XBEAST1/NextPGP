@@ -30,7 +30,12 @@ import * as openpgp from "openpgp";
 
 const statusColorMap = {
   "Backed Up": "success",
-  "No Backed Up": "danger",
+  "Not Backed Up": "danger",
+};
+
+const passwordprotectedColorMap = {
+  Yes: "success",
+  No: "danger",
 };
 
 export default function App() {
@@ -44,9 +49,9 @@ export default function App() {
     { name: "NAME", uid: "name", sortable: true },
     { name: "EMAIL", uid: "email" },
     { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
+    { name: "PASSWORD", uid: "passwordprotected", sortable: true },
     { name: "STATUS", uid: "status", sortable: true },
     { name: "BACKUP", uid: "backup" },
-    { name: "DELETE", uid: "delete" },
   ];
 
   const [isVisible, setIsVisible] = React.useState(false);
@@ -147,6 +152,44 @@ export default function App() {
     const db = await openDB();
     const encryptionKey = await getEncryptionKey();
 
+    let backedUpKeys = [];
+    try {
+      const storedVaultData = sessionStorage.getItem("encryptedVaultPassword");
+      if (!storedVaultData) {
+        console.error("No vault password found in sessionStorage");
+      } else {
+        let vaultPassword;
+        let parsedVaultData;
+        try {
+          parsedVaultData = JSON.parse(storedVaultData);
+        } catch {
+          vaultPassword = storedVaultData;
+        }
+
+        if (!vaultPassword && parsedVaultData) {
+          const ivBytes = new Uint8Array(parsedVaultData.iv);
+          const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
+          vaultPassword = await decryptVaultPassword(
+            encryptedPasswordBytes,
+            encryptionKey,
+            ivBytes
+          );
+        }
+
+        if (vaultPassword) {
+          const response = await fetch(
+            `/api/manage-keys?vaultPassword=${vaultPassword}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            backedUpKeys = data.keys || [];
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching backed up keys:", error);
+    }
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(dbPgpKeys, "readonly");
       const store = transaction.objectStore(dbPgpKeys);
@@ -199,12 +242,15 @@ export default function App() {
               return `${day}-${month}-${year}`;
             };
 
-            const getKeyExpiryInfo = async (key) => {
+            const getKeyExpiryInfo = async (key, isBackedUp) => {
               try {
                 const expirationTime = await key.getExpirationTime();
                 const now = new Date();
                 if (expirationTime === null || expirationTime === Infinity) {
-                  return { expirydate: "No Expiry", status: "Backed Up" };
+                  return {
+                    expirydate: "No Expiry",
+                    status: isBackedUp ? "Backed Up" : "Not Backed Up",
+                  };
                 } else if (expirationTime < now) {
                   return {
                     expirydate: formatDate(expirationTime),
@@ -213,7 +259,7 @@ export default function App() {
                 } else {
                   return {
                     expirydate: formatDate(expirationTime),
-                    status: "Backed Up",
+                    status: isBackedUp ? "Backed Up" : "Not Backed Up",
                   };
                 }
               } catch (error) {
@@ -239,18 +285,31 @@ export default function App() {
                 const openpgpKey = await openpgp.readKey({
                   armoredKey: key.publicKey,
                 });
-                const { expirydate, status } =
-                  await getKeyExpiryInfo(openpgpKey);
+
+                // Check if the key is backed up
+                const isBackedUp = backedUpKeys.some(
+                  (backedUpKey) =>
+                    backedUpKey.publicKey === key.publicKey ||
+                    (key.privateKey &&
+                      backedUpKey.privateKey === key.privateKey)
+                );
+
+                const { expirydate, status } = await getKeyExpiryInfo(
+                  openpgpKey,
+                  isBackedUp
+                );
+
                 const passwordProtected = key.privateKey
                   ? await isPasswordProtected(key.privateKey)
                   : false;
+
                 return {
                   id: key.id,
                   name: key.name,
                   email: key.email,
                   expirydate: expirydate,
-                  status: status,
                   passwordprotected: passwordProtected ? "Yes" : "No",
+                  status: status,
                   avatar: (() => {
                     const hasPrivateKey =
                       key.privateKey && key.privateKey.trim() !== "";
@@ -353,6 +412,17 @@ export default function App() {
             {cellValue}
           </Chip>
         );
+      case "passwordprotected":
+        return (
+          <Chip
+            className="ms-5 capitalize"
+            color={passwordprotectedColorMap[user.passwordprotected]}
+            size="sm"
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
+        );
       case "backup":
         return (
           <Button
@@ -361,16 +431,6 @@ export default function App() {
             onPress={() => backupKey(user)}
           >
             Backup
-          </Button>
-        );
-      case "delete":
-        return (
-          <Button
-            color="danger"
-            variant="flat"
-            onPress={() => triggerDeleteModal(user)}
-          >
-            Delete
           </Button>
         );
       default:
@@ -485,6 +545,18 @@ export default function App() {
           toast.success("Key successfully backed up to the database!", {
             position: "top-right",
           });
+
+          setUsers((prevUsers) =>
+            prevUsers.map((prevUser) => {
+              if (prevUser.id === user.id) {
+                return {
+                  ...prevUser,
+                  status: "Backed Up",
+                };
+              }
+              return prevUser;
+            })
+          );
         }
       } else {
         const errorMessage =
@@ -500,55 +572,6 @@ export default function App() {
     }
   };
 
-  const deleteKey = async (user) => {
-    const keyValue = user.publicKey ? user.publicKey : user.privateKey;
-    try {
-      const response = await fetch("/api/manage-keys", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keyValue }),
-      });
-
-      if (response.ok) {
-        toast.success("Key deleted successfully", { position: "top-right" });
-        const refreshedKeys = await loadKeysFromIndexedDB();
-        setUsers(refreshedKeys);
-        setPage(1);
-      } else {
-        let errorMessage = "Unknown error";
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          try {
-            const text = await response.text();
-            if (text.trim()) {
-              const errorData = JSON.parse(text);
-              errorMessage = errorData.error || text;
-              console.log("Error data from response (JSON):", errorData);
-            } else {
-              errorMessage = "Empty response received";
-            }
-          } catch (jsonError) {
-            console.log("Failed to parse JSON response:", jsonError);
-          }
-        } else {
-          try {
-            const rawText = await response.text();
-            errorMessage = rawText || errorMessage;
-            console.log("Error text from response:", rawText);
-          } catch (textError) {
-            console.log("Failed to parse text response:", textError);
-          }
-        }
-        toast.error(`Error deleting key: ${errorMessage}`, {
-          position: "top-right",
-        });
-      }
-    } catch (error) {
-      toast.error("Error deleting key", { position: "top-right" });
-      console.error("Error in deleteKey:", error);
-    }
-  };
-
   const [passwordResolve, setPasswordResolve] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [password, setPassword] = useState("");
@@ -559,22 +582,6 @@ export default function App() {
     return new Promise((resolve) => {
       setPasswordResolve(() => resolve);
     });
-  };
-
-  const [DeleteModal, setDeleteModal] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState(null);
-  const [selectedKeyName, setSelectedKeyName] = useState("");
-
-  const triggerDeleteModal = (userId, name) => {
-    setSelectedUserId(userId);
-    setSelectedKeyName(name);
-    setDeleteModal(true);
-  };
-
-  const closeDeleteModal = () => {
-    setSelectedUserId(null);
-    setSelectedKeyName("");
-    setDeleteModal(false);
   };
 
   const onNextPage = React.useCallback(() => {
@@ -803,30 +810,6 @@ export default function App() {
           >
             Submit
           </Button>
-        </ModalContent>
-      </Modal>
-      <Modal backdrop="blur" isOpen={DeleteModal} onClose={closeDeleteModal}>
-        <ModalContent className="p-5">
-          <h3 className="mb-2">
-            Are You Sure You Want To Delete {selectedKeyName}&apos;s Key?
-          </h3>
-          <div className="flex gap-2">
-            <Button
-              className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
-              onPress={closeDeleteModal}
-            >
-              No
-            </Button>
-            <Button
-              className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
-              onPress={() => {
-                deleteKey(selectedUserId);
-                closeDeleteModal();
-              }}
-            >
-              Yes
-            </Button>
-          </div>
         </ModalContent>
       </Modal>
     </>

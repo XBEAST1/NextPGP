@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/prisma";
 
+// Hashing function using SHA-256
 async function hashKey(text: string): Promise<string> {
   const enc = new TextEncoder();
   const buffer = enc.encode(text);
   const digest = await crypto.subtle.digest("SHA-256", buffer);
   return Buffer.from(digest).toString("hex");
 }
-
 
 // Encryption function using AES-GCM
 async function encrypt(text: string, password: string): Promise<string> {
@@ -51,6 +51,7 @@ async function encrypt(text: string, password: string): Promise<string> {
   return Buffer.from(encryptedBytes).toString("base64");
 }
 
+// Decryption function using AES-GCM
 async function decrypt(
   encryptedBase64: string,
   password: string
