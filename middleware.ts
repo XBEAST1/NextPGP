@@ -12,10 +12,20 @@ export default async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // Allow unauthenticated access to authRoutes (eg "/login")
+  if (authRoutes.some((route) => pathname.startsWith(route))) {
+    if (session && pathname === "/login") {
+      return NextResponse.redirect(new URL("/vault", request.nextUrl.origin));
+    }
+    return NextResponse.next();
+  }
+
+  // For protected routes, require a session
   if (!session) {
     return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
   }
 
+  // Check for vault existence
   const response = await fetch(`${request.nextUrl.origin}/api/vault/check`, {
     headers: {
       Authorization: `Bearer ${session.sub}`,
@@ -24,15 +34,6 @@ export default async function middleware(request: NextRequest) {
 
   const hasVault = response.ok;
 
-  // Check for vault status
-  if (vaultOnlyRoutes.some((route) => pathname.startsWith(route))) {
-    const isVaultUnlocked = request.cookies.has("vault_unlocked");
-    if (!isVaultUnlocked) {
-      return NextResponse.redirect(new URL("/vault", request.nextUrl.origin));
-    }
-  }
-
-  // Check for vault existence
   if (pathname === "/vault" && !hasVault) {
     return NextResponse.redirect(
       new URL("/create-vault", request.nextUrl.origin)
@@ -43,8 +44,27 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/vault", request.nextUrl.origin));
   }
 
-  if (authRoutes.some((route) => pathname.startsWith(route)) && session) {
-    return NextResponse.redirect(new URL("/vault", request.nextUrl.origin));
+  // For vault only routes, check if vault is unlocked
+  if (vaultOnlyRoutes.some((route) => pathname.startsWith(route))) {
+    const lockStatusResponse = await fetch(
+      `${request.nextUrl.origin}/api/vault/check-lock`,
+      {
+        headers: {
+          Authorization: `Bearer ${session.sub}`,
+          cookie: request.headers.get("cookie") || "",
+        },
+      }
+    );
+
+    const lockStatus = await lockStatusResponse.json();
+
+    if (lockStatus.isLocked === true) {
+      const url = new URL("/vault", request.nextUrl.origin);
+      url.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(url);
+    }
+
+    return NextResponse.next();
   }
 
   return NextResponse.next();

@@ -126,8 +126,12 @@ export async function GET(req: Request) {
     const decryptedKeys = await Promise.all(
       keys.map(async (key) => ({
         id: key.id,
-        privateKey: key.privateKey ? await decrypt(key.privateKey, vaultPassword) : "",
-        publicKey: key.publicKey ? await decrypt(key.publicKey, vaultPassword): "",
+        privateKey: key.privateKey
+          ? await decrypt(key.privateKey, vaultPassword)
+          : "",
+        publicKey: key.publicKey
+          ? await decrypt(key.publicKey, vaultPassword)
+          : "",
       }))
     );
 
@@ -230,64 +234,63 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const session = await auth();
-  if (!session || !session.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let payload;
   try {
-    payload = await req.json();
-  } catch (error) {
-    console.error("Invalid JSON payload:", error);
-    return NextResponse.json(
-      { error: "Invalid JSON payload" },
-      { status: 400 }
-    );
-  }
+    const session = await auth();
+    if (!session || !session.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { keyValue } = payload;
-  if (!keyValue) {
-    return NextResponse.json({ error: "Missing keyValue" }, { status: 400 });
-  }
+    const { keyId, vaultPassword, publicKey } = await req.json();
+    if (!keyId || !vaultPassword || !publicKey) {
+      return NextResponse.json(
+        { error: "Missing required parameters" },
+        { status: 400 }
+      );
+    }
 
-  const vault = await prisma.vault.findFirst({
-    where: { userId: session.user.id },
-  });
-
-  if (!vault) {
-    return NextResponse.json(
-      { error: "Vault not found for current user" },
-      { status: 404 }
-    );
-  }
-
-  const keyToDelete = await prisma.pGPKey.findFirst({
-    where: {
-      vaultId: vault.id,
-      OR: [{ privateKey: keyValue }, { publicKey: keyValue }],
-    },
-  });
-
-  if (!keyToDelete) {
-    return NextResponse.json(
-      { error: "Key not found in user's vault" },
-      { status: 404 }
-    );
-  }
-
-  try {
-    const deletedKey = await prisma.pGPKey.delete({
-      where: { id: keyToDelete.id },
+    const vault = await prisma.vault.findFirst({
+      where: { userId: session.user.id },
     });
+
+    if (!vault) {
+      return NextResponse.json(
+        { error: "Vault not found for current user" },
+        { status: 404 }
+      );
+    }
+
+    // Hash the incoming public key for comparison
+    const publicKeyHash = await hashKey(publicKey);
+
+    // Find the key using the hash instead of encrypted value
+    const keyToDelete = await prisma.pGPKey.findFirst({
+      where: {
+        id: keyId,
+        vaultId: vault.id,
+        publicKeyHash: publicKeyHash,
+      },
+    });
+
+    if (!keyToDelete) {
+      return NextResponse.json(
+        { error: "Key not found in user's vault" },
+        { status: 404 }
+      );
+    }
+
+    // Delete the key
+    await prisma.pGPKey.delete({
+      where: { id: keyId },
+    });
+
     return NextResponse.json(
-      { message: "Key deleted successfully", deletedKey },
+      { message: "Key deleted successfully" },
       { status: 200 }
     );
   } catch (error) {
     console.error("Error deleting key:", error);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

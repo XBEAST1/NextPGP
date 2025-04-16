@@ -29,8 +29,37 @@ import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
 
 const statusColorMap = {
-  "Backed Up": "success",
-  "Not Backed Up": "danger",
+  Imported: "success",
+  "Not Imported": "danger",
+};
+
+const formatDate = (isoDate) => {
+  const date = new Date(isoDate);
+  if (
+    date.getUTCHours() === 23 &&
+    date.getUTCMinutes() === 59 &&
+    date.getUTCSeconds() === 59
+  ) {
+    date.setUTCDate(date.getUTCDate() + 1);
+  }
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = monthNames[date.getUTCMonth()];
+  const year = date.getUTCFullYear();
+  return `${day}-${month}-${year}`;
 };
 
 export default function App() {
@@ -42,11 +71,11 @@ export default function App() {
 
   const columns = [
     { name: "NAME", uid: "name", sortable: true },
-    { name: "EMAIL", uid: "email" },
-    { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
-    { name: "STATUS", uid: "status", sortable: true },
-    { name: "BACKUP", uid: "backup" },
-    { name: "DELETE", uid: "delete" },
+    { name: "EMAIL", uid: "email", width: "17%" },
+    { name: "EXPIRY DATE", uid: "expirydate", sortable: true, width: "20%" },
+    { name: "STATUS", uid: "status", sortable: true, width: "20%" },
+    { name: "IMPORT", uid: "import" },
+    { name: "DELETE", uid: "delete", width: "8%" },
   ];
 
   const [isVisible, setIsVisible] = React.useState(false);
@@ -143,169 +172,46 @@ export default function App() {
     return new TextDecoder().decode(decrypted);
   };
 
-  const loadKeysFromIndexedDB = async () => {
+  // Encrypts data using the provided encryption key.
+  const encryptData = async (data, key) => {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encoded = new TextEncoder().encode(JSON.stringify(data));
+    const encrypted = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      encoded
+    );
+    return { encrypted: new Uint8Array(encrypted), iv };
+  };
+
+  const getStoredKeys = async () => {
     const db = await openDB();
     const encryptionKey = await getEncryptionKey();
-
-    let backedUpKeys = [];
-    try {
-      const storedVaultData = sessionStorage.getItem("encryptedVaultPassword");
-      if (!storedVaultData) {
-        console.error("No vault password found in sessionStorage");
-      } else {
-        let vaultPassword;
-        let parsedVaultData;
-        try {
-          parsedVaultData = JSON.parse(storedVaultData);
-        } catch {
-          vaultPassword = storedVaultData;
-        }
-
-        if (!vaultPassword && parsedVaultData) {
-          const ivBytes = new Uint8Array(parsedVaultData.iv);
-          const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
-          vaultPassword = await decryptVaultPassword(
-            encryptedPasswordBytes,
-            encryptionKey,
-            ivBytes
-          );
-        }
-
-        if (vaultPassword) {
-          const response = await fetch(
-            `/api/manage-keys?vaultPassword=${vaultPassword}`
-          );
-          if (response.ok) {
-            const data = await response.json();
-            backedUpKeys = data.keys || [];
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching backed up keys:", error);
-    }
 
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(dbPgpKeys, "readonly");
       const store = transaction.objectStore(dbPgpKeys);
-      const encryptedRecords = [];
+      const records = [];
       const request = store.openCursor();
 
-      request.onsuccess = async (e) => {
-        const cursor = e.target.result;
+      request.onsuccess = async (event) => {
+        const cursor = event.target.result;
         if (cursor) {
-          encryptedRecords.push(cursor.value);
+          records.push(cursor.value);
           cursor.continue();
         } else {
           try {
             const decryptedKeys = await Promise.all(
-              encryptedRecords.map(async (record) => {
-                return await decryptData(
+              records.map(async (record) => {
+                const decrypted = await decryptData(
                   record.encrypted,
                   encryptionKey,
                   record.iv
                 );
+                return decrypted;
               })
             );
-
-            const formatDate = (isoDate) => {
-              const date = new Date(isoDate);
-              if (
-                date.getUTCHours() === 23 &&
-                date.getUTCMinutes() === 59 &&
-                date.getUTCSeconds() === 59
-              ) {
-                date.setUTCDate(date.getUTCDate() + 1);
-              }
-              const monthNames = [
-                "Jan",
-                "Feb",
-                "Mar",
-                "Apr",
-                "May",
-                "Jun",
-                "Jul",
-                "Aug",
-                "Sep",
-                "Oct",
-                "Nov",
-                "Dec",
-              ];
-              const day = String(date.getUTCDate()).padStart(2, "0");
-              const month = monthNames[date.getUTCMonth()];
-              const year = date.getUTCFullYear();
-              return `${day}-${month}-${year}`;
-            };
-
-            const getKeyExpiryInfo = async (key, isBackedUp) => {
-              try {
-                const expirationTime = await key.getExpirationTime();
-                const now = new Date();
-                if (expirationTime === null || expirationTime === Infinity) {
-                  return {
-                    expirydate: "No Expiry",
-                    status: isBackedUp ? "Backed Up" : "Not Backed Up",
-                  };
-                } else if (expirationTime < now) {
-                  return {
-                    expirydate: formatDate(expirationTime),
-                    status: "expired",
-                  };
-                } else {
-                  return {
-                    expirydate: formatDate(expirationTime),
-                    status: isBackedUp ? "Backed Up" : "Not Backed Up",
-                  };
-                }
-              } catch (error) {
-                console.error("Error getting key expiration time:", error);
-                return { expirydate: "Error", status: "unknown" };
-              }
-            };
-
-            const processedKeys = await Promise.all(
-              decryptedKeys.map(async (key) => {
-                const openpgpKey = await openpgp.readKey({
-                  armoredKey: key.publicKey,
-                });
-
-                // Check if the key is backed up
-                const isBackedUp = backedUpKeys.some(
-                  (backedUpKey) =>
-                    backedUpKey.publicKey === key.publicKey ||
-                    (key.privateKey &&
-                      backedUpKey.privateKey === key.privateKey)
-                );
-
-                const { expirydate, status } = await getKeyExpiryInfo(
-                  openpgpKey,
-                  isBackedUp
-                );
-
-                return {
-                  id: key.id,
-                  name: key.name,
-                  email: key.email,
-                  expirydate: expirydate,
-                  status: status,
-                  avatar: (() => {
-                    const hasPrivateKey =
-                      key.privateKey && key.privateKey.trim() !== "";
-                    const hasPublicKey =
-                      key.publicKey && key.publicKey.trim() !== "";
-                    if (hasPrivateKey && hasPublicKey) {
-                      return Keyring.src;
-                    } else if (hasPublicKey) {
-                      return Public.src;
-                    }
-                  })(),
-                  publicKey: key.publicKey,
-                  privateKey: key.privateKey,
-                };
-              })
-            );
-
-            resolve(processedKeys);
+            resolve(decryptedKeys);
           } catch (error) {
             reject(error);
           }
@@ -316,16 +222,267 @@ export default function App() {
     });
   };
 
+  const loadKeysFromCloud = async () => {
+    try {
+      // Get vault password from session storage
+      const storedVaultData = sessionStorage.getItem("encryptedVaultPassword");
+      if (!storedVaultData) {
+        console.error("No vault password found in sessionStorage");
+        return [];
+      }
+
+      let vaultPassword;
+      let parsedVaultData;
+      try {
+        parsedVaultData = JSON.parse(storedVaultData);
+      } catch {
+        vaultPassword = storedVaultData;
+      }
+
+      if (!vaultPassword && parsedVaultData) {
+        const ivBytes = new Uint8Array(parsedVaultData.iv);
+        const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
+        const encryptionKey = await getEncryptionKey();
+        vaultPassword = await decryptVaultPassword(
+          encryptedPasswordBytes,
+          encryptionKey,
+          ivBytes
+        );
+      }
+
+      if (!vaultPassword) {
+        throw new Error("Failed to decrypt vault password");
+      }
+
+      // Fetch keys from API
+      const response = await fetch(
+        `/api/manage-keys?vaultPassword=${vaultPassword}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch keys from API");
+      }
+
+      const data = await response.json();
+      const keys = data.keys || [];
+
+      // Get locally stored keys first
+      const storedKeys = await getStoredKeys();
+
+      // Process and format each key from cloud
+      const processedKeys = await Promise.all(
+        keys.map(async (key) => {
+          try {
+            const openpgpKey = await openpgp.readKey({
+              armoredKey: key.publicKey || key.privateKey,
+            });
+
+            // Extract User IDs
+            const userIds = openpgpKey.users.map((user) => {
+              const userId = user.userID;
+              const name = userId?.userID.split(" <")[0] || "N/A";
+              const email = userId?.email || "N/A";
+              return { name, email };
+            });
+
+            // Get expiration info
+            const expirationTime = await openpgpKey.getExpirationTime();
+            const now = new Date();
+            let expirydate = "No Expiry";
+
+            if (expirationTime !== null && expirationTime !== Infinity) {
+              if (expirationTime < now) {
+                status = "expired";
+              }
+              expirydate = formatDate(expirationTime);
+            }
+
+            // Check if this key is already imported
+            const isImported = storedKeys.some((storedKey) => {
+              if (key.publicKey && storedKey.publicKey) {
+                return storedKey.publicKey === key.publicKey;
+              }
+              if (key.privateKey && storedKey.privateKey) {
+                return storedKey.privateKey === key.privateKey;
+              }
+              return false;
+            });
+
+            return {
+              id: key.id || Date.now(),
+              name: userIds[0]?.name || "N/A",
+              email: userIds[0]?.email || "N/A",
+              expirydate: expirydate,
+              status: isImported ? "Imported" : "Not Imported",
+              avatar: (() => {
+                const hasPrivateKey =
+                  key.privateKey &&
+                  key.privateKey !== "null" &&
+                  key.privateKey.trim() !== "";
+                const hasPublicKey =
+                  key.publicKey && key.publicKey.trim() !== "";
+                if (hasPrivateKey && hasPublicKey) {
+                  return Keyring.src;
+                } else if (hasPublicKey) {
+                  return Public.src;
+                }
+                return null;
+              })(),
+              publicKey: key.publicKey,
+              privateKey: key.privateKey,
+            };
+          } catch (error) {
+            console.error("Error processing key:", error);
+            return null;
+          }
+        })
+      );
+
+      return processedKeys.filter((key) => key !== null);
+    } catch (error) {
+      console.error("Error loading keys:", error);
+      toast.error(
+        "Failed to load keys. Please check your connection and try again."
+      );
+      return [];
+    }
+  };
+
+  const saveKeyToIndexedDB = async (keyData) => {
+    const encryptionKey = await getEncryptionKey();
+    const { encrypted, iv } = await encryptData(keyData, encryptionKey);
+
+    const db = await openDB();
+    const transaction = db.transaction(dbPgpKeys, "readwrite");
+    const store = transaction.objectStore(dbPgpKeys);
+
+    store.put({ id: keyData.id, encrypted, iv });
+  };
+
+  const checkIfKeyExists = async (newKeyData) => {
+    const existingKeys = await getStoredKeys();
+
+    return existingKeys.some((key) => {
+      // If newKeyData has a private key, match only private keys
+      if (newKeyData.privateKey) {
+        // Normalize both keys by removing whitespace and converting to same case
+        const normalizedNewKey = newKeyData.privateKey
+          .replace(/\s+/g, "")
+          .trim()
+          .toLowerCase();
+        const normalizedExistingKey = key.privateKey
+          ?.replace(/\s+/g, "")
+          .trim()
+          .toLowerCase();
+
+        return normalizedNewKey === normalizedExistingKey;
+      }
+      // If newKeyData only has public key, match only public keys
+      return key.publicKey === newKeyData.publicKey;
+    });
+  };
+
+  const importFromCloud = async (selectedUser) => {
+    try {
+      let vaultPassword;
+      try {
+        const storedVaultData = sessionStorage.getItem(
+          "encryptedVaultPassword"
+        );
+        if (!storedVaultData)
+          throw new Error("No vault password found in sessionStorage.");
+
+        let parsedVaultData;
+        try {
+          parsedVaultData = JSON.parse(storedVaultData);
+        } catch {
+          vaultPassword = storedVaultData;
+        }
+
+        if (!vaultPassword) {
+          if (!parsedVaultData.iv || !parsedVaultData.data) {
+            throw new Error("Encrypted vault password data is incomplete.");
+          }
+          const ivBytes = new Uint8Array(parsedVaultData.iv);
+          const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
+          const encryptionKey = await getEncryptionKey();
+          vaultPassword = await decryptVaultPassword(
+            encryptedPasswordBytes,
+            encryptionKey,
+            ivBytes
+          );
+        }
+
+        if (!vaultPassword) throw new Error("Vault password is missing.");
+      } catch (e) {
+        console.error(e);
+        toast.error("Failed to decrypt vault password", {
+          position: "top-right",
+        });
+        return;
+      }
+
+      try {
+        const keyData = {
+          id: Date.now(),
+          name: selectedUser.name,
+          email: selectedUser.email,
+          publicKey: selectedUser.publicKey,
+          privateKey:
+            selectedUser.privateKey &&
+            selectedUser.privateKey.trim().toLowerCase() !== "null" &&
+            selectedUser.privateKey.trim() !== ""
+              ? selectedUser.privateKey
+              : null,
+        };
+
+        // Check if key already exists
+        const exists = await checkIfKeyExists(keyData);
+        if (!exists) {
+          await saveKeyToIndexedDB(keyData);
+
+          // Determine if it's a public key or keyring based on privateKey being null
+          const keyType =
+            keyData.privateKey === null ? "Public Key" : "Keyring";
+          toast.success(`Imported ${keyData.name}'s ${keyType}`, {
+            position: "top-right",
+          });
+
+          // Refresh the keys list immediately after successful import
+          const refreshedKeys = await loadKeysFromCloud();
+          setUsers(refreshedKeys);
+        } else {
+          // Update the "already exists" message too
+          const keyType =
+            keyData.privateKey === null ? "Public Key" : "Keyring";
+          toast.info(`${keyData.name}'s ${keyType} already exists`, {
+            position: "top-right",
+          });
+        }
+      } catch (error) {
+        console.error("Error processing key:", error);
+        toast.error(`Failed to import key: ${error.message}`, {
+          position: "top-right",
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        "Failed to import key from cloud. Please check your connection and try again.",
+        { position: "top-right" }
+      );
+    }
+  };
+
   useEffect(() => {
     const fetchKeys = async () => {
-      const pgpKeys = await loadKeysFromIndexedDB();
-      setUsers(pgpKeys);
+      const keys = await loadKeysFromCloud();
+      setUsers(keys);
     };
 
     fetchKeys();
 
     const handleStorageChange = async () => {
-      const updatedKeys = await loadKeysFromIndexedDB();
+      const updatedKeys = await loadKeysFromCloud();
       setUsers(updatedKeys);
     };
 
@@ -382,27 +539,31 @@ export default function App() {
         );
       case "status":
         return (
-          <Chip
-            className="capitalize"
-            color={statusColorMap[user.status]}
-            variant="flat"
-          >
-            {cellValue}
-          </Chip>
+          <div className="flex justify-center items-center -ms-24">
+            <Chip
+              className="capitalize -ms-16"
+              color={statusColorMap[user.status]}
+              variant="flat"
+            >
+              {cellValue}
+            </Chip>
+          </div>
         );
-      case "backup":
+      case "import":
         return (
           <Button
+            className="-ms-4"
             color="secondary"
             variant="flat"
-            onPress={() => backupKey(user)}
+            onPress={() => importFromCloud(user)}
           >
-            Backup
+            Import
           </Button>
         );
       case "delete":
         return (
           <Button
+            className="-ms-4"
             color="danger"
             variant="flat"
             onPress={() => triggerDeleteModal(user)}
@@ -415,186 +576,65 @@ export default function App() {
     }
   }, []);
 
-  const backupKey = async (user, password = null) => {
+  const deleteKey = async (user) => {
     try {
-      let key = null;
-      let privateKey = null;
-
-      // Try loading private key if available
-      if (user.privateKey) {
-        try {
-          key = await openpgp.readKey({ armoredKey: user.privateKey });
-          if (key.isPrivate() && !key.isDecrypted()) {
-            if (!password) {
-              const enteredPassword = await triggerPasswordModal(user);
-              password = enteredPassword;
-            }
-            try {
-              key = await openpgp.decryptKey({
-                privateKey: key,
-                passphrase: password,
-              });
-            } catch {
-              toast.error("Incorrect Password", { position: "top-right" });
-              return;
-            }
-          }
-          privateKey = user.privateKey;
-        } catch (e) {
-          console.warn(
-            "Failed to read or decrypt private key. Falling back to public key."
-          );
-        }
-      }
-
-      // If no usable private key, try reading public key
-      if (!key && user.publicKey) {
-        try {
-          key = await openpgp.readKey({ armoredKey: user.publicKey });
-          privateKey = null;
-        } catch {
-          throw new Error("Failed to read both private and public keys.");
-        }
-      }
-
-      if (!key) {
-        throw new Error("No valid PGP key found.");
+      // Get vault password from session storage for authentication
+      const storedVaultData = sessionStorage.getItem("encryptedVaultPassword");
+      if (!storedVaultData) {
+        toast.error("No vault password found", { position: "top-right" });
+        return;
       }
 
       let vaultPassword;
       try {
-        const storedVaultData = sessionStorage.getItem(
-          "encryptedVaultPassword"
+        const parsedVaultData = JSON.parse(storedVaultData);
+        const ivBytes = new Uint8Array(parsedVaultData.iv);
+        const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
+        const encryptionKey = await getEncryptionKey();
+        vaultPassword = await decryptVaultPassword(
+          encryptedPasswordBytes,
+          encryptionKey,
+          ivBytes
         );
-        if (!storedVaultData)
-          throw new Error("No vault password found in sessionStorage.");
-
-        let parsedVaultData;
-        try {
-          parsedVaultData = JSON.parse(storedVaultData);
-        } catch {
-          vaultPassword = storedVaultData;
-        }
-
-        if (!vaultPassword) {
-          if (!parsedVaultData.iv || !parsedVaultData.data) {
-            throw new Error("Encrypted vault password data is incomplete.");
-          }
-          const ivBytes = new Uint8Array(parsedVaultData.iv);
-          const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
-          const encryptionKey = await getEncryptionKey();
-          vaultPassword = await decryptVaultPassword(
-            encryptedPasswordBytes,
-            encryptionKey,
-            ivBytes
-          );
-        }
-
-        if (!vaultPassword) throw new Error("Vault password is missing.");
       } catch (e) {
-        console.error(e);
+        vaultPassword = storedVaultData;
+      }
+
+      if (!vaultPassword) {
         toast.error("Failed to decrypt vault password", {
           position: "top-right",
         });
         return;
       }
 
-      const payload = {
-        privateKey: privateKey,
-        publicKey: user.publicKey,
-        vaultPassword,
-      };
-
-      const response = await fetch("/api/manage-keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const responseData = await response.json();
-
-      if (response.ok) {
-        if (responseData.message === "Key already backed up.") {
-          toast.info("This key has already been backed up.", {
-            position: "top-right",
-          });
-        } else {
-          toast.success("Key successfully backed up to the database!", {
-            position: "top-right",
-          });
-
-          setUsers((prevUsers) =>
-            prevUsers.map((prevUser) => {
-              if (prevUser.id === user.id) {
-                return {
-                  ...prevUser,
-                  status: "Backed Up",
-                };
-              }
-              return prevUser;
-            })
-          );
-        }
-      } else {
-        const errorMessage =
-          responseData?.error || "Failed to back up the key.";
-        toast.error(errorMessage, { position: "top-right" });
-      }
-    } catch (error) {
-      console.log(error);
-      toast.error(
-        "Failed to process the key. The key is not valid or there was an error.",
-        { position: "top-right" }
-      );
-    }
-  };
-
-  const deleteKey = async (user) => {
-    const keyValue = user.publicKey ? user.publicKey : user.privateKey;
-    try {
-      const response = await fetch("/api/manage-keys", {
+      // Send delete request to the correct endpoint
+      const deleteResponse = await fetch("/api/manage-keys", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keyValue }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          keyId: user.id,
+          vaultPassword: vaultPassword,
+          publicKey: user.publicKey,
+        }),
       });
 
-      if (response.ok) {
-        toast.success("Key deleted successfully", { position: "top-right" });
-        const refreshedKeys = await loadKeysFromIndexedDB();
-        setUsers(refreshedKeys);
-        setPage(1);
-      } else {
-        let errorMessage = "Unknown error";
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          try {
-            const text = await response.text();
-            if (text.trim()) {
-              const errorData = JSON.parse(text);
-              errorMessage = errorData.error || text;
-              console.log("Error data from response (JSON):", errorData);
-            } else {
-              errorMessage = "Empty response received";
-            }
-          } catch (jsonError) {
-            console.log("Failed to parse JSON response:", jsonError);
-          }
-        } else {
-          try {
-            const rawText = await response.text();
-            errorMessage = rawText || errorMessage;
-            console.log("Error text from response:", rawText);
-          } catch (textError) {
-            console.log("Failed to parse text response:", textError);
-          }
-        }
-        toast.error(`Error deleting key: ${errorMessage}`, {
-          position: "top-right",
-        });
+      if (!deleteResponse.ok) {
+        const errorData = await deleteResponse.json();
+        throw new Error(errorData.error || "Failed to delete key");
       }
+
+      const responseData = await deleteResponse.json();
+      toast.success("Key deleted successfully", { position: "top-right" });
+      const refreshedKeys = await loadKeysFromCloud();
+      setUsers(refreshedKeys);
+      setPage(1);
     } catch (error) {
-      toast.error("Error deleting key", { position: "top-right" });
       console.error("Error in deleteKey:", error);
+      toast.error(`Failed to delete key: ${error.message}`, {
+        position: "top-right",
+      });
     }
   };
 
@@ -602,21 +642,13 @@ export default function App() {
   const [isOpen, setIsOpen] = useState(false);
   const [password, setPassword] = useState("");
 
-  const triggerPasswordModal = () => {
-    setIsOpen(true);
-
-    return new Promise((resolve) => {
-      setPasswordResolve(() => resolve);
-    });
-  };
-
   const [DeleteModal, setDeleteModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedKeyName, setSelectedKeyName] = useState("");
 
-  const triggerDeleteModal = (userId, name) => {
-    setSelectedUserId(userId);
-    setSelectedKeyName(name);
+  const triggerDeleteModal = (user) => {
+    setSelectedUserId(user);
+    setSelectedKeyName(user.name);
     setDeleteModal(true);
   };
 
@@ -661,7 +693,7 @@ export default function App() {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-center text-4xl dm-serif-text-regular">
-          Backup Keyrings
+          Manage Cloud Keyrings
         </h1>
         <br />
         <div className="flex justify-between gap-3 items-end">
@@ -757,6 +789,7 @@ export default function App() {
               key={column.uid}
               align={column.uid === "actions" ? "center" : "start"}
               allowsSorting={column.sortable}
+              style={{ width: column.width }}
             >
               {column.name}
             </TableColumn>
@@ -769,12 +802,8 @@ export default function App() {
               <br />
               <br />
               <div className="ms-2 flex justify-center">
-                <Button as={Link} href="/import">
-                  Import Key
-                </Button>
-                <span className="mx-3 mt-1">or</span>
-                <Button as={Link} href="/generate">
-                  Generate Key
+                <Button className="ps-10 pe-10" as={Link} href="/cloud-backup">
+                  Backup Keyrings On Cloud
                 </Button>
               </div>
             </>
@@ -857,7 +886,8 @@ export default function App() {
       <Modal backdrop="blur" isOpen={DeleteModal} onClose={closeDeleteModal}>
         <ModalContent className="p-5">
           <h3 className="mb-2">
-            Are You Sure You Want To Delete {selectedKeyName}&apos;s Key?
+            Are You Sure You Want To Delete {selectedKeyName}&apos;s Key From
+            Cloud?
           </h3>
           <div className="flex gap-2">
             <Button

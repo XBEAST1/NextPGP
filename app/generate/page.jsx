@@ -175,11 +175,11 @@ export default function App() {
       // Save the encrypted key data
       await saveKeyToIndexedDB(keyData.id, keyData);
 
-      toast.success("PGP keyring Generated", {
+      toast.success("PGP Keyring Generated", {
         position: "top-right",
       });
     } catch (error) {
-      toast.error("Failed to generate PGP keyring", {
+      toast.error("Failed to generate PGP Keyring", {
         position: "top-right",
       });
       console.log(error);

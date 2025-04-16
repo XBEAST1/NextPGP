@@ -155,7 +155,7 @@ export const Navbar = () => {
         <Dropdown>
           <NavbarItem>
             <DropdownTrigger>
-              <Button size="md">Cloud Backup / Import</Button>
+              <Button size="md">Cloud Keys Management</Button>
             </DropdownTrigger>
           </NavbarItem>
           <DropdownMenu
@@ -168,7 +168,7 @@ export const Navbar = () => {
             <DropdownItem textValue="Backup">
               <Link className="text-decoration-none" href="/cloud-backup">
                 <div>
-                  Backup
+                  Backup Keyrings
                   <p className="text-default-500 text-xs">
                     Backip PGP keys on cloud storage.
                   </p>
@@ -178,9 +178,9 @@ export const Navbar = () => {
             <DropdownItem textValue="Import">
               <Link className="text-decoration-none" href="/cloud-import">
                 <div>
-                  Import
+                  Manage Keyrings
                   <p className="text-default-500 text-xs">
-                    Import PGP keys from cloud storage.
+                    View, import, or delete keyrings on cloud.
                   </p>
                 </div>
               </Link>

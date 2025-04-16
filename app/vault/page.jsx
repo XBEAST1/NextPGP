@@ -5,7 +5,7 @@ import { Button, Input, Modal, ModalContent } from "@heroui/react";
 import { logout } from "@/actions/auth";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { toast, ToastContainer } from "react-toastify";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import UserDetails from "@/components/userdetails";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -101,7 +101,9 @@ const Page = () => {
   const [password, setPassword] = useState("");
   const [DeleteModal, setDeleteModal] = useState(false);
   const [confirmInput, setConfirmInput] = useState("");
+  const [isLocked, setIsLocked] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
@@ -129,10 +131,18 @@ const Page = () => {
       const masterKey = await getEncryptionKey();
       await storeVaultPassword(password, masterKey);
 
-      // Set a cookie to indicate vault is unlocked
-      await fetch("/api/vault/unlock", { method: "POST" });
+      // Unlock the vault
+      await fetch("/api/vault/unlock", {
+        method: "POST",
+      });
 
-      router.push("/cloud-backup");
+      setIsLocked(false);
+      const redirectUrl = searchParams.get("redirect");
+      if (redirectUrl) {
+        router.push(redirectUrl);
+      } else {
+        router.push("/cloud-backup");
+      }
     } else {
       toast.error("Incorrect password", {
         position: "top-right",

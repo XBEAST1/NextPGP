@@ -47,11 +47,11 @@ export default function App() {
 
   const columns = [
     { name: "NAME", uid: "name", sortable: true },
-    { name: "EMAIL", uid: "email" },
+    { name: "EMAIL", uid: "email", width: "23%" },
     { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
     { name: "PASSWORD", uid: "passwordprotected", sortable: true },
-    { name: "STATUS", uid: "status", sortable: true },
-    { name: "BACKUP", uid: "backup" },
+    { name: "STATUS", uid: "status", sortable: true, width: "15%" },
+    { name: "BACKUP", uid: "backup", width: "0%", width: "8%" },
   ];
 
   const [isVisible, setIsVisible] = React.useState(false);
@@ -404,13 +404,15 @@ export default function App() {
         );
       case "status":
         return (
-          <Chip
-            className="capitalize"
-            color={statusColorMap[user.status]}
-            variant="flat"
-          >
-            {cellValue}
-          </Chip>
+          <div className="flex justify-center items-center -ms-24">
+            <Chip
+              className="capitalize"
+              color={statusColorMap[user.status]}
+              variant="flat"
+            >
+              {cellValue}
+            </Chip>
+          </div>
         );
       case "passwordprotected":
         return (
@@ -426,6 +428,7 @@ export default function App() {
       case "backup":
         return (
           <Button
+            className="-ms-3"
             color="secondary"
             variant="flat"
             onPress={() => backupKey(user)}
@@ -442,6 +445,7 @@ export default function App() {
     try {
       let key = null;
       let privateKey = null;
+      let isPublicKeyOnly = false;
 
       // Try loading private key if available
       if (user.privateKey) {
@@ -458,7 +462,9 @@ export default function App() {
                 passphrase: password,
               });
             } catch {
-              toast.error("Incorrect Password", { position: "top-right" });
+              toast.error(`Incorrect Password for ${user.name}'s Keyring`, {
+                position: "top-right",
+              });
               return;
             }
           }
@@ -467,7 +473,10 @@ export default function App() {
           console.warn(
             "Failed to read or decrypt private key. Falling back to public key."
           );
+          isPublicKeyOnly = true;
         }
+      } else {
+        isPublicKeyOnly = true;
       }
 
       // If no usable private key, try reading public key
@@ -538,13 +547,19 @@ export default function App() {
 
       if (response.ok) {
         if (responseData.message === "Key already backed up.") {
-          toast.info("This key has already been backed up.", {
-            position: "top-right",
-          });
+          toast.info(
+            `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} is already backed up`,
+            {
+              position: "top-right",
+            }
+          );
         } else {
-          toast.success("Key successfully backed up to the database!", {
-            position: "top-right",
-          });
+          toast.success(
+            `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} successfully backed up to the cloud!`,
+            {
+              position: "top-right",
+            }
+          );
 
           setUsers((prevUsers) =>
             prevUsers.map((prevUser) => {
@@ -560,13 +575,14 @@ export default function App() {
         }
       } else {
         const errorMessage =
-          responseData?.error || "Failed to back up the key.";
+          responseData?.error ||
+          `Failed to back up ${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"}`;
         toast.error(errorMessage, { position: "top-right" });
       }
     } catch (error) {
       console.log(error);
       toast.error(
-        "Failed to process the key. The key is not valid or there was an error.",
+        `Failed to process ${user.name}'s key. The key is not valid or there was an error.`,
         { position: "top-right" }
       );
     }
@@ -619,7 +635,7 @@ export default function App() {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-center text-4xl dm-serif-text-regular">
-          Backup Keyrings
+          Backup Keyrings On Cloud
         </h1>
         <br />
         <div className="flex justify-between gap-3 items-end">
@@ -715,6 +731,7 @@ export default function App() {
               key={column.uid}
               align={column.uid === "actions" ? "center" : "start"}
               allowsSorting={column.sortable}
+              style={{ width: column.width }}
             >
               {column.name}
             </TableColumn>
@@ -727,12 +744,8 @@ export default function App() {
               <br />
               <br />
               <div className="ms-2 flex justify-center">
-                <Button as={Link} href="/import">
-                  Import Key
-                </Button>
-                <span className="mx-3 mt-1">or</span>
-                <Button as={Link} href="/generate">
-                  Generate Key
+                <Button className="ps-10 pe-10" as={Link} href="/cloud-import">
+                  Import Keyrings From Cloud
                 </Button>
               </div>
             </>

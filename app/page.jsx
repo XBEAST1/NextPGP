@@ -52,11 +52,16 @@ export default function App() {
 
   const columns = [
     { name: "NAME", uid: "name", sortable: true },
-    { name: "EMAIL", uid: "email" },
-    { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
-    { name: "STATUS", uid: "status", sortable: true },
-    { name: "PASSWORD", uid: "passwordprotected", sortable: true },
-    { name: "ACTIONS", uid: "actions" },
+    { name: "EMAIL", uid: "email", width: "20%" },
+    { name: "EXPIRY DATE", uid: "expirydate", sortable: true, width: "20%" },
+    { name: "STATUS", uid: "status", sortable: true, width: "15%" },
+    {
+      name: "PASSWORD",
+      uid: "passwordprotected",
+      sortable: true,
+      width: "15%",
+    },
+    { name: "ACTIONS", uid: "actions", width: "11%" },
   ];
 
   const [isVisible, setIsVisible] = React.useState(false);
@@ -634,6 +639,7 @@ export default function App() {
               key={column.uid}
               align={column.uid === "actions" ? "center" : "start"}
               allowsSorting={column.sortable}
+              style={{ width: column.width }}
             >
               {column.name}
             </TableColumn>
@@ -645,9 +651,13 @@ export default function App() {
               <span>No keyrings found</span>
               <br />
               <br />
-              <div className="ms-2 flex justify-center">
+              <div className="ms-6 flex justify-center">
                 <Button as={Link} href="/import">
                   Import Key
+                </Button>
+                <span className="mx-3 mt-1">or</span>
+                <Button as={Link} href="/cloud-import">
+                  Import Keyrings From Cloud
                 </Button>
                 <span className="mx-3 mt-1">or</span>
                 <Button as={Link} href="/generate">
