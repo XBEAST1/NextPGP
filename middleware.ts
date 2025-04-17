@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const vaultOnlyRoutes = ["/cloud-backup", "/cloud-import"];
+const vaultOnlyRoutes = ["/cloud-backup", "/cloud-manage"];
 const authRoutes = ["/login"];
 
 export default async function middleware(request: NextRequest) {
@@ -76,6 +76,6 @@ export const config = {
     "/vault",
     "/login",
     "/cloud-backup",
-    "/cloud-import",
+    "/cloud-manage",
   ],
 };

@@ -15,7 +15,6 @@
   "@heroui/react": "^2.6.14",
   "@internationalized/date": "^3.6.0",
   "@next/third-parties": "^15.1.0",
-  "@phc/argon2": "^1.0.9",
   "@prisma/client": "6.6.0",
   "@react-aria/ssr": "3.9.7",
   "@react-aria/visually-hidden": "3.8.18",

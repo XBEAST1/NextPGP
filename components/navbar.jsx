@@ -37,6 +37,8 @@ export const Navbar = () => {
     { label: "Import Key", href: "/import" },
     { label: "Encrypt", href: "/encrypt" },
     { label: "Decrypt", href: "/decrypt" },
+    { label: "Cloud Backup", href: "/cloud-backup" },
+    { label: "Cloud Manage", href: "/cloud-manage" },
     { label: "Open Source", href: "https://github.com/XBEAST1/NextPGP" },
   ];
 
@@ -176,7 +178,7 @@ export const Navbar = () => {
               </Link>
             </DropdownItem>
             <DropdownItem textValue="Import">
-              <Link className="text-decoration-none" href="/cloud-import">
+              <Link className="text-decoration-none" href="/cloud-manage">
                 <div>
                   Manage Keyrings
                   <p className="text-default-500 text-xs">

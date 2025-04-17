@@ -656,7 +656,7 @@ export default function App() {
                   Import Key
                 </Button>
                 <span className="mx-3 mt-1">or</span>
-                <Button as={Link} href="/cloud-import">
+                <Button as={Link} href="/cloud-manage">
                   Import Keyrings From Cloud
                 </Button>
                 <span className="mx-3 mt-1">or</span>

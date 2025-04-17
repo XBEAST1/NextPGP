@@ -4,20 +4,36 @@ import { useEffect } from "react";
 
 export default function AutoLockVault() {
   useEffect(() => {
+    let locked = false;
+
     const lockVault = () => {
+      if (locked) return;
+      // don’t lock on a page reload
+      const navEntries = performance.getEntriesByType("navigation");
+      const navType = navEntries.length ? navEntries[0].type : null;
+      if (navType === "reload") return;
+
+      locked = true;
       const url = "/api/vault/lock";
+
       if (navigator.sendBeacon) {
-        const blob = new Blob([], { type: "application/json" });
-        navigator.sendBeacon(url, blob);
+        navigator.sendBeacon(url);
       } else {
-        fetch(url, { method: "POST", keepalive: true, credentials: "include" });
+        // fallback for older browsers
+        fetch(url, {
+          method: "POST",
+          keepalive: true,
+          credentials: "include",
+        }).catch(() => {
+          /* swallow errors */
+        });
       }
     };
 
-    window.addEventListener("unload", lockVault);
+    window.addEventListener("pagehide", lockVault);
 
     return () => {
-      window.removeEventListener("unload", lockVault);
+      window.removeEventListener("pagehide", lockVault);
     };
   }, []);
 

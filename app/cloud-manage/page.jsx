@@ -22,6 +22,7 @@ import {
   SearchIcon,
 } from "@/components/icons";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
 import { toast, ToastContainer } from "react-toastify";
@@ -68,6 +69,7 @@ export default function App() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
+  const router = useRouter();
 
   const columns = [
     { name: "NAME", uid: "name", sortable: true },
@@ -735,7 +737,7 @@ export default function App() {
 
   const bottomContent = React.useMemo(() => {
     return (
-      <div className="py-2 px-2 flex justify-between items-center">
+      <div className="py-2 px-2 relative flex justify-between items-center">
         <Pagination
           isCompact
           showControls
@@ -745,6 +747,33 @@ export default function App() {
           total={pages}
           onChange={setPage}
         />
+        <div className="absolute left-1/2 transform -translate-x-1/2">
+          <Button
+            className="ps-8 pe-10"
+            onPress={async () => {
+              try {
+                const response = await fetch("/api/vault/lock", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                });
+
+                if (!response.ok) {
+                  throw new Error("Failed to lock vault");
+                }
+
+                sessionStorage.removeItem("encryptedVaultPassword");
+
+                router.push("/");
+              } catch (error) {
+                console.error("Error locking vault:", error);
+              }
+            }}
+          >
+            🔒 Lock Vault
+          </Button>
+        </div>
         <div className="hidden sm:flex w-[30%] justify-end gap-2">
           <Button
             isDisabled={pages === 1}

@@ -320,7 +320,7 @@ export default function App() {
       const encryptedMessage = await openpgp.encrypt(encryptionOptions);
       setOutput(encryptedMessage);
     } catch (error) {
-      toast.error("Please Enter a Password", {
+      toast.error("Incorrect Password", {
         position: "top-right",
       });
     }
@@ -608,7 +608,6 @@ export default function App() {
             }
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                // Simulate the button click on Enter key press
                 if (modalpassword) {
                   setIsPasswordModalOpen(false);
                   if (onSubmitPassword.current) {
