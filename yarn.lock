@@ -61,7 +61,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@auth/core@npm:0.38.0":
+"@auth/core@npm:0.38.0, @auth/core@npm:^0.38.0":
   version: 0.38.0
   resolution: "@auth/core@npm:0.38.0"
   dependencies:
@@ -1198,6 +1198,17 @@ __metadata:
     "@babel/helper-string-parser": "npm:^7.25.9"
     "@babel/helper-validator-identifier": "npm:^7.25.9"
   checksum: 10c0/966c5242c5e55c8704bf7a7418e7be2703a0afa4d19a8480999d5a4ef13d095dd60686615fe5983cb7593b4b06ba3a7de8d6ca501c1d78bdd233a10d90be787b
+  languageName: node
+  linkType: hard
+
+"@brendon1555/authjs-mongoose-adapter@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@brendon1555/authjs-mongoose-adapter@npm:1.1.0"
+  dependencies:
+    "@auth/core": "npm:^0.38.0"
+  peerDependencies:
+    mongoose: ^8
+  checksum: 10c0/f3046ead303a724090e254700148878e58087c73e977bf696dcfa3c7c2e6acdd87ec2013cd96edf1366d169d165a2a08862ec700b248c146093882f54fcfa0ad
   languageName: node
   linkType: hard
 
@@ -6692,7 +6703,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"debug@npm:4, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4, debug@npm:^4.3.7":
+"debug@npm:4, debug@npm:4.x, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4, debug@npm:^4.3.7":
   version: 4.4.0
   resolution: "debug@npm:4.4.0"
   dependencies:
@@ -8670,6 +8681,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"kareem@npm:2.6.3":
+  version: 2.6.3
+  resolution: "kareem@npm:2.6.3"
+  checksum: 10c0/a5a3e2932cf54a300bf1a9936a2d1695f409066ce213ec3cd26bf788ac20d150edde21877a18b073efa219cab56f0192f710d87d95dde0829ff44666d9b15f76
+  languageName: node
+  linkType: hard
+
 "keyv@npm:^4.5.3":
   version: 4.5.4
   resolution: "keyv@npm:4.5.4"
@@ -8981,7 +8999,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mongodb@npm:^6.15.0":
+"mongodb@npm:^6.15.0, mongodb@npm:~6.15.0":
   version: 6.15.0
   resolution: "mongodb@npm:6.15.0"
   dependencies:
@@ -9015,6 +9033,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"mongoose@npm:^8.13.2":
+  version: 8.13.2
+  resolution: "mongoose@npm:8.13.2"
+  dependencies:
+    bson: "npm:^6.10.3"
+    kareem: "npm:2.6.3"
+    mongodb: "npm:~6.15.0"
+    mpath: "npm:0.9.0"
+    mquery: "npm:5.0.0"
+    ms: "npm:2.1.3"
+    sift: "npm:17.1.3"
+  checksum: 10c0/a454085fbc19147f7d886be10cbe6aa2b35d3ba4f4b09a144a7f71d2a66c7c6148cdfbbec9bb493806a78cf6b199c8ed934df916554e59183c6de3327816f751
+  languageName: node
+  linkType: hard
+
 "motion-dom@npm:^11.13.0":
   version: 11.13.0
   resolution: "motion-dom@npm:11.13.0"
@@ -9029,7 +9062,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ms@npm:^2.1.1, ms@npm:^2.1.3":
+"mpath@npm:0.9.0":
+  version: 0.9.0
+  resolution: "mpath@npm:0.9.0"
+  checksum: 10c0/ac1a77ebbd44567f122fb3026c9647836215d5bb75b54064d1f3d998125644fe7a775b89441b94d4d60f43ad9638a12d830a9e29f36116e93b8cdfd111816e8f
+  languageName: node
+  linkType: hard
+
+"mquery@npm:5.0.0":
+  version: 5.0.0
+  resolution: "mquery@npm:5.0.0"
+  dependencies:
+    debug: "npm:4.x"
+  checksum: 10c0/65b8a92d3b23d9bd1a3d149c3cbd09468e5e5b95d6cff73c1ed2d0a3dc8dce7daa538862ca2a477bf99bbb2197b049becb73d9664b0f7c3dd5472fcd5cb34bca
+  languageName: node
+  linkType: hard
+
+"ms@npm:2.1.3, ms@npm:^2.1.1, ms@npm:^2.1.3":
   version: 2.1.3
   resolution: "ms@npm:2.1.3"
   checksum: 10c0/d924b57e7312b3b63ad21fc5b3dc0af5e78d61a1fc7cfb5457edaf26326bf62be5307cc87ffb6862ef1c2b33b0233cdb5d4f01c4c958cc0d660948b65a287a48
@@ -9083,6 +9132,7 @@ __metadata:
   dependencies:
     "@auth/mongodb-adapter": "npm:^3.8.0"
     "@auth/prisma-adapter": "npm:^2.8.0"
+    "@brendon1555/authjs-mongoose-adapter": "npm:^1.1.0"
     "@ducanh2912/next-pwa": "npm:^10.2.9"
     "@heroui/react": "npm:^2.6.14"
     "@internationalized/date": "npm:^3.6.0"
@@ -9117,6 +9167,7 @@ __metadata:
     intl-messageformat: "npm:^10.5.0"
     jszip: "npm:^3.10.1"
     mongodb: "npm:^6.15.0"
+    mongoose: "npm:^8.13.2"
     next: "npm:^15.3.0"
     next-auth: "npm:^5.0.0-beta.25"
     next-themes: "npm:^0.4.4"
@@ -10381,6 +10432,13 @@ __metadata:
     get-intrinsic: "npm:^1.2.4"
     object-inspect: "npm:^1.13.1"
   checksum: 10c0/d2afd163dc733cc0a39aa6f7e39bf0c436293510dbccbff446733daeaf295857dbccf94297092ec8c53e2503acac30f0b78830876f0485991d62a90e9cad305f
+  languageName: node
+  linkType: hard
+
+"sift@npm:17.1.3":
+  version: 17.1.3
+  resolution: "sift@npm:17.1.3"
+  checksum: 10c0/bb05d1d65cc9b549b402c1366ba1fcf685311808b6d5c2f4fa2f477d7b524218bbf6c99587562d5613d407820a6b5a7cad809f89c3f75c513ff5d8c0e0a0cead
   languageName: node
   linkType: hard
 
