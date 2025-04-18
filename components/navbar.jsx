@@ -232,7 +232,7 @@ export const Navbar = () => {
               color={index === menuItems.length - 1 ? "danger" : "foreground"}
               href={item.href}
               size="lg"
-              onClick={() => setIsMenuOpen()}
+              onPress={() => setIsMenuOpen()}
               target={item.href.startsWith("http") ? "_blank" : undefined}
             >
               {item.label}

@@ -61,17 +61,19 @@ const Page = () => {
   return (
     <div>
       <ToastContainer theme="dark" />
-      <h1 className="mt-10 me-24 text-4xl text-center dm-serif-text-regular">
+      <h1 className="sm:me-32 sm:mt-10 text-4xl text-center dm-serif-text-regular">
         Create Vault
       </h1>
-      <div className="flex">
-        <div className="w-full pe-6">
-          <p className="text-center text-red-500 text-sm me-10 mt-16 mb-5">
+      <div className="flex flex-col sm:flex-row sm:justify-between items-center sm:items-start mt-6">
+        <div className="flex flex-col items-center sm:hidden mt-6 order-1">
+          <UserDetails />
+        </div>
+        <div className="w-full sm:pe-6 order-2">
+          <p className="text-center text-red-500 text-sm mt-6 sm:mt-16 mb-5">
             This password cannot be recovered. If forgotten, the vault will be
             permanently inaccessible and must be deleted.
           </p>
           <Input
-            className=""
             name="password"
             placeholder="Enter vault password"
             type={isVisible ? "text" : "password"}
@@ -94,20 +96,22 @@ const Page = () => {
             }
           />
         </div>
-        <UserDetails />
+        <div className="hidden sm:block order-3">
+          <UserDetails />
+        </div>
       </div>
-      <div className="flex justify-center me-24 mt-6">
+      <div className="sm:me-28 sm:pe-6 flex justify-center mt-8">
         <Button
           color="success"
           variant="flat"
-          className="w-1/5"
+          className="w-1/2 sm:w-1/5"
           onPress={handleCreateVault}
         >
           Create Vault
         </Button>
       </div>
       <br />
-      <div className="flex justify-end items-center">
+      <div className="sm:justify-end ms-4 flex justify-center items-center">
         <Button className="me-5" onPress={() => logout("google")}>
           Sign Out
         </Button>

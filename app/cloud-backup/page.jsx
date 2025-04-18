@@ -689,7 +689,7 @@ export default function App() {
           total={pages}
           onChange={setPage}
         />
-        <div className=" absolute left-1/2 transform -translate-x-1/2">
+        <div className="sm:absolute sm:left-1/2 sm:transform sm:-translate-x-1/2">
           <Button
             className="ps-8 pe-10"
             onPress={async () => {

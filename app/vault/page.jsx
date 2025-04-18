@@ -170,37 +170,44 @@ const Page = () => {
   return (
     <div>
       <ToastContainer theme="dark" />
-      <h1 className="mt-10 me-24 text-4xl text-center dm-serif-text-regular">
+      <h1 className="sm:mt-10 sm:me-32 text-4xl text-center dm-serif-text-regular">
         Open Vault
       </h1>
-      <div className="flex">
-        <Input
-          className="me-10 mt-20"
-          name="password"
-          placeholder="Enter vault password"
-          type={isVisible ? "text" : "password"}
-          onKeyDown={onKeyPress}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          endContent={
-            <button
-              aria-label="toggle password visibility"
-              className="focus:outline-none"
-              type="button"
-              onClick={toggleVisibility}
-            >
-              {isVisible ? (
-                <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
-              ) : (
-                <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
-              )}
-            </button>
-          }
-        />
-        <UserDetails />
+      <div className="flex flex-col sm:flex-row sm:justify-between items-center sm:items-start mt-6">
+        <div className="flex flex-col items-center sm:hidden mt-6 order-1">
+          <UserDetails />
+        </div>
+        <div className="flex flex-col sm:flex-row items-center sm:mt-20 order-2 w-full sm:w-full">
+          <Input
+            className="mt-8 sm:mt-0 sm:me-10 w-full sm:w-full"
+            name="password"
+            placeholder="Enter vault password"
+            type={isVisible ? "text" : "password"}
+            onKeyDown={onKeyPress}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            endContent={
+              <button
+                aria-label="toggle password visibility"
+                className="focus:outline-none"
+                type="button"
+                onClick={toggleVisibility}
+              >
+                {isVisible ? (
+                  <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                ) : (
+                  <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                )}
+              </button>
+            }
+          />
+        </div>
+        <div className="hidden sm:block order-3">
+          <UserDetails />
+        </div>
       </div>
-      <div className="flex justify-center me-24 mt-6">
-        <Button className="w-1/5" onPress={handleLogin}>
+      <div className="sm:me-32 sm:mb-0 mb-8 flex justify-center mt-8">
+        <Button className="w-1/2 sm:w-1/5" onPress={handleLogin}>
           Enter
         </Button>
       </div>
@@ -209,7 +216,7 @@ const Page = () => {
         <Button variant="flat" onPress={triggerDeleteModal} color="danger">
           Delete Vault
         </Button>
-        <Button className="me-5" onPress={() => logout("google")}>
+        <Button className="sm:me-5 me-2" onPress={() => logout("google")}>
           Sign Out
         </Button>
       </div>
@@ -225,7 +232,6 @@ const Page = () => {
           </p>
           <Input
             type="text"
-            className=""
             placeholder="Enter DeleteMyVault"
             onKeyDown={(e) => {
               if (e.key === "Enter" && confirmInput === "DeleteMyVault") {

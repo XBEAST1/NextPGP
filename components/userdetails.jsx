@@ -37,6 +37,7 @@ const UserDetails = () => {
       </h1>
       {session?.user.image && (
         <img
+          alt="User Avatar"
           className="rounded-medium"
           width={150}
           src={session.user.image}
