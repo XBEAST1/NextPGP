@@ -1,0 +1,13 @@
+name: Run Cron Job Every 10 Minute
+
+on:
+  schedule:
+    # Runs every 10 minute
+    - cron: '*/10 * * * *'
+
+jobs:
+  cron-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Next PGP API to Lock Inactive Vaults
+        run: curl https://nextpgp.vercel.app/api/vault/lock-inactive-vaults
