@@ -259,9 +259,11 @@ export default function App() {
       }
 
       // Fetch keys from API
-      const response = await fetch(
-        `/api/manage-keys?vaultPassword=${vaultPassword}`
-      );
+      const response = await fetch("/api/manage-keys/fetch-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vaultPassword }),
+      });
       if (!response.ok) {
         throw new Error("Failed to fetch keys from API");
       }

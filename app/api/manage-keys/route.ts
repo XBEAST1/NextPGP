@@ -53,94 +53,6 @@ async function encrypt(text: string, password: string): Promise<string> {
   return Buffer.from(encryptedBytes).toString("base64");
 }
 
-// AES-GCM decryption
-async function decrypt(
-  encryptedBase64: string,
-  password: string
-): Promise<string> {
-  const enc = new TextEncoder();
-  const dec = new TextDecoder();
-
-  const encryptedBytes = new Uint8Array(Buffer.from(encryptedBase64, "base64"));
-  const salt = encryptedBytes.slice(0, 16);
-  const iv = encryptedBytes.slice(16, 28);
-  const data = encryptedBytes.slice(28);
-
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    { name: "PBKDF2" },
-    false,
-    ["deriveKey"]
-  );
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt,
-      iterations: 100000,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["decrypt"]
-  );
-
-  const decryptedBuffer = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    key,
-    data
-  );
-  return dec.decode(decryptedBuffer);
-}
-
-// GET: Retrieve and decrypt keys
-export async function GET(req: Request) {
-  const session = await auth();
-  if (!session || !session.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(req.url);
-  const vaultPassword = searchParams.get("vaultPassword");
-
-  if (!vaultPassword) {
-    return NextResponse.json(
-      { error: "Vault password is required" },
-      { status: 400 }
-    );
-  }
-
-  const vault = await Vault.findOne({ userId: session.user.id });
-  if (!vault) {
-    return NextResponse.json({ error: "Vault not found" }, { status: 404 });
-  }
-
-  const keys = await PGPKey.find({ vaultId: vault._id }).lean();
-
-  try {
-    const decryptedKeys = await Promise.all(
-      keys.map(async (key) => ({
-        id: key._id.toString(),
-        privateKey: key.privateKey
-          ? await decrypt(key.privateKey, vaultPassword)
-          : "",
-        publicKey: key.publicKey
-          ? await decrypt(key.publicKey, vaultPassword)
-          : "",
-      }))
-    );
-
-    return NextResponse.json({ keys: decryptedKeys });
-  } catch (error) {
-    console.error("Decryption failed:", error);
-    return NextResponse.json(
-      { error: "Failed to decrypt keys. Invalid password?" },
-      { status: 400 }
-    );
-  }
-}
-
 // POST: Encrypt and store new key
 export async function POST(req: Request) {
   const session = await auth();
@@ -175,43 +87,50 @@ export async function POST(req: Request) {
     );
   }
 
-  try {
-    const privateKeyHash = await hashKey(privateKey);
-    const publicKeyHash = await hashKey(publicKey);
+  if (!privateKey && !publicKey) {
+    return NextResponse.json(
+      { message: "Atleast one key required" },
+      { status: 200 }
+    );
+  } else {
+    try {
+      const privateKeyHash = await hashKey(privateKey);
+      const publicKeyHash = await hashKey(publicKey);
 
-    const existingKey = await PGPKey.findOne({
-      vaultId: vault._id,
-      $or: [{ privateKeyHash }, { publicKeyHash }],
-    });
+      const existingKey = await PGPKey.findOne({
+        vaultId: vault._id,
+        $or: [{ privateKeyHash }, { publicKeyHash }],
+      });
 
-    if (existingKey) {
+      if (existingKey) {
+        return NextResponse.json(
+          { message: "Key already backed up." },
+          { status: 200 }
+        );
+      }
+
+      const encryptedPrivateKey = await encrypt(privateKey, vaultPassword);
+      const encryptedPublicKey = await encrypt(publicKey, vaultPassword);
+
+      const storedKey = await PGPKey.create({
+        privateKey: encryptedPrivateKey,
+        publicKey: encryptedPublicKey,
+        privateKeyHash,
+        publicKeyHash,
+        vaultId: vault._id,
+      });
+
+      return NextResponse.json({
+        message: "Key stored successfully",
+        key: storedKey,
+      });
+    } catch (error) {
+      console.error("Failed to store key data:", error);
       return NextResponse.json(
-        { message: "Key already backed up." },
-        { status: 200 }
+        { error: "Internal Server Error" },
+        { status: 500 }
       );
     }
-
-    const encryptedPrivateKey = await encrypt(privateKey, vaultPassword);
-    const encryptedPublicKey = await encrypt(publicKey, vaultPassword);
-
-    const storedKey = await PGPKey.create({
-      privateKey: encryptedPrivateKey,
-      publicKey: encryptedPublicKey,
-      privateKeyHash,
-      publicKeyHash,
-      vaultId: vault._id,
-    });
-
-    return NextResponse.json({
-      message: "Key stored successfully",
-      key: storedKey,
-    });
-  } catch (error) {
-    console.error("Failed to store key data:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
   }
 }
 

@@ -179,11 +179,13 @@ export default function App() {
             ivBytes
           );
         }
-
         if (vaultPassword) {
-          const response = await fetch(
-            `/api/manage-keys?vaultPassword=${vaultPassword}`
-          );
+          const response = await fetch("/api/manage-keys/fetch-keys", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ vaultPassword }),
+          });
+
           if (response.ok) {
             const data = await response.json();
             backedUpKeys = data.keys || [];
