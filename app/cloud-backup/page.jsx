@@ -15,6 +15,7 @@ import {
   Pagination,
   Modal,
   ModalContent,
+  Spinner,
 } from "@heroui/react";
 import {
   EyeFilledIcon,
@@ -45,6 +46,7 @@ export default function App() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
+  const [locking, setLocking] = useState(false);
   const router = useRouter();
 
   const columns = [
@@ -406,7 +408,7 @@ export default function App() {
         );
       case "status":
         return (
-          <div className="flex justify-center items-center -ms-24">
+          <div className="flex justify-center items-center sm:-ms-24 -ms-6">
             <Chip
               className="capitalize"
               color={statusColorMap[user.status]}
@@ -691,8 +693,10 @@ export default function App() {
         />
         <div className="sm:absolute sm:left-1/2 sm:transform sm:-translate-x-1/2">
           <Button
-            className="ps-8 pe-10"
+            className="sm:min-w-40 min-w-32 pl-3"
+            isDisabled={locking}
             onPress={async () => {
+              setLocking(true);
               try {
                 const response = await fetch("/api/vault/lock", {
                   method: "POST",
@@ -710,10 +714,12 @@ export default function App() {
                 router.push("/vault");
               } catch (error) {
                 console.error("Error locking vault:", error);
+              } finally {
+                setLocking(false);
               }
             }}
           >
-            🔒 Lock Vault
+            {locking ? <Spinner color="white" size="sm" /> : "🔒 Lock Vault"}
           </Button>
         </div>
         <div className="hidden sm:flex w-[30%] justify-end gap-2">
@@ -736,7 +742,7 @@ export default function App() {
         </div>
       </div>
     );
-  }, [page, pages, hasSearchFilter]);
+  }, [page, pages, locking, onPreviousPage, onNextPage]);
 
   return (
     <>

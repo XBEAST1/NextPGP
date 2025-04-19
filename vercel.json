@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/vault/lock-inactive-vaults",
+      "schedule": "*/1 * * * *"
+    }
+  ]
+}

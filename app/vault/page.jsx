@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Input, Modal, ModalContent } from "@heroui/react";
+import { Button, Input, Modal, ModalContent, Spinner } from "@heroui/react";
 import { logout } from "@/actions/auth";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { toast, ToastContainer } from "react-toastify";
@@ -102,6 +102,7 @@ const Page = () => {
   const [DeleteModal, setDeleteModal] = useState(false);
   const [confirmInput, setConfirmInput] = useState("");
   const [isLocked, setIsLocked] = useState(true);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -121,6 +122,8 @@ const Page = () => {
       return;
     }
 
+    setLoading(true);
+
     const res = await fetch("/api/vault", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -136,6 +139,7 @@ const Page = () => {
         method: "POST",
       });
 
+      setLoading(false);
       setIsLocked(false);
       const redirectUrl = searchParams.get("redirect");
       if (redirectUrl) {
@@ -147,6 +151,7 @@ const Page = () => {
       toast.error("Incorrect password", {
         position: "top-right",
       });
+      setLoading(false);
     }
   };
 
@@ -207,8 +212,12 @@ const Page = () => {
         </div>
       </div>
       <div className="sm:me-32 sm:mb-0 mb-8 flex justify-center mt-8">
-        <Button className="w-1/2 sm:w-1/5" onPress={handleLogin}>
-          Enter
+        <Button
+          className="w-1/2 sm:w-1/5"
+          onPress={handleLogin}
+          isDisabled={loading}
+        >
+          {loading ? <Spinner color="white" size="sm" /> : "Enter"}
         </Button>
       </div>
       <br />

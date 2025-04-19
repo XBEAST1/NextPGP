@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Button, Input } from "@heroui/react";
+import { Button, Input, Spinner } from "@heroui/react";
 import { logout } from "@/actions/auth";
 import { useRouter } from "next/navigation";
 import { toast, ToastContainer } from "react-toastify";
@@ -12,6 +12,7 @@ import "react-toastify/dist/ReactToastify.css";
 const Page = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const toggleVisibility = () => setIsVisible(!isVisible);
@@ -44,6 +45,7 @@ const Page = () => {
       });
       return;
     }
+    setLoading(true);
 
     const res = await fetch("/api/create-vault", {
       method: "POST",
@@ -55,6 +57,7 @@ const Page = () => {
       router.push("/vault");
     } else {
       console.log("There Was An Error Creating The Vault");
+      setLoading(false);
     }
   };
 
@@ -106,8 +109,9 @@ const Page = () => {
           variant="flat"
           className="w-1/2 sm:w-1/5"
           onPress={handleCreateVault}
+          isDisabled={loading}
         >
-          Create Vault
+          {loading ? <Spinner color="white" size="sm" /> : "Create Vault"}
         </Button>
       </div>
       <br />
