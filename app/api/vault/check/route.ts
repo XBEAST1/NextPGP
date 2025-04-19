@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/prisma";
+import { connectToDatabase } from "@/lib/mongoose";
+import Vault from "@/models/Vault";
+
+await connectToDatabase();
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("Authorization");
@@ -9,11 +12,7 @@ export async function GET(request: Request) {
     return new NextResponse(null, { status: 401 });
   }
 
-  const vault = await prisma.vault.findFirst({
-    where: {
-      userId: userId,
-    },
-  });
+  const vault = await Vault.findOne({ userId }).lean();
 
   if (vault) {
     return new NextResponse(null, { status: 200 });

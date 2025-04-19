@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { prisma } from "@/prisma";
+import { connectToDatabase } from "@/lib/mongoose";
+import Vault from "@/models/Vault";
+import PGPKeys from "@/models/PGPKey";
 import argon2 from "argon2";
+
+await connectToDatabase();
 
 export async function GET() {
   const session = await auth();
@@ -10,11 +14,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const vault = await prisma.vault.findFirst({
-    where: { userId: session.user.id },
-  });
+  const vault = await Vault.findOne({ userId: session.user.id }).lean();
 
-  return NextResponse.json({ exists: !!vault });
+  return NextResponse.json({ exists: Boolean(vault) });
 }
 
 export async function POST(req: Request) {
@@ -27,15 +29,12 @@ export async function POST(req: Request) {
   const { password } = await req.json();
 
   try {
-    const vault = await prisma.vault.findFirst({
-      where: { userId: session.user.id },
-    });
+    const vault = await Vault.findOne({ userId: session.user.id });
 
     if (!vault) {
       return NextResponse.json({ error: "Vault not found" }, { status: 404 });
     }
 
-    // Verify password against the hash stored in the database
     const isValidPassword = await argon2.verify(vault.passwordHash, password);
 
     if (!isValidPassword) {
@@ -66,19 +65,15 @@ export async function DELETE(req: Request) {
   }
 
   try {
-    // Retrieve the vault associated with the current user session using userId
-    const vault = await prisma.vault.findFirst({
-      where: { userId: session.user.id },
-    });
+    const vault = await Vault.findOne({ userId: session.user.id });
 
     if (!vault) {
       return NextResponse.json({ error: "Vault not found" }, { status: 404 });
     }
 
-    // Delete the vault associated with the user
-    await prisma.vault.delete({
-      where: { id: vault.id },
-    });
+    await Vault.deleteOne({ _id: vault._id });
+    // Delete the associated PGP keys with the vault
+    await PGPKeys.deleteMany({ vaultId: vault._id });
 
     return NextResponse.json(
       { message: "Vault deleted successfully" },

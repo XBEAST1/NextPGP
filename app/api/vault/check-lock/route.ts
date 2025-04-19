@@ -1,14 +1,14 @@
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/auth";
 import { NextResponse } from "next/server";
-import { prisma } from "@/prisma";
+import { connectToDatabase } from "@/lib/mongoose";
+import Vault from "@/models/Vault";
 
-export async function GET(request: Request) {
-  const session = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET,
-  });
+await connectToDatabase();
 
-  if (!session?.sub) {
+export async function GET() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
     return NextResponse.json(
       {
         error: "Unauthorized",
@@ -18,14 +18,10 @@ export async function GET(request: Request) {
     );
   }
 
-  const vault = await prisma.vault.findFirst({
-    where: {
-      userId: session.sub,
-    },
-    select: {
-      isLocked: true,
-    },
-  });
+  const vault = await Vault.findOne(
+    { userId: session.user.id },
+    { isLocked: 1 }
+  ).lean();
 
   if (!vault || vault.isLocked) {
     return NextResponse.json(

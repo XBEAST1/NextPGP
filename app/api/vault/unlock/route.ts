@@ -1,26 +1,26 @@
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/auth";
 import { NextResponse } from "next/server";
-import { prisma } from "@/prisma";
+import { connectToDatabase } from "@/lib/mongoose";
+import Vault from "@/models/Vault";
 
-export async function POST(request: Request) {
-  const session = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET,
-  });
+await connectToDatabase();
 
-  if (!session?.sub) {
+export async function POST() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
     return new NextResponse(null, { status: 401 });
   }
 
-  await prisma.vault.updateMany({
-    where: {
-      userId: session.sub,
-    },
-    data: {
-      isLocked: false,
-      lastActivity: new Date(),
-    },
-  });
+  await Vault.updateMany(
+    { userId: session.user.id },
+    {
+      $set: {
+        isLocked: false,
+        lastActivity: new Date(),
+      },
+    }
+  );
 
   return new NextResponse(null, { status: 200 });
 }

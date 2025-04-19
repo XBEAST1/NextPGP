@@ -96,17 +96,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@auth/prisma-adapter@npm:^2.8.0":
-  version: 2.8.0
-  resolution: "@auth/prisma-adapter@npm:2.8.0"
-  dependencies:
-    "@auth/core": "npm:0.38.0"
-  peerDependencies:
-    "@prisma/client": ">=2.26.0 || >=3 || >=4 || >=5 || >=6"
-  checksum: 10c0/92dd1d7dd1029d690ed20e9a0220d149c62b9a31394878bc6e54332a68d377e7d4358eeb3c7e07b921d316748fea2a5adcaa7868c60337fc18fcec26a6ba328a
-  languageName: node
-  linkType: hard
-
 "@babel/code-frame@npm:^7.25.9, @babel/code-frame@npm:^7.26.0, @babel/code-frame@npm:^7.26.2":
   version: 7.26.2
   resolution: "@babel/code-frame@npm:7.26.2"
@@ -3501,21 +3490,6 @@ __metadata:
   version: 0.1.1
   resolution: "@pkgr/core@npm:0.1.1"
   checksum: 10c0/3f7536bc7f57320ab2cf96f8973664bef624710c403357429fbf680a5c3b4843c1dbd389bb43daa6b1f6f1f007bb082f5abcb76bb2b5dc9f421647743b71d3d8
-  languageName: node
-  linkType: hard
-
-"@prisma/client@npm:6.6.0":
-  version: 6.6.0
-  resolution: "@prisma/client@npm:6.6.0"
-  peerDependencies:
-    prisma: "*"
-    typescript: ">=5.1.0"
-  peerDependenciesMeta:
-    prisma:
-      optional: true
-    typescript:
-      optional: true
-  checksum: 10c0/174e4f445ae671dc16af272743b33312f36be34d8d5c0ab92eba8c81d74dc86967fa316bd4db082f1aa0970abf31899a8305e09a6717cb285bdc700aa9273f70
   languageName: node
   linkType: hard
 
@@ -9131,14 +9105,12 @@ __metadata:
   resolution: "next-app-template@workspace:."
   dependencies:
     "@auth/mongodb-adapter": "npm:^3.8.0"
-    "@auth/prisma-adapter": "npm:^2.8.0"
     "@brendon1555/authjs-mongoose-adapter": "npm:^1.1.0"
     "@ducanh2912/next-pwa": "npm:^10.2.9"
     "@heroui/react": "npm:^2.6.14"
     "@internationalized/date": "npm:^3.6.0"
     "@next/eslint-plugin-next": "npm:15.0.4"
     "@next/third-parties": "npm:^15.1.0"
-    "@prisma/client": "npm:6.6.0"
     "@react-aria/ssr": "npm:3.9.7"
     "@react-aria/visually-hidden": "npm:3.8.18"
     "@react-types/datepicker": "npm:^3.9.0"

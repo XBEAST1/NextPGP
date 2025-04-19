@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { prisma } from "@/prisma";
+import { connectToDatabase } from "@/lib/mongoose";
+import Vault from "@/models/Vault";
 import argon2 from "argon2";
+
+await connectToDatabase();
 
 export async function GET() {
   const session = await auth();
@@ -10,15 +13,15 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const vault = await prisma.vault.findFirst({
-    where: { userId: session.user.id },
-  });
+  // Find any vault for this user
+  const vault = await Vault.findOne({ userId: session.user.id }).lean();
 
-  return NextResponse.json({ exists: !!vault });
+  return NextResponse.json({ exists: Boolean(vault) });
 }
 
 export async function POST(req: Request) {
   const session = await auth();
+
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -33,14 +36,17 @@ export async function POST(req: Request) {
       parallelism: 1,
     });
 
-    const vault = await prisma.vault.create({
-      data: {
-        name: session.user.name ? `${session.user.name}'s Vault` : "Vault",
-        passwordHash: hash,
-        encryptionSalt: crypto.randomUUID(),
-        userId: session.user.id,
-      },
+    const vaultDoc = new Vault({
+      name: session.user.name ? `${session.user.name}'s Vault` : "Vault",
+      passwordHash: hash,
+      encryptionSalt: crypto.randomUUID(),
+      userId: session.user.id,
     });
+
+    await vaultDoc.save();
+
+    const vault = vaultDoc.toObject();
+    delete (vault as any).__v;
 
     return NextResponse.json({ vault });
   } catch (error) {

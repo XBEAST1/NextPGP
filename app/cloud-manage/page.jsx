@@ -765,7 +765,7 @@ export default function App() {
 
                 sessionStorage.removeItem("encryptedVaultPassword");
 
-                router.push("/");
+                router.push("/vault");
               } catch (error) {
                 console.error("Error locking vault:", error);
               }

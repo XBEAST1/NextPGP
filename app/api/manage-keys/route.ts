@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { prisma } from "@/prisma";
+import { connectToDatabase } from "@/lib/mongoose";
+import Vault from "@/models/Vault";
+import PGPKey from "@/models/PGPKey";
 
-// Hashing function using SHA-256
+await connectToDatabase();
+
+// Utility: Hash with SHA-256
 async function hashKey(text: string): Promise<string> {
   const enc = new TextEncoder();
   const buffer = enc.encode(text);
@@ -10,7 +14,7 @@ async function hashKey(text: string): Promise<string> {
   return Buffer.from(digest).toString("hex");
 }
 
-// Encryption function using AES-GCM
+// AES-GCM encryption
 async function encrypt(text: string, password: string): Promise<string> {
   const enc = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -23,7 +27,6 @@ async function encrypt(text: string, password: string): Promise<string> {
     false,
     ["deriveKey"]
   );
-
   const key = await crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
@@ -42,7 +45,6 @@ async function encrypt(text: string, password: string): Promise<string> {
     key,
     enc.encode(text)
   );
-
   const encryptedBytes = new Uint8Array([
     ...salt,
     ...iv,
@@ -51,7 +53,7 @@ async function encrypt(text: string, password: string): Promise<string> {
   return Buffer.from(encryptedBytes).toString("base64");
 }
 
-// Decryption function using AES-GCM
+// AES-GCM decryption
 async function decrypt(
   encryptedBase64: string,
   password: string
@@ -71,7 +73,6 @@ async function decrypt(
     false,
     ["deriveKey"]
   );
-
   const key = await crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
@@ -90,10 +91,10 @@ async function decrypt(
     key,
     data
   );
-
   return dec.decode(decryptedBuffer);
 }
 
+// GET: Retrieve and decrypt keys
 export async function GET(req: Request) {
   const session = await auth();
   if (!session || !session.user?.id) {
@@ -110,22 +111,17 @@ export async function GET(req: Request) {
     );
   }
 
-  const vault = await prisma.vault.findFirst({
-    where: { userId: session.user.id },
-  });
-
+  const vault = await Vault.findOne({ userId: session.user.id });
   if (!vault) {
     return NextResponse.json({ error: "Vault not found" }, { status: 404 });
   }
 
-  const keys = await prisma.pGPKey.findMany({
-    where: { vaultId: vault.id },
-  });
+  const keys = await PGPKey.find({ vaultId: vault._id }).lean();
 
   try {
     const decryptedKeys = await Promise.all(
       keys.map(async (key) => ({
-        id: key.id,
+        id: key._id.toString(),
         privateKey: key.privateKey
           ? await decrypt(key.privateKey, vaultPassword)
           : "",
@@ -145,9 +141,9 @@ export async function GET(req: Request) {
   }
 }
 
+// POST: Encrypt and store new key
 export async function POST(req: Request) {
   const session = await auth();
-
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -156,7 +152,6 @@ export async function POST(req: Request) {
   try {
     payload = await req.json();
   } catch (error) {
-    console.error("Invalid JSON payload:", error);
     return NextResponse.json(
       { error: "Invalid JSON payload" },
       { status: 400 }
@@ -172,12 +167,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const vault = await prisma.vault.findFirst({
-    where: {
-      userId: session.user.id,
-    },
-  });
-
+  const vault = await Vault.findOne({ userId: session.user.id });
   if (!vault) {
     return NextResponse.json(
       { error: "Vault not found for current user" },
@@ -186,16 +176,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Hash the plaintext keys
     const privateKeyHash = await hashKey(privateKey);
     const publicKeyHash = await hashKey(publicKey);
 
-    // Check if already backed up
-    const existingKey = await prisma.pGPKey.findFirst({
-      where: {
-        vaultId: vault.id,
-        OR: [{ privateKeyHash }, { publicKeyHash }],
-      },
+    const existingKey = await PGPKey.findOne({
+      vaultId: vault._id,
+      $or: [{ privateKeyHash }, { publicKeyHash }],
     });
 
     if (existingKey) {
@@ -205,19 +191,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // Encrypt the keys
     const encryptedPrivateKey = await encrypt(privateKey, vaultPassword);
     const encryptedPublicKey = await encrypt(publicKey, vaultPassword);
 
-    // Store the new key
-    const storedKey = await prisma.pGPKey.create({
-      data: {
-        privateKey: encryptedPrivateKey,
-        publicKey: encryptedPublicKey,
-        privateKeyHash,
-        publicKeyHash,
-        vaultId: vault.id,
-      },
+    const storedKey = await PGPKey.create({
+      privateKey: encryptedPrivateKey,
+      publicKey: encryptedPublicKey,
+      privateKeyHash,
+      publicKeyHash,
+      vaultId: vault._id,
     });
 
     return NextResponse.json({
@@ -233,6 +215,7 @@ export async function POST(req: Request) {
   }
 }
 
+// DELETE: Remove a stored key
 export async function DELETE(req: Request) {
   try {
     const session = await auth();
@@ -248,10 +231,7 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const vault = await prisma.vault.findFirst({
-      where: { userId: session.user.id },
-    });
-
+    const vault = await Vault.findOne({ userId: session.user.id });
     if (!vault) {
       return NextResponse.json(
         { error: "Vault not found for current user" },
@@ -259,16 +239,12 @@ export async function DELETE(req: Request) {
       );
     }
 
-    // Hash the incoming public key for comparison
     const publicKeyHash = await hashKey(publicKey);
 
-    // Find the key using the hash instead of encrypted value
-    const keyToDelete = await prisma.pGPKey.findFirst({
-      where: {
-        id: keyId,
-        vaultId: vault.id,
-        publicKeyHash: publicKeyHash,
-      },
+    const keyToDelete = await PGPKey.findOne({
+      _id: keyId,
+      vaultId: vault._id,
+      publicKeyHash,
     });
 
     if (!keyToDelete) {
@@ -278,10 +254,7 @@ export async function DELETE(req: Request) {
       );
     }
 
-    // Delete the key
-    await prisma.pGPKey.delete({
-      where: { id: keyId },
-    });
+    await PGPKey.deleteOne({ _id: keyId });
 
     return NextResponse.json(
       { message: "Key deleted successfully" },

@@ -8,6 +8,7 @@ export default async function middleware(request: NextRequest) {
   const session = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
+    secureCookie: process.env.NODE_ENV === "production",
   });
 
   const pathname = request.nextUrl.pathname;
@@ -44,8 +45,14 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/vault", request.nextUrl.origin));
   }
 
-  // For vault only routes, check if vault is unlocked
+  // For vault only routes, check if vault exists and is unlocked
   if (vaultOnlyRoutes.some((route) => pathname.startsWith(route))) {
+    if (!hasVault) {
+      return NextResponse.redirect(
+        new URL("/create-vault", request.nextUrl.origin)
+      );
+    }
+
     const lockStatusResponse = await fetch(
       `${request.nextUrl.origin}/api/vault/check-lock`,
       {
@@ -55,6 +62,12 @@ export default async function middleware(request: NextRequest) {
         },
       }
     );
+
+    if (!lockStatusResponse.ok) {
+      const url = new URL("/vault", request.nextUrl.origin);
+      url.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(url);
+    }
 
     const lockStatus = await lockStatusResponse.json();
 

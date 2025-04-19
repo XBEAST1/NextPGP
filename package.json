@@ -4,19 +4,17 @@
  "private": true,
  "scripts": {
   "dev": "next dev --turbopack",
-  "build": "prisma generate && next build",
+  "build": "next build",
   "start": "next start",
   "lint": "eslint . --ext .ts,.tsx -c .eslintrc.json --fix"
  },
  "dependencies": {
   "@auth/mongodb-adapter": "^3.8.0",
-  "@auth/prisma-adapter": "^2.8.0",
   "@brendon1555/authjs-mongoose-adapter": "^1.1.0",
   "@ducanh2912/next-pwa": "^10.2.9",
   "@heroui/react": "^2.6.14",
   "@internationalized/date": "^3.6.0",
   "@next/third-parties": "^15.1.0",
-  "@prisma/client": "6.6.0",
   "@react-aria/ssr": "3.9.7",
   "@react-aria/visually-hidden": "3.8.18",
   "@react-types/datepicker": "^3.9.0",

@@ -15,13 +15,13 @@ export const metadata = {
   manifest: "/manifest.json",
   title: "Next PGP",
   description:
-    "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
+    "NextPGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
   keywords:
     "PGP tool, Next.js PGP, online PGP tool, key management, key generation, encrypt message, decrypt message, secure communication, OpenPGP, keyring management, encryption tool, modern PGP tool",
   openGraph: {
     title: "Next PGP",
     description:
-      "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
+      "NextPGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
     images: [
       {
         url: twittercardimg,
@@ -37,7 +37,7 @@ export const metadata = {
     site: "@NextPGP",
     title: "Next PGP",
     description:
-      "Next PGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
+      "NextPGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
     images: [twittercardimg],
   },
   robots: {

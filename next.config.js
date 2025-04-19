@@ -83,12 +83,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 
 const nextConfig = {
   turbopack: {
-    rules: {
-      "*.svg": {
-        loaders: ["@svgr/webpack"],
-        as: "*.js",
-      },
-    },
+    //
   },
 };
 

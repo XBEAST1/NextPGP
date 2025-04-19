@@ -1,8 +1,8 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IUser extends Document {
-  name?: string;
-  email?: string;
+  name: string;
+  email: string;
   emailVerified?: Date;
   image?: string;
   createdAt: Date;
@@ -16,7 +16,9 @@ const UserSchema = new Schema<IUser>(
     emailVerified: { type: Date },
     image: { type: String },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 export const User: Model<IUser> =
