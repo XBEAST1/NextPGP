@@ -7,7 +7,6 @@ import { Navbar } from "@/components/navbar";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { auth } from "@/auth"
 import { SessionProvider } from "next-auth/react";
-import AutoLockVault from "@/components/AutoLockVault";
 
 const twittercardimg = `https://nextpgp.vercel.app${Logo.src}`;
 
@@ -78,7 +77,6 @@ export default async function RootLayout({ children }) {
             <div className="relative flex flex-col h-screen">
               <Navbar />
               <main className="container mx-auto max-w-7xl pt-6 px-6 flex-grow">
-                <AutoLockVault />
                 {children}
                 <GoogleAnalytics gaId="G-EJ067X6M97" />
               </main>
