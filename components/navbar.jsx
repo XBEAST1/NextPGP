@@ -81,17 +81,17 @@ export const Navbar = () => {
             }}
           >
             <DropdownItem textValue="Manage Keyrings">
-              <Link className="text-decoration-none" href="/">
+              <NextLink className="text-decoration-none" href="/">
                 <div>
                   Manage Keyrings
                   <p className="text-default-500 text-xs">
                     View, edit, or delete existing keyrings.
                   </p>
                 </div>
-              </Link>
+              </NextLink>
             </DropdownItem>
             <DropdownItem textValue="Generate Keyrings">
-              <Link className="text-decoration-none" href="/generate">
+              <NextLink className="text-decoration-none" href="/generate">
                 <div>
                   Generate Keyring
                   <p className="text-default-500 text-xs">
@@ -99,17 +99,17 @@ export const Navbar = () => {
                     data.
                   </p>
                 </div>
-              </Link>
+              </NextLink>
             </DropdownItem>
             <DropdownItem textValue="Import Key">
-              <Link className="text-decoration-none" href="/import">
+              <NextLink className="text-decoration-none" href="/import">
                 <div>
                   Import Key
                   <p className="text-default-500 text-xs">
                     Import a PGP keyring to encrypt or decrypt messages.
                   </p>
                 </div>
-              </Link>
+              </NextLink>
             </DropdownItem>
           </DropdownMenu>
         </Dropdown>
@@ -130,24 +130,24 @@ export const Navbar = () => {
             }}
           >
             <DropdownItem textValue="Encrypt">
-              <Link className="text-decoration-none" href="/encrypt">
+              <NextLink className="text-decoration-none" href="/encrypt">
                 <div>
                   Encrypt
                   <p className="text-default-500 text-xs">
                     Encrypt data using a PGP public key.
                   </p>
                 </div>
-              </Link>
+              </NextLink>
             </DropdownItem>
             <DropdownItem textValue="Decrypt">
-              <Link className="text-decoration-none" href="/decrypt">
+              <NextLink className="text-decoration-none" href="/decrypt">
                 <div>
                   Decrypt
                   <p className="text-default-500 text-xs">
                     Decrypt data using a PGP private key.
                   </p>
                 </div>
-              </Link>
+              </NextLink>
             </DropdownItem>
           </DropdownMenu>
         </Dropdown>
@@ -168,24 +168,24 @@ export const Navbar = () => {
             }}
           >
             <DropdownItem textValue="Backup">
-              <Link className="text-decoration-none" href="/cloud-backup">
+              <NextLink className="text-decoration-none" href="/cloud-backup">
                 <div>
                   Backup Keyrings
                   <p className="text-default-500 text-xs">
                     Backip PGP keys on cloud storage.
                   </p>
                 </div>
-              </Link>
+              </NextLink>
             </DropdownItem>
             <DropdownItem textValue="Import">
-              <Link className="text-decoration-none" href="/cloud-manage">
+              <NextLink className="text-decoration-none" href="/cloud-manage">
                 <div>
                   Manage Keyrings
                   <p className="text-default-500 text-xs">
                     View, import, or delete keyrings on cloud.
                   </p>
                 </div>
-              </Link>
+              </NextLink>
             </DropdownItem>
           </DropdownMenu>
         </Dropdown>
@@ -227,7 +227,7 @@ export const Navbar = () => {
             className="mx-auto mt-5"
             key={`${item.label}-${index}`}
           >
-            <Link
+            <NextLink
               className="w-full"
               color={index === menuItems.length - 1 ? "danger" : "foreground"}
               href={item.href}
@@ -236,7 +236,7 @@ export const Navbar = () => {
               target={item.href.startsWith("http") ? "_blank" : undefined}
             >
               {item.label}
-            </Link>
+            </NextLink>
           </NavbarMenuItem>
         ))}
       </NavbarMenu>
