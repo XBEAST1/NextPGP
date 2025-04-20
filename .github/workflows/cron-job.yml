@@ -10,4 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Next PGP API to Lock Inactive Vaults
-        run: curl -X POST https://nextpgp.vercel.app/api/vault/lock-inactive-vaults
+        run: |
+          curl -X POST https://nextpgp.vercel.app/api/vault/lock-inactive-vaults \
+            -H "Authorization: Bearer $NEXT_VAULT_SECRET"
