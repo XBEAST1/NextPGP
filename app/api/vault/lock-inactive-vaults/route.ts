@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongoose";
 import Vault from "@/models/Vault";
 
-export async function POST() {
+export async function POST(req: Request) {
+  const authHeader = req.headers.get("authorization");
+  const secret = process.env.LOCK_VAULT_SECRET;
+
+  // Validate Bearer token
+  if (!authHeader || authHeader !== `Bearer ${secret}`) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
   try {
     await connectToDatabase();
 
