@@ -18,7 +18,7 @@ import {
 } from "@heroui/react";
 import NextLink from "next/link";
 import { ThemeSwitch } from "@/components/theme-switch";
-import { GithubIcon, HeartFilledIcon } from "@/components/icons";
+import { HeartFilledIcon } from "@/components/icons";
 import Logo from "@/assets/Logo.png";
 import LogoLight from "@/assets/Logo-Light.png";
 import { useTheme } from "next-themes";
@@ -51,7 +51,7 @@ export const Navbar = () => {
       position="sticky"
     >
       <NavbarContent
-        className="basis-1/5 sm:basis-full mx-[-1.5rem]"
+        className="basis-1/5 lg:basis-full mx-[-1.5rem]"
         justify="start"
       >
         <NavbarBrand as="li" className="gap-3 max-w-fit">
@@ -66,7 +66,7 @@ export const Navbar = () => {
         </NavbarBrand>
       </NavbarContent>
 
-      <NavbarContent className="hidden sm:flex gap-4 ms-12" justify="center">
+      <NavbarContent className="hidden lg:flex gap-4 ms-12" justify="center">
         <Dropdown>
           <NavbarItem>
             <DropdownTrigger>
@@ -115,7 +115,7 @@ export const Navbar = () => {
         </Dropdown>
       </NavbarContent>
 
-      <NavbarContent className="hidden sm:flex gap-4" justify="center">
+      <NavbarContent className="hidden lg:flex gap-4" justify="center">
         <Dropdown>
           <NavbarItem>
             <DropdownTrigger>
@@ -153,7 +153,7 @@ export const Navbar = () => {
         </Dropdown>
       </NavbarContent>
 
-      <NavbarContent className="hidden sm:flex gap-4" justify="center">
+      <NavbarContent className="hidden lg:flex gap-4" justify="center">
         <Dropdown>
           <NavbarItem>
             <DropdownTrigger>
@@ -192,10 +192,10 @@ export const Navbar = () => {
       </NavbarContent>
 
       <NavbarContent
-        className="hidden sm:flex basis-1/5 sm:basis-full"
+        className="hidden lg:flex basis-1/5 lg:basis-full"
         justify="end"
       >
-        <NavbarItem className="hidden sm:flex gap-2">
+        <NavbarItem className="hidden lg:flex gap-2">
           <ThemeSwitch />
         </NavbarItem>
         <NavbarItem className="hidden md:flex">
@@ -211,14 +211,11 @@ export const Navbar = () => {
           </Button>
         </NavbarItem>
       </NavbarContent>
-      <NavbarContent className="sm:hidden basis-1 pl-4" justify="end">
-        <Link isExternal aria-label="Github" href="https://github.com/XBEAST1">
-          <GithubIcon className="text-default-500" />
-        </Link>
+      <NavbarContent className="lg:hidden basis-1 pl-4" justify="end">
         <ThemeSwitch />
         <NavbarMenuToggle
           aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-          className="sm:hidden"
+          className="lg:hidden"
         />
       </NavbarContent>
       <NavbarMenu className="mt-12 backdrop-blur">
@@ -228,11 +225,10 @@ export const Navbar = () => {
             key={`${item.label}-${index}`}
           >
             <NextLink
-              className="w-full"
-              color={index === menuItems.length - 1 ? "danger" : "foreground"}
+              className={`w-full ${index === menuItems.length - 1 ? "text-danger" : "text-foreground"}`}
               href={item.href}
               size="lg"
-              onPress={() => setIsMenuOpen()}
+              onClick={() => setIsMenuOpen()}
               target={item.href.startsWith("http") ? "_blank" : undefined}
             >
               {item.label}

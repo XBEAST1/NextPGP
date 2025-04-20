@@ -77,7 +77,7 @@ export default function App() {
     { name: "NAME", uid: "name", sortable: true },
     { name: "EMAIL", uid: "email", width: "17%" },
     { name: "EXPIRY DATE", uid: "expirydate", sortable: true, width: "20%" },
-    { name: "STATUS", uid: "status", sortable: true, width: "20%" },
+    { name: "STATUS", uid: "status", sortable: true, width: "20%", align: "center" },
     { name: "IMPORT", uid: "import" },
     { name: "DELETE", uid: "delete", width: "8%" },
   ];
@@ -568,15 +568,13 @@ export default function App() {
         );
       case "status":
         return (
-          <div className="flex justify-center items-center sm:-ms-24 ms-10">
-            <Chip
-              className="capitalize -ms-16"
-              color={statusColorMap[user.status]}
-              variant="flat"
-            >
-              {cellValue}
-            </Chip>
-          </div>
+          <Chip
+            className="capitalize -ms-3"
+            color={statusColorMap[user.status]}
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
         );
       case "import":
         return (

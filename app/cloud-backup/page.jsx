@@ -54,7 +54,7 @@ export default function App() {
     { name: "EMAIL", uid: "email", width: "23%" },
     { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
     { name: "PASSWORD", uid: "passwordprotected", sortable: true },
-    { name: "STATUS", uid: "status", sortable: true, width: "15%" },
+    { name: "STATUS", uid: "status", sortable: true, width: "15%", align: "center" },
     { name: "BACKUP", uid: "backup", width: "0%", width: "8%" },
   ];
 
@@ -433,15 +433,13 @@ export default function App() {
         );
       case "status":
         return (
-          <div className="flex justify-center items-center sm:-ms-24 -ms-6">
-            <Chip
-              className="capitalize"
-              color={statusColorMap[user.status]}
-              variant="flat"
-            >
-              {cellValue}
-            </Chip>
-          </div>
+          <Chip
+            className="capitalize -ms-4"
+            color={statusColorMap[user.status]}
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
         );
       case "passwordprotected":
         return (
