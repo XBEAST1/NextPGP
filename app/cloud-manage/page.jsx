@@ -230,9 +230,24 @@ export default function App() {
 
   useEffect(() => {
     if (!checkVaultPassword) {
-      router.push("/vault");
+      const lockVault = async () => {
+        try {
+          await fetch("/api/vault/lock", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+        } catch (err) {
+          console.error("Failed to lock vault:", err);
+        } finally {
+          router.push("/vault");
+        }
+      };
+
+      lockVault();
     }
-  });
+  }, [checkVaultPassword, router]);
 
   const loadKeysFromCloud = async () => {
     try {

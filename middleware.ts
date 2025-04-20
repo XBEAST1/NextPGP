@@ -14,7 +14,7 @@ export default async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Allow unauthenticated access to authRoutes (eg "/login")
+  // Allow unauthenticated access to login
   if (authRoutes.some((route) => pathname.startsWith(route))) {
     if (session && pathname === "/login") {
       return NextResponse.redirect(new URL("/vault", request.nextUrl.origin));
@@ -22,33 +22,51 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // For protected routes, require a session
+  // Require a valid session for everything else
   if (!session) {
     return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
   }
 
-  // Check for vault existence
+  // Check if the vault exist in the database
   const response = await fetch(`${request.nextUrl.origin}/api/vault/check`, {
-    headers: {
-      Authorization: `Bearer ${session.sub}`,
-    },
+    headers: { Authorization: `Bearer ${session.sub}` },
   });
-
   const hasVault = response.ok;
 
+  // /vault or /create-vault will be redirected to /cloud-backup if already hold a valid vault_token
+  if (pathname === "/vault" || pathname === "/create-vault") {
+    const vaultJwt = request.cookies.get("vault_token")?.value;
+    if (vaultJwt) {
+      try {
+        await jwtVerify(
+          vaultJwt,
+          new TextEncoder().encode(process.env.AUTH_SECRET!)
+        );
+        return NextResponse.redirect(
+          new URL("/cloud-backup", request.nextUrl.origin)
+        );
+      } catch {
+      }
+    }
+  }
+
+  // If vault doesn't exist redirect to create-vault
   if (pathname === "/vault" && !hasVault) {
     return NextResponse.redirect(
       new URL("/create-vault", request.nextUrl.origin)
     );
   }
 
+  // If vault exists redirect from create-vault to vault
   if (pathname === "/create-vault" && hasVault) {
     return NextResponse.redirect(new URL("/vault", request.nextUrl.origin));
   }
 
-  // For vault‑only routes, verify the vault_token JWT
+  // Protect your vault only routes by requiring vault_token
   if (vaultOnlyRoutes.some((r) => pathname.startsWith(r))) {
     const vaultJwt = request.cookies.get("vault_token")?.value;
+
+    // If vault token isn't found redirect to /vault
     if (!vaultJwt) {
       const url = new URL("/vault", request.url);
       url.searchParams.set("redirect", pathname);
