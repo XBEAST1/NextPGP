@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { jwtVerify } from "jose";
 
 const vaultOnlyRoutes = ["/cloud-backup", "/cloud-manage"];
 const authRoutes = ["/login"];
@@ -45,39 +46,26 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/vault", request.nextUrl.origin));
   }
 
-  // For vault only routes, check if vault exists and is unlocked
-  if (vaultOnlyRoutes.some((route) => pathname.startsWith(route))) {
-    if (!hasVault) {
-      return NextResponse.redirect(
-        new URL("/create-vault", request.nextUrl.origin)
+  // For vault‑only routes, verify the vault_token JWT
+  if (vaultOnlyRoutes.some((r) => pathname.startsWith(r))) {
+    const vaultJwt = request.cookies.get("vault_token")?.value;
+    if (!vaultJwt) {
+      const url = new URL("/vault", request.url);
+      url.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(url);
+    }
+
+    try {
+      await jwtVerify(
+        vaultJwt,
+        new TextEncoder().encode(process.env.AUTH_SECRET!)
       );
-    }
-
-    const lockStatusResponse = await fetch(
-      `${request.nextUrl.origin}/api/vault/check-lock`,
-      {
-        headers: {
-          Authorization: `Bearer ${session.sub}`,
-          cookie: request.headers.get("cookie") || "",
-        },
-      }
-    );
-
-    if (!lockStatusResponse.ok) {
-      const url = new URL("/vault", request.nextUrl.origin);
+      return NextResponse.next();
+    } catch {
+      const url = new URL("/vault", request.url);
       url.searchParams.set("redirect", pathname);
       return NextResponse.redirect(url);
     }
-
-    const lockStatus = await lockStatusResponse.json();
-
-    if (lockStatus.isLocked === true) {
-      const url = new URL("/vault", request.nextUrl.origin);
-      url.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(url);
-    }
-
-    return NextResponse.next();
   }
 
   return NextResponse.next();

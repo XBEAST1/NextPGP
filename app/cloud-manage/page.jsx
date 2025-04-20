@@ -226,12 +226,20 @@ export default function App() {
     });
   };
 
+  const checkVaultPassword = sessionStorage.getItem("encryptedVaultPassword");
+
+  useEffect(() => {
+    if (!checkVaultPassword) {
+      router.push("/vault");
+    }
+  });
+
   const loadKeysFromCloud = async () => {
     try {
       // Get vault password from session storage
       const storedVaultData = sessionStorage.getItem("encryptedVaultPassword");
       if (!storedVaultData) {
-        console.error("No vault password found in sessionStorage");
+        console.warn("No vault password found in sessionStorage");
         return [];
       }
 

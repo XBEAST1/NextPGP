@@ -152,6 +152,14 @@ export default function App() {
     return new TextDecoder().decode(decrypted);
   };
 
+  const checkVaultPassword = sessionStorage.getItem("encryptedVaultPassword");
+
+  useEffect(() => {
+    if (!checkVaultPassword) {
+      router.push("/vault");
+    }
+  });
+
   const loadKeysFromIndexedDB = async () => {
     const db = await openDB();
     const encryptionKey = await getEncryptionKey();
@@ -160,7 +168,7 @@ export default function App() {
     try {
       const storedVaultData = sessionStorage.getItem("encryptedVaultPassword");
       if (!storedVaultData) {
-        console.error("No vault password found in sessionStorage");
+        console.warn("No vault password found in sessionStorage");
       } else {
         let vaultPassword;
         let parsedVaultData;
@@ -504,8 +512,14 @@ export default function App() {
         const storedVaultData = sessionStorage.getItem(
           "encryptedVaultPassword"
         );
-        if (!storedVaultData)
-          throw new Error("No vault password found in sessionStorage.");
+        if (!storedVaultData) {
+          toast.error(
+            "No vault password found in session. Please lock the vault and open again.",
+            {
+              position: "top-right",
+            }
+          );
+        }
 
         let parsedVaultData;
         try {
@@ -530,10 +544,7 @@ export default function App() {
 
         if (!vaultPassword) throw new Error("Vault password is missing.");
       } catch (e) {
-        console.error(e);
-        toast.error("Failed to decrypt vault password", {
-          position: "top-right",
-        });
+        console.warn("Failed to decrypt vault password");
         return;
       }
 

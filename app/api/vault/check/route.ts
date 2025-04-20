@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const userId = authHeader?.replace("Bearer ", "");
 
   if (!userId) {
-    return new NextResponse(null, { status: 401 });
+    return new NextResponse("Unauthorized", { status: 401 });
   }
 
   const vault = await Vault.findOne({ userId }).lean();

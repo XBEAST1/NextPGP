@@ -5,7 +5,6 @@ export interface IVault extends Document {
   passwordHash: string;
   encryptionSalt: string;
   userId: mongoose.Types.ObjectId;
-  isLocked?: boolean;
   createdAt: Date;
   lastActivity?: Date;
 }
@@ -16,7 +15,6 @@ const VaultSchema = new Schema<IVault>(
     passwordHash: { type: String, required: true },
     encryptionSalt: { type: String, required: true },
     userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
-    isLocked: { type: Boolean, default: true },
     lastActivity: { type: Date, default: Date.now },
   },
   {
