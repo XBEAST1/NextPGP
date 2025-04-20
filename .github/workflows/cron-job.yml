@@ -1,9 +1,9 @@
-name: Run Cron Job Every 10 Minute
+name: Run Cron Job Every 5 Minutes
 
 on:
   schedule:
-    # Runs every 10 minute
-    - cron: '*/10 * * * *'
+    # Runs every 5 minutes
+    - cron: '*/5 * * * *'
 
 jobs:
   cron-job:
