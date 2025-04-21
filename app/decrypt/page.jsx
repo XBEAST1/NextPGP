@@ -290,10 +290,6 @@ export default function App() {
               // Resolve the signature and extract created time
               const { signature } = sig;
               const resolvedSignature = await signature;
-              console.log(
-                "Resolved signature packets (messagePasswordDecrypt):",
-                resolvedSignature.packets
-              );
 
               const signaturePacket = resolvedSignature.packets[0];
               const createdTime =
@@ -460,10 +456,6 @@ export default function App() {
           for (const sig of signatures) {
             const { signature } = sig;
             const resolvedSignature = await signature;
-            console.log(
-              "Resolved signature packets (messagePasswordDecrypt):",
-              resolvedSignature.packets
-            );
 
             const signaturePacket = resolvedSignature.packets[0];
             const createdTime =
@@ -606,10 +598,6 @@ export default function App() {
           // Resolve the signature and extract created time
           const { signature } = sig;
           const resolvedSignature = await signature;
-          console.log(
-            "Resolved signature packets (messagePasswordDecrypt):",
-            resolvedSignature.packets
-          );
 
           const signaturePacket = resolvedSignature.packets[0];
           const createdTime =
@@ -705,7 +693,7 @@ export default function App() {
 
       const validPgpKeys = Array.isArray(pgpKeys) ? pgpKeys : [];
 
-      // Check if the message contains s2k in the packet if yes then prompt for password
+      // Check if the file contains s2k in the packet if yes then prompt for password
       const packets = message.packets;
       let isPasswordEncrypted = packets.some((packet) => packet.s2k);
 
@@ -756,7 +744,7 @@ export default function App() {
             }
           }
 
-          // Decrypt the message
+          // Decrypt the file
           const { data: decrypted, signatures } = await openpgp.decrypt({
             message,
             decryptionKeys: privateKey,
@@ -796,16 +784,12 @@ export default function App() {
 
           if (!signatures || signatures.length === 0) {
             // If No signatures found
-            details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+            details += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
           } else {
             for (const sig of signatures) {
               // Resolve the signature and extract created time
               const { signature } = sig;
               const resolvedSignature = await signature;
-              console.log(
-                "Resolved signature packets (messagePasswordDecrypt):",
-                resolvedSignature.packets
-              );
 
               const signaturePacket = resolvedSignature.packets[0];
               const createdTime =
@@ -883,7 +867,7 @@ export default function App() {
           });
           return;
         } catch (error) {
-          console.log("Key failed to decrypt the message:", error);
+          console.log("Key failed to decrypt the file:", error);
           continue;
         }
       }
@@ -892,11 +876,11 @@ export default function App() {
         // Open password prompt only if no valid private key could decrypt
         setCurrentPrivateKey(null);
         setIsPasswordModalOpen(true);
-        toast.info("The message is password encrypted", {
+        toast.info("The file is password encrypted", {
           position: "top-right",
         });
       } else if (!successfulDecryption) {
-        toast.error("No valid private key was able to decrypt this message", {
+        toast.error("No valid private key was able to decrypt this file", {
           position: "top-right",
         });
       }
@@ -916,7 +900,7 @@ export default function App() {
         binaryMessage: new Uint8Array(fileData),
       });
 
-      // Attempt to decrypt the message using the password
+      // Attempt to decrypt the file using the password
       try {
         const { data: decrypted, signatures } = await openpgp.decrypt({
           message,
@@ -969,10 +953,6 @@ export default function App() {
           for (const sig of signatures) {
             const { signature } = sig;
             const resolvedSignature = await signature;
-            console.log(
-              "Resolved signature packets (messagePasswordDecrypt):",
-              resolvedSignature.packets
-            );
 
             const signaturePacket = resolvedSignature.packets[0];
             const createdTime =
@@ -1046,7 +1026,7 @@ export default function App() {
         setIsPasswordModalOpen(false);
         setPassword("");
 
-        toast.success("Message decrypted successfully!", {
+        toast.success("File decrypted successfully!", {
           position: "top-right",
         });
         return;
@@ -1116,16 +1096,12 @@ export default function App() {
 
       if (!signatures || signatures.length === 0) {
         // If No signatures found
-        details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+        details += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
       } else {
         for (const sig of signatures) {
           // Resolve the signature and extract created time
           const { signature } = sig;
           const resolvedSignature = await signature;
-          console.log(
-            "Resolved signature packets (messagePasswordDecrypt):",
-            resolvedSignature.packets
-          );
 
           const signaturePacket = resolvedSignature.packets[0];
           const createdTime =
@@ -1244,7 +1220,7 @@ export default function App() {
     <>
       <ToastContainer theme="dark" />
       <h1 className="text-center text-4xl dm-serif-text-regular">
-        Decrypt Message
+        Decrypt
       </h1>
       <br />
       <br />
@@ -1261,7 +1237,15 @@ export default function App() {
       <br />
       <Input type="file" onChange={handleFileUpload} />
       <br />
-      <Textarea isReadOnly label="Details" value={details} />
+      <Textarea
+        disableAutosize
+        isReadOnly
+        classNames={{
+          input: "resize-y min-h-[100px]",
+        }}
+        label="Details"
+        value={details}
+      />
       <br />
       <Textarea
         isReadOnly

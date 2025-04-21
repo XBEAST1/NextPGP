@@ -455,7 +455,7 @@ export default function App() {
     <>
       <ToastContainer theme="dark" />
       <h1 className="text-center text-4xl dm-serif-text-regular">
-        Encrypt Message
+        Encrypt
       </h1>
       <br />
       <br />

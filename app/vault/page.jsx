@@ -141,12 +141,8 @@ const Page = () => {
 
       setLoading(false);
       setIsLocked(false);
-      const redirectUrl = searchParams.get("redirect");
-      if (redirectUrl) {
-        router.push(redirectUrl);
-      } else {
-        router.push("/cloud-backup");
-      }
+      const redirectUrl = searchParams.get("redirect") ?? "/cloud-backup";
+      router.push(redirectUrl);
     } else {
       toast.error("Incorrect password", {
         position: "top-right",
