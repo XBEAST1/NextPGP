@@ -720,7 +720,7 @@ export default function App() {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-center text-4xl dm-serif-text-regular">
-          Manage Cloud Keyrings
+          Manage Keyrings On Cloud
         </h1>
         <br />
         <div className="flex justify-between gap-3 items-end">

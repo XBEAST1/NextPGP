@@ -56,7 +56,15 @@ const Page = () => {
     if (res.ok) {
       router.push("/vault");
     } else {
-      console.log("There Was An Error Creating The Vault");
+      const errorData = await res.json();
+      if (errorData.error === "Vault already exists") {
+        toast.error("Vault already exists", { position: "top-right" });
+      } else {
+        toast.error("There Was An Error Creating The Vault", {
+          position: "top-right",
+        });
+      }
+      console.log("Error creating vault:", errorData.error);
       setLoading(false);
     }
   };

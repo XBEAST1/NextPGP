@@ -462,11 +462,32 @@ export default function App() {
   const [isOpen, setIsOpen] = useState(false);
   const [password, setPassword] = useState("");
 
-  const triggerPasswordModal = () => {
+  const triggerPasswordModal = async (user) => {
     setIsOpen(true);
-
     return new Promise((resolve) => {
-      setPasswordResolve(() => resolve);
+      const tryPassword = async () => {
+        const enteredPassword = await new Promise((res) => {
+          setPasswordResolve(() => res);
+        });
+        try {
+          const privateKey = await openpgp.readKey({
+            armoredKey: user.privateKey,
+          });
+          await openpgp.decryptKey({
+            privateKey,
+            passphrase: enteredPassword,
+          });
+          setIsOpen(false);
+          resolve(enteredPassword);
+        } catch (error) {
+          toast.error("Incorrect Password", {
+            position: "top-right",
+          });
+          tryPassword();
+        }
+      };
+
+      tryPassword();
     });
   };
 
@@ -693,15 +714,8 @@ export default function App() {
                   toast.error("Please Enter a Password", {
                     position: "top-right",
                   });
-                } else {
-                  if (passwordResolve) {
-                    passwordResolve(password);
-                    setPasswordResolve(null);
-                    setIsOpen(false);
-                    setPassword("");
-                  } else {
-                    console.error("passwordResolve is not set");
-                  }
+                } else if (passwordResolve) {
+                  passwordResolve(password);
                 }
               }
             }}
@@ -727,13 +741,8 @@ export default function App() {
                 toast.error("Please Enter a Password", {
                   position: "top-right",
                 });
-              } else {
-                if (passwordResolve) {
-                  passwordResolve(password);
-                  setPasswordResolve(null);
-                  setIsOpen(false);
-                  setPassword("");
-                }
+              } else if (passwordResolve) {
+                passwordResolve(password);
               }
             }}
           >

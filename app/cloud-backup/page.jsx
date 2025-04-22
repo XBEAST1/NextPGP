@@ -54,7 +54,13 @@ export default function App() {
     { name: "EMAIL", uid: "email", width: "23%" },
     { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
     { name: "PASSWORD", uid: "passwordprotected", sortable: true },
-    { name: "STATUS", uid: "status", sortable: true, width: "15%", align: "center" },
+    {
+      name: "STATUS",
+      uid: "status",
+      sortable: true,
+      width: "15%",
+      align: "center",
+    },
     { name: "BACKUP", uid: "backup", width: "0%", width: "8%" },
   ];
 
@@ -622,11 +628,34 @@ export default function App() {
   const [isOpen, setIsOpen] = useState(false);
   const [password, setPassword] = useState("");
 
-  const triggerPasswordModal = () => {
+  const triggerPasswordModal = async (user) => {
     setIsOpen(true);
-
     return new Promise((resolve) => {
-      setPasswordResolve(() => resolve);
+      const tryPassword = async () => {
+        const enteredPassword = await new Promise((res) => {
+          setPasswordResolve(() => res);
+        });
+        try {
+          const key = await openpgp.readKey({
+            armoredKey: user.privateKey,
+          });
+          await openpgp.decryptKey({
+            privateKey: key,
+            passphrase: enteredPassword,
+          });
+          setIsOpen(false);
+          resolve(enteredPassword);
+        } catch (error) {
+          toast.error(
+            `Incorrect Password for ${user.name}'s Keyring. Please try again.`,
+            {
+              position: "top-right",
+            }
+          );
+          tryPassword();
+        }
+      };
+      tryPassword();
     });
   };
 
@@ -838,15 +867,8 @@ export default function App() {
                   toast.error("Please Enter a Password", {
                     position: "top-right",
                   });
-                } else {
-                  if (passwordResolve) {
-                    passwordResolve(password);
-                    setPasswordResolve(null);
-                    setIsOpen(false);
-                    setPassword("");
-                  } else {
-                    console.error("passwordResolve is not set");
-                  }
+                } else if (passwordResolve) {
+                  passwordResolve(password);
                 }
               }
             }}
@@ -872,13 +894,8 @@ export default function App() {
                 toast.error("Please Enter a Password", {
                   position: "top-right",
                 });
-              } else {
-                if (passwordResolve) {
-                  passwordResolve(password);
-                  setPasswordResolve(null);
-                  setIsOpen(false);
-                  setPassword("");
-                }
+              } else if (passwordResolve) {
+                passwordResolve(password);
               }
             }}
           >

@@ -28,9 +28,9 @@ export default function App() {
   const [isVisible, setIsVisible] = useState(false);
   const [recipients, setRecipients] = useState([""]);
   const [message, setMessage] = useState("");
-  const [password, setPassword] = useState("");
   const [output, setOutput] = useState("");
-  const [modalpassword, setModalpassword] = useState("");
+  const [encryptionPassword, setEncryptionPassword] = useState("");
+  const [keyPassphrase, setKeyPassphrase] = useState("");
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const onSubmitPassword = useRef(null);
   const [files, setFiles] = useState(null);
@@ -278,24 +278,32 @@ export default function App() {
           armoredKey: signer.privateKey,
         });
 
-        // Check if the private key is encrypted
         if (!privateKeyObject.isDecrypted()) {
-          setIsPasswordModalOpen(true);
-
-          // Wait for the passphrase from the modal
-          const passphrase = await new Promise((resolve) => {
-            onSubmitPassword.current = resolve;
-          });
-
-          // Decrypt the private key
-          privateKey = await openpgp.decryptKey({
-            privateKey: privateKeyObject,
-            passphrase: passphrase,
-          });
-
-          if (!privateKey || !privateKey.isDecrypted()) {
-            throw new Error("Failed to decrypt the private key");
+          let decryptedKey;
+          // Loop until a correct passphrase is provided.
+          while (!decryptedKey || !decryptedKey.isDecrypted()) {
+            setIsPasswordModalOpen(true);
+            const passphrase = await new Promise((resolve) => {
+              onSubmitPassword.current = resolve;
+            });
+            try {
+              decryptedKey = await openpgp.decryptKey({
+                privateKey: privateKeyObject,
+                passphrase: passphrase,
+              });
+              if (!decryptedKey || !decryptedKey.isDecrypted()) {
+                toast.error("Incorrect password", {
+                  position: "top-right",
+                });
+              }
+            } catch (error) {
+              toast.error("Incorrect password", {
+                position: "top-right",
+              });
+            }
           }
+          privateKey = decryptedKey;
+          setIsPasswordModalOpen(false);
         } else {
           privateKey = privateKeyObject;
         }
@@ -305,7 +313,8 @@ export default function App() {
 
       const encryptionOptions = {
         message: messageToEncrypt,
-        ...(isChecked && password && { passwords: [password] }),
+        ...(isChecked &&
+          encryptionPassword && { passwords: [encryptionPassword] }),
         ...(recipientKeysPublic.length > 0 && {
           encryptionKeys: await Promise.all(
             recipientKeysPublic.map((key) =>
@@ -362,7 +371,7 @@ export default function App() {
         .map((key) => key.publicKey);
 
       // Validation for empty recipients and password
-      if (recipientKeysPublic.length === 0 && !password) {
+      if (recipientKeysPublic.length === 0 && !encryptionPassword) {
         toast.error(
           "Please select at least one recipient or provide a password"
         );
@@ -381,13 +390,13 @@ export default function App() {
       }
 
       // If no recipients are selected but a password is provided, encrypt with the password
-      if (recipientKeysPublic.length === 0 && password) {
-        encryptionOptions.passwords = [password];
+      if (recipientKeysPublic.length === 0 && encryptionPassword) {
+        encryptionOptions.passwords = [encryptionPassword];
       }
 
       // If both recipients and password are selected, include both in encryption
-      if (recipientKeysPublic.length > 0 && password) {
-        encryptionOptions.passwords = [password];
+      if (recipientKeysPublic.length > 0 && encryptionPassword) {
+        encryptionOptions.passwords = [encryptionPassword];
       }
 
       // Find the selected signer and decrypt their private key if needed
@@ -400,21 +409,30 @@ export default function App() {
         });
 
         if (!privateKeyObject.isDecrypted()) {
-          setIsPasswordModalOpen(true);
-
-          const passphrase = await new Promise((resolve) => {
-            onSubmitPassword.current = resolve;
-          });
-
-          // Decrypt the private key
-          privateKey = await openpgp.decryptKey({
-            privateKey: privateKeyObject,
-            passphrase: passphrase,
-          });
-
-          if (!privateKey || !privateKey.isDecrypted()) {
-            throw new Error("Failed to decrypt the private key");
+          let decryptedKey;
+          while (!decryptedKey || !decryptedKey.isDecrypted()) {
+            setIsPasswordModalOpen(true);
+            const passphrase = await new Promise((resolve) => {
+              onSubmitPassword.current = resolve;
+            });
+            try {
+              decryptedKey = await openpgp.decryptKey({
+                privateKey: privateKeyObject,
+                passphrase: passphrase,
+              });
+              if (!decryptedKey || !decryptedKey.isDecrypted()) {
+                toast.error("Incorrect password, please try again", {
+                  position: "top-right",
+                });
+              }
+            } catch (error) {
+              toast.error("Incorrect password, please try again", {
+                position: "top-right",
+              });
+            }
           }
+          privateKey = decryptedKey;
+          setIsPasswordModalOpen(false);
         } else {
           privateKey = privateKeyObject;
         }
@@ -454,9 +472,7 @@ export default function App() {
   return (
     <>
       <ToastContainer theme="dark" />
-      <h1 className="text-center text-4xl dm-serif-text-regular">
-        Encrypt
-      </h1>
+      <h1 className="text-center text-4xl dm-serif-text-regular">Encrypt</h1>
       <br />
       <br />
       <div className="flex flex-row gap-0 flex-wrap md:gap-4">
@@ -543,8 +559,8 @@ export default function App() {
             }}
             placeholder="Enter your password"
             type={isVisible ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={encryptionPassword}
+            onChange={(e) => setEncryptionPassword(e.target.value)}
             endContent={
               <button
                 aria-label="toggle password visibility"
@@ -586,12 +602,12 @@ export default function App() {
         onClose={() => setIsPasswordModalOpen(false)}
       >
         <ModalContent className="p-5">
-          <h3 className="mb-4">Signing Key Password Protected</h3>
+          <h3 className="mb-4">Signing Key Is Password Protected</h3>
           <Input
             placeholder="Enter Password"
             type={isVisible ? "text" : "password"}
-            value={modalpassword}
-            onChange={(e) => setModalpassword(e.target.value)}
+            value={keyPassphrase}
+            onChange={(e) => setKeyPassphrase(e.target.value)}
             endContent={
               <button
                 aria-label="toggle password visibility"
@@ -608,10 +624,9 @@ export default function App() {
             }
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                if (modalpassword) {
-                  setIsPasswordModalOpen(false);
+                if (keyPassphrase) {
                   if (onSubmitPassword.current) {
-                    onSubmitPassword.current(modalpassword);
+                    onSubmitPassword.current(keyPassphrase);
                   }
                 } else {
                   toast.error("Please enter a password");
@@ -622,10 +637,9 @@ export default function App() {
           <br />
           <Button
             onPress={() => {
-              if (modalpassword) {
-                setIsPasswordModalOpen(false);
+              if (keyPassphrase) {
                 if (onSubmitPassword.current) {
-                  onSubmitPassword.current(modalpassword);
+                  onSubmitPassword.current(keyPassphrase);
                 }
               } else {
                 toast.error("Please enter a password");

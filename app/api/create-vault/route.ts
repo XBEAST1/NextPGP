@@ -26,6 +26,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Check if vault already exists for this user
+  const existingVault = await Vault.findOne({ userId: session.user.id }).lean();
+  if (existingVault) {
+    return NextResponse.json(
+      { error: "Vault already exists" },
+      { status: 400 }
+    );
+  }
+
   const { password } = await req.json();
 
   try {
