@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { Modal, ModalContent, Input, Button, Textarea } from "@heroui/react";
 import "react-toastify/dist/ReactToastify.css";
+import {
+  openDB,
+  getStoredKeys,
+} from "@/lib/indexeddb";
 import * as openpgp from "openpgp";
 import { saveAs } from "file-saver";
 
@@ -30,122 +34,9 @@ export default function App() {
     };
   }, []);
 
-  const dbName = "NextPGP";
-  const dbPgpKeys = "pgpKeys";
-  const selectedSigners = "selectedSigners";
-  const selectedRecipients = "selectedRecipients";
-  const dbCryptoKeys = "cryptoKeys";
-
-  const openDB = () => {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(dbName, 1);
-
-      request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-
-        if (!db.objectStoreNames.contains(dbPgpKeys)) {
-          db.createObjectStore(dbPgpKeys, { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains(selectedSigners)) {
-          db.createObjectStore(selectedSigners, { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains(selectedRecipients)) {
-          db.createObjectStore(selectedRecipients, { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains(dbCryptoKeys)) {
-          db.createObjectStore(dbCryptoKeys, { keyPath: "id" });
-        }
-      };
-
-      request.onsuccess = (e) => resolve(e.target.result);
-      request.onerror = (e) => reject(e.target.error);
-    });
-  };
-
-  // Retrieves (or generates) the master encryption key using the Web Crypto API.
-  const getEncryptionKey = async () => {
-    const db = await openDB();
-    const tx = db.transaction(dbCryptoKeys, "readonly");
-    const store = tx.objectStore(dbCryptoKeys);
-    const request = store.get("mainKey");
-
-    return new Promise(async (resolve, reject) => {
-      request.onsuccess = async () => {
-        if (request.result) {
-          const importedKey = await crypto.subtle.importKey(
-            "raw",
-            request.result.key,
-            { name: "AES-GCM" },
-            true,
-            ["encrypt", "decrypt"]
-          );
-          resolve(importedKey);
-        } else {
-          // Generate Key if not found
-          const key = await crypto.subtle.generateKey(
-            { name: "AES-GCM", length: 256 },
-            true,
-            ["encrypt", "decrypt"]
-          );
-          const exportedKey = await crypto.subtle.exportKey("raw", key);
-          const txWrite = db.transaction(dbCryptoKeys, "readwrite");
-          const storeWrite = txWrite.objectStore(dbCryptoKeys);
-          storeWrite.put({ id: "mainKey", key: new Uint8Array(exportedKey) });
-          resolve(key);
-        }
-      };
-      request.onerror = (e) => reject(e.target.error);
-    });
-  };
-
-  // Decrypts data using the provided encryption key and IV.
-  const decryptData = async (encryptedData, key, iv) => {
-    const decrypted = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: iv },
-      key,
-      encryptedData
-    );
-    return JSON.parse(new TextDecoder().decode(decrypted));
-  };
-
-  const getStoredKeys = async () => {
-    const db = await openDB();
-    const encryptionKey = await getEncryptionKey();
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(dbPgpKeys, "readonly");
-      const store = transaction.objectStore(dbPgpKeys);
-      const records = [];
-      const request = store.openCursor();
-
-      request.onsuccess = async (event) => {
-        const cursor = event.target.result;
-        if (cursor) {
-          records.push(cursor.value);
-          cursor.continue();
-        } else {
-          try {
-            const decryptedKeys = await Promise.all(
-              records.map(async (record) => {
-                return await decryptData(
-                  record.encrypted,
-                  encryptionKey,
-                  record.iv
-                );
-              })
-            );
-            resolve(decryptedKeys);
-          } catch (error) {
-            reject(error);
-          }
-        }
-      };
-
-      request.onerror = (e) => reject(e.target.error);
-    });
-  };
-
   useEffect(() => {
+    openDB();
+
     const fetchKeysFromIndexedDB = async () => {
       try {
         const storedKeys = await getStoredKeys();
@@ -161,6 +52,8 @@ export default function App() {
   let decryptedFileData;
 
   const messageDecrypt = async () => {
+    let functionDetails = "";
+
     try {
       const header = "-----BEGIN PGP MESSAGE-----";
       const footer = "-----END PGP MESSAGE-----";
@@ -280,11 +173,11 @@ export default function App() {
             }
           });
 
-          details += "Recipients:\n" + recipients.join("\n") + "\n\n";
+          functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
 
           if (!signatures || signatures.length === 0) {
             // If No signatures found
-            details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+            functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
           } else {
             for (const sig of signatures) {
               // Resolve the signature and extract created time
@@ -344,16 +237,19 @@ export default function App() {
                 }
               }
 
-              // Append to details
-              details += `Signature by: ${userID}`;
-              if (formattedKeyID) details += ` (${formattedKeyID})`;
-              details += `\n`;
+              functionDetails += `Message successfully decrypted using key: ${
+                keyData.name || "Unnamed Key"
+              }\n`;
 
-              details += `Signature created on: ${createdTimeStr}\n\n`;
+              functionDetails += `Signature by: ${userID}`;
+              if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
+              functionDetails += `\n`;
+
+              functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
             }
           }
 
-          setDetails(details);
+          setDetails((prev) => prev + functionDetails);
 
           toast.success("Message Successfully Decrypted!", {
             position: "top-right",
@@ -385,6 +281,8 @@ export default function App() {
   };
 
   const messagePasswordDecrypt = async () => {
+    let functionDetails = "";
+
     try {
       const header = "-----BEGIN PGP MESSAGE-----";
       const footer = "-----END PGP MESSAGE-----";
@@ -412,7 +310,6 @@ export default function App() {
         setDecryptedMessage(decrypted);
 
         const storedKeys = pgpKeys || [];
-        console.log(storedKeys);
 
         // Load public keys for signature verification
         const publicKeys = await Promise.all(
@@ -447,7 +344,7 @@ export default function App() {
           }
         });
 
-        details =
+        functionDetails =
           recipients.length > 0
             ? "Recipients:\n" + recipients.join("\n") + "\n\n"
             : "No recipients found\n\n";
@@ -509,15 +406,15 @@ export default function App() {
               }
             }
 
-            details += `Signature by: ${userID}`;
-            if (formattedKeyID) details += ` (${formattedKeyID})`;
-            details += `\n`;
+            functionDetails += `Signature by: ${userID}`;
+            if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
+            functionDetails += `\n`;
 
-            details += `Signature created on: ${createdTimeStr}\n\n`;
+            functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
           }
         }
 
-        setDetails(details);
+        setDetails((prev) => prev + functionDetails);
 
         setIsPasswordModalOpen(false);
         setPassword("");
@@ -588,11 +485,11 @@ export default function App() {
         }
       });
 
-      details += "Recipients:\n" + recipients.join("\n") + "\n\n";
+      functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
 
       if (!signatures || signatures.length === 0) {
         // If No signatures found
-        details += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+        functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
       } else {
         for (const sig of signatures) {
           // Resolve the signature and extract created time
@@ -652,16 +549,19 @@ export default function App() {
             }
           }
 
-          // Append to details
-          details += `Signature by: ${userID}`;
-          if (formattedKeyID) details += ` (${formattedKeyID})`;
-          details += `\n`;
+          functionDetails += `Message successfully decrypted using key: ${
+            keyData.name || "Unnamed Key"
+          }\n`;
 
-          details += `Signature created on: ${createdTimeStr}\n\n`;
+          functionDetails += `Signature by: ${userID}`;
+          if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
+          functionDetails += `\n`;
+
+          functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
         }
       }
 
-      setDetails(details);
+      setDetails((prev) => prev + functionDetails);
 
       toast.success("Message Successfully Decrypted!", {
         position: "top-right",
@@ -678,7 +578,9 @@ export default function App() {
     setFiles(selectedFiles);
   };
 
-  const DecryptFile = async () => {
+  const fileDecrypt = async () => {
+    let functionDetails = "";
+
     if (!files || files.length === 0) {
       return;
     }
@@ -737,9 +639,12 @@ export default function App() {
             } else {
               setCurrentPrivateKey(keyData.privateKey);
               setIsPasswordModalOpen(true);
-              toast.info("Private key requires passphrase", {
-                position: "top-right",
-              });
+              toast.info(
+                "The file is encrypted with a password protected key",
+                {
+                  position: "top-right",
+                }
+              );
               return;
             }
           }
@@ -780,11 +685,11 @@ export default function App() {
             }
           });
 
-          details += "Recipients:\n" + recipients.join("\n") + "\n\n";
+          functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
 
           if (!signatures || signatures.length === 0) {
             // If No signatures found
-            details += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
+            functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
           } else {
             for (const sig of signatures) {
               // Resolve the signature and extract created time
@@ -844,16 +749,19 @@ export default function App() {
                 }
               }
 
-              // Append to details
-              details += `Signature by: ${userID}`;
-              if (formattedKeyID) details += ` (${formattedKeyID})`;
-              details += `\n`;
+              functionDetails += `File successfully decrypted using key: ${
+                keyData.name || "Unnamed Key"
+              }\n`;
 
-              details += `Signature created on: ${createdTimeStr}\n\n`;
+              functionDetails += `Signature by: ${userID}`;
+              if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
+              functionDetails += `\n`;
+
+              functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
             }
           }
 
-          setDetails(details);
+          setDetails((prev) => prev + functionDetails);
           decryptedFileData = decrypted;
 
           // Download Decrypted Content
@@ -891,7 +799,9 @@ export default function App() {
     }
   };
 
-  const PasswordFileDecrypt = async () => {
+  const filePasswordDecrypt = async () => {
+    let functionDetails = "";
+
     const file = files[0];
 
     try {
@@ -944,7 +854,7 @@ export default function App() {
           }
         });
 
-        details =
+        functionDetails =
           recipients.length > 0
             ? "Recipients:\n" + recipients.join("\n") + "\n\n"
             : "No recipients found\n\n";
@@ -1006,15 +916,15 @@ export default function App() {
               }
             }
 
-            details += `Signature by: ${userID}`;
-            if (formattedKeyID) details += ` (${formattedKeyID})`;
-            details += `\n`;
+            functionDetails += `Signature by: ${userID}`;
+            if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
+            functionDetails += `\n`;
 
-            details += `Signature created on: ${createdTimeStr}\n\n`;
+            functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
           }
         }
 
-        setDetails(details);
+        setDetails((prev) => prev + functionDetails);
         decryptedFileData = decrypted;
 
         // Download Decrypted Content
@@ -1092,11 +1002,11 @@ export default function App() {
         }
       });
 
-      details += "Recipients:\n" + recipients.join("\n") + "\n\n";
+      functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
 
       if (!signatures || signatures.length === 0) {
         // If No signatures found
-        details += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
+        functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
       } else {
         for (const sig of signatures) {
           // Resolve the signature and extract created time
@@ -1156,16 +1066,20 @@ export default function App() {
             }
           }
 
-          // Append to details
-          details += `Signature by: ${userID}`;
-          if (formattedKeyID) details += ` (${formattedKeyID})`;
-          details += `\n`;
+          functionDetails += `File successfully decrypted using key: ${
+            keyData.name || "Unnamed Key"
+          }\n`;
 
-          details += `Signature created on: ${createdTimeStr}\n\n`;
+          // Append to details
+          functionDetails += `Signature by: ${userID}`;
+          if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
+          functionDetails += `\n`;
+
+          functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
         }
       }
 
-      setDetails(details);
+      setDetails((prev) => prev + functionDetails);
       decryptedFileData = decrypted;
 
       // Download Decrypted Content
@@ -1183,12 +1097,14 @@ export default function App() {
   };
 
   const handleDecrypt = async () => {
+    setDetails("");
+
     if (inputMessage) {
       await messageDecrypt();
     }
 
     if (files) {
-      await DecryptFile();
+      await fileDecrypt();
     }
 
     if (!inputMessage && !files) {
@@ -1212,16 +1128,48 @@ export default function App() {
     }
 
     if (files) {
-      await PasswordFileDecrypt();
+      await filePasswordDecrypt();
     }
   };
+
+  // Details Text Areas Logic
+
+  const decryptedDetails = details.trimEnd();
+  const detailsRef = useRef(null);
+
+  useEffect(() => {
+    const ta = detailsRef.current;
+    if (!ta) return;
+
+    if (!ta.style.height) {
+      ta.style.height = `${ta.scrollHeight}px`;
+    }
+
+    requestAnimationFrame(() => {
+      ta.style.height = `${ta.scrollHeight}px`;
+    });
+  }, [decryptedDetails]);
+
+  const outputMessage = decryptedMessage.trimEnd();
+  const outputRef = useRef(null);
+
+  useEffect(() => {
+    const ta = outputRef.current;
+    if (!ta) return;
+
+    if (!ta.style.height) {
+      ta.style.height = `${ta.scrollHeight}px`;
+    }
+
+    requestAnimationFrame(() => {
+      ta.style.height = `${ta.scrollHeight}px`;
+    });
+  }, [outputMessage]);
 
   return (
     <>
       <ToastContainer theme="dark" />
-      <h1 className="text-center text-4xl dm-serif-text-regular">
-        Decrypt
-      </h1>
+      <h1 className="text-center text-4xl dm-serif-text-regular">Decrypt</h1>
       <br />
       <br />
       <Textarea
@@ -1238,23 +1186,26 @@ export default function App() {
       <Input type="file" onChange={handleFileUpload} />
       <br />
       <Textarea
-        disableAutosize
+        ref={detailsRef}
         isReadOnly
-        classNames={{
-          input: "resize-y min-h-[100px]",
-        }}
         label="Details"
-        value={details}
+        value={decryptedDetails}
+        classNames={{
+          input: "overflow-hidden resize-none",
+        }}
+        style={{ transition: "height 0.2s ease-out" }}
       />
       <br />
       <Textarea
+        ref={outputRef}
         isReadOnly
         disableAutosize
-        classNames={{
-          input: "resize-y min-h-[170px]",
-        }}
         label="Output"
-        value={decryptedMessage}
+        value={outputMessage}
+        classNames={{
+          input: "overflow-hidden resize-none min-h-[170px]",
+        }}
+        style={{ transition: "height 0.2s ease-out" }}
       />
       <br />
       <Button onPress={handleDecrypt}>Decrypt</Button>

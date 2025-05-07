@@ -15,6 +15,13 @@ import {
 import { toast, ToastContainer } from "react-toastify";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import "react-toastify/dist/ReactToastify.css";
+import {
+  openDB,
+  getStoredKeys,
+  dbPgpKeys,
+  selectedSigners,
+  selectedRecipients,
+} from "@/lib/indexeddb";
 import * as openpgp from "openpgp";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -32,126 +39,16 @@ export default function App() {
   const [encryptionPassword, setEncryptionPassword] = useState("");
   const [keyPassphrase, setKeyPassphrase] = useState("");
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const onSubmitPassword = useRef(null);
   const [files, setFiles] = useState(null);
-
+  const [directoryFiles, setdirectoryFiles] = useState(null);
+  const [isInputHovered, setisInputHovered] = useState(false);
+  const onSubmitPassword = useRef(null);
+  
   const toggleVisibility = () => setIsVisible(!isVisible);
 
-  const dbName = "NextPGP";
-  const dbPgpKeys = "pgpKeys";
-  const selectedSigners = "selectedSigners";
-  const selectedRecipients = "selectedRecipients";
-  const dbCryptoKeys = "cryptoKeys";
-
-  const openDB = () => {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(dbName, 1);
-      request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains(dbPgpKeys)) {
-          db.createObjectStore(dbPgpKeys, { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains(selectedSigners)) {
-          db.createObjectStore(selectedSigners, { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains(selectedRecipients)) {
-          db.createObjectStore(selectedRecipients, { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains(dbCryptoKeys)) {
-          db.createObjectStore(dbCryptoKeys, { keyPath: "id" });
-        }
-      };
-      request.onsuccess = (e) => resolve(e.target.result);
-      request.onerror = (e) => reject(e.target.error);
-    });
-  };
-
-  // Retrieves (or generates) the master encryption key using the Web Crypto API.
-  const getEncryptionKey = async () => {
-    const db = await openDB();
-    const tx = db.transaction(dbCryptoKeys, "readonly");
-    const store = tx.objectStore(dbCryptoKeys);
-    const request = store.get("mainKey");
-
-    return new Promise(async (resolve, reject) => {
-      request.onsuccess = async () => {
-        if (request.result) {
-          const importedKey = await crypto.subtle.importKey(
-            "raw",
-            request.result.key,
-            { name: "AES-GCM" },
-            true,
-            ["encrypt", "decrypt"]
-          );
-          resolve(importedKey);
-        } else {
-          // Generate a new key if not found
-          const key = await crypto.subtle.generateKey(
-            { name: "AES-GCM", length: 256 },
-            true,
-            ["encrypt", "decrypt"]
-          );
-          const exportedKey = await crypto.subtle.exportKey("raw", key);
-          const txWrite = db.transaction(dbCryptoKeys, "readwrite");
-          const storeWrite = txWrite.objectStore(dbCryptoKeys);
-          storeWrite.put({ id: "mainKey", key: new Uint8Array(exportedKey) });
-          resolve(key);
-        }
-      };
-      request.onerror = (e) => reject(e.target.error);
-    });
-  };
-
-  // Decrypts data using the provided encryption key and IV.
-  const decryptData = async (encryptedData, key, iv) => {
-    const decrypted = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: iv },
-      key,
-      encryptedData
-    );
-    return JSON.parse(new TextDecoder().decode(decrypted));
-  };
-
-  // Retrieves all stored keys from IndexedDB and decrypts them.
-  const getStoredKeys = async () => {
-    const db = await openDB();
-    const encryptionKey = await getEncryptionKey();
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(dbPgpKeys, "readonly");
-      const store = transaction.objectStore(dbPgpKeys);
-      const records = [];
-      const request = store.openCursor();
-
-      request.onsuccess = async (event) => {
-        const cursor = event.target.result;
-        if (cursor) {
-          records.push(cursor.value);
-          cursor.continue();
-        } else {
-          try {
-            const decryptedKeys = await Promise.all(
-              records.map(async (record) => {
-                const decrypted = await decryptData(
-                  record.encrypted,
-                  encryptionKey,
-                  record.iv
-                );
-                return decrypted;
-              })
-            );
-            resolve(decryptedKeys);
-          } catch (error) {
-            reject(error);
-          }
-        }
-      };
-
-      request.onerror = (e) => reject(e.target.error);
-    });
-  };
-
   useEffect(() => {
+    openDB();
+
     const fetchKeysFromIndexedDB = async () => {
       try {
         const keysFromStorage = await getStoredKeys();
@@ -177,31 +74,80 @@ export default function App() {
   useEffect(() => {
     const fetchSelectedKeys = async () => {
       const db = await openDB();
-      const transaction = db.transaction(
-        [selectedRecipients, selectedSigners],
-        "readwrite"
+      const tx = db.transaction(
+        [selectedSigners, selectedRecipients],
+        "readonly"
       );
-      const storeSigners = transaction.objectStore(selectedSigners);
-      const storeRecipients = transaction.objectStore(selectedRecipients);
+      const storeSigners = tx.objectStore(selectedSigners);
+      const storeRecipients = tx.objectStore(selectedRecipients);
 
       const signerKeyRequest = storeSigners.get("selectedSignerKey");
-      const recipientsRequest = storeRecipients.get("selectedRecipients");
-
       signerKeyRequest.onsuccess = () => {
         if (signerKeyRequest.result) {
           setSignerKey(signerKeyRequest.result.value);
         }
       };
 
+      const recipientsRequest = storeRecipients.getAll();
       recipientsRequest.onsuccess = () => {
-        if (recipientsRequest.result) {
-          setRecipients(recipientsRequest.result.value || [""]);
+        const results = recipientsRequest.result;
+        if (results && results.length > 0) {
+          const values = results.map((r) => r.value);
+          setRecipients([...values, ""]);
+        } else {
+          setRecipients([""]);
         }
       };
     };
 
     fetchSelectedKeys();
   }, []);
+
+  useEffect(() => {
+    const validKeyIds = new Set(pgpKeys.map((key) => key.id.toString()));
+
+    // Remove the selected signer that is not in the pgpKeys
+    if (signerKey && !validKeyIds.has(signerKey)) {
+      setSignerKey(null);
+      (async () => {
+        const db = await openDB();
+        const transaction = db.transaction(
+          [dbPgpKeys, selectedSigners],
+          "readwrite"
+        );
+        const store = transaction.objectStore(selectedSigners);
+        store.clear();
+      })();
+    }
+
+    // Remove the selected recipients that are not in the pgpKeys
+    const newRecipients = recipients.filter(
+      (r) => r === "" || validKeyIds.has(r)
+    );
+    // Ensure there's always one empty option for a new entry
+    if (
+      !newRecipients.length ||
+      newRecipients[newRecipients.length - 1] !== ""
+    ) {
+      newRecipients.push("");
+    }
+
+    // If cleanup changed the list, update both state and IndexedDB
+    if (JSON.stringify(newRecipients) !== JSON.stringify(recipients)) {
+      setRecipients(newRecipients);
+      (async () => {
+        const db = await openDB();
+        const tx = db.transaction([dbPgpKeys, selectedRecipients], "readwrite");
+        const store = tx.objectStore(selectedRecipients);
+        store.clear();
+        newRecipients.forEach((key, idx) => {
+          if (key) {
+            store.put({ id: `recipient-${idx}`, value: key });
+          }
+        });
+      })();
+    }
+  }, [pgpKeys]);
 
   const handleSignerSelection = async (selectedKey) => {
     const db = await openDB();
@@ -240,18 +186,56 @@ export default function App() {
     setRecipients(updatedRecipients);
 
     const db = await openDB();
-    const transaction = db.transaction(
-      [dbPgpKeys, selectedRecipients],
-      "readwrite"
-    );
-    const store = transaction.objectStore(selectedRecipients);
+    const tx = db.transaction([dbPgpKeys, selectedRecipients], "readwrite");
+    const store = tx.objectStore(selectedRecipients);
 
-    store.put({ id: "selectedRecipients", value: updatedRecipients });
+    // clear out the old entries
+    store.clear();
+
+    updatedRecipients.forEach((key, idx) => {
+      if (key) {
+        store.put({ id: `recipient-${idx}`, value: key });
+      }
+    });
   };
 
-  const encryptMessage = async () => {
+  const getDecryptedPrivateKey = async () => {
+    const signer = signerKeys.find((key) => key.id.toString() === signerKey);
+    if (!signer) return null;
+    const privateKeyObject = await openpgp.readPrivateKey({
+      armoredKey: signer.privateKey,
+    });
+    if (privateKeyObject.isDecrypted()) {
+      return privateKeyObject;
+    }
+    let decryptedKey;
+    while (!decryptedKey || !decryptedKey.isDecrypted()) {
+      setIsPasswordModalOpen(true);
+      const passphrase = await new Promise((resolve) => {
+        onSubmitPassword.current = resolve;
+      });
+      try {
+        decryptedKey = await openpgp.decryptKey({
+          privateKey: privateKeyObject,
+          passphrase: passphrase,
+        });
+        if (!decryptedKey || !decryptedKey.isDecrypted()) {
+          toast.error("Incorrect password", {
+            position: "top-right",
+          });
+        }
+      } catch (error) {
+        toast.error("Incorrect password", {
+          position: "top-right",
+        });
+      }
+    }
+    setIsPasswordModalOpen(false);
+    return decryptedKey;
+  };
+
+  const encryptMessage = async (decryptedKey = null) => {
     try {
-      // If the message is empty then don't push anything to output
       if (!message.trim()) {
         return;
       }
@@ -259,58 +243,19 @@ export default function App() {
         .filter((key) => recipients.includes(key.id.toString()))
         .map((key) => key.publicKey);
 
-      // Find the selected signer
-      const signer = signerKeys.find((key) => key.id.toString() === signerKey);
-
+      // Validate that at least one recipient or a password is available.
       if (!isChecked && recipientKeysPublic.length === 0) {
         toast.error(
           "Please select at least one recipient or provide a password",
-          {
-            position: "top-right",
-          }
+          { position: "top-right" }
         );
         return;
       }
 
-      let privateKey = null;
-      if (signer) {
-        const privateKeyObject = await openpgp.readPrivateKey({
-          armoredKey: signer.privateKey,
-        });
-
-        if (!privateKeyObject.isDecrypted()) {
-          let decryptedKey;
-          // Loop until a correct passphrase is provided.
-          while (!decryptedKey || !decryptedKey.isDecrypted()) {
-            setIsPasswordModalOpen(true);
-            const passphrase = await new Promise((resolve) => {
-              onSubmitPassword.current = resolve;
-            });
-            try {
-              decryptedKey = await openpgp.decryptKey({
-                privateKey: privateKeyObject,
-                passphrase: passphrase,
-              });
-              if (!decryptedKey || !decryptedKey.isDecrypted()) {
-                toast.error("Incorrect password", {
-                  position: "top-right",
-                });
-              }
-            } catch (error) {
-              toast.error("Incorrect password", {
-                position: "top-right",
-              });
-            }
-          }
-          privateKey = decryptedKey;
-          setIsPasswordModalOpen(false);
-        } else {
-          privateKey = privateKeyObject;
-        }
-      }
+      // Use the already-decrypted key if available
+      let signingKey = decryptedKey;
 
       const messageToEncrypt = await openpgp.createMessage({ text: message });
-
       const encryptionOptions = {
         message: messageToEncrypt,
         ...(isChecked &&
@@ -322,16 +267,13 @@ export default function App() {
             )
           ),
         }),
-        ...(privateKey && { signingKeys: privateKey }),
+        ...(signingKey && { signingKeys: signingKey }),
       };
 
-      // Encrypt the message
       const encryptedMessage = await openpgp.encrypt(encryptionOptions);
       setOutput(encryptedMessage);
     } catch (error) {
-      toast.error("Incorrect Password", {
-        position: "top-right",
-      });
+      toast.error("Error encrypting message", { position: "top-right" });
     }
   };
 
@@ -340,24 +282,50 @@ export default function App() {
     setFiles(selectedFiles);
   };
 
-  const encryptFiles = async () => {
-    if (!files || files.length === 0) {
+  const handleDirectoryUpload = (event) => {
+    const selectedDirectory = Array.from(event.target.files);
+    setdirectoryFiles(selectedDirectory);
+  };
+
+  const encryptFiles = async (dataFiles, decryptedKey = null) => {
+    if (!dataFiles || dataFiles.length === 0) {
       return;
     }
 
     try {
       let fileToEncrypt;
+      let outputFileName = "archive.zip";
+      const isDirectoryUpload =
+        dataFiles[0].webkitRelativePath &&
+        dataFiles[0].webkitRelativePath.trim() !== "";
 
-      // Check if it's a single file or multiple files
-      if (files.length === 1) {
-        const fileData = await files[0].arrayBuffer();
+      // For a single file that isn’t a directory upload, use it directly.
+      // Otherwise, zip the files.
+      if (dataFiles.length === 1 && !isDirectoryUpload) {
+        const fileData = await dataFiles[0].arrayBuffer();
         fileToEncrypt = new Uint8Array(fileData);
+        outputFileName = dataFiles[0].name;
       } else {
         const zip = new JSZip();
 
-        for (const file of files) {
+        for (const file of dataFiles) {
           const fileData = await file.arrayBuffer();
-          zip.file(file.name, fileData);
+          // Preserve folder structure if available
+          const relativePath =
+            file.webkitRelativePath && file.webkitRelativePath.trim() !== ""
+              ? file.webkitRelativePath
+              : file.name;
+          zip.file(relativePath, fileData);
+        }
+
+        // If uploading a directory, use the top folder name and ensure the name
+        if (isDirectoryUpload) {
+          const firstFileRelPath = dataFiles[0].webkitRelativePath;
+          const folderName = firstFileRelPath.split("/")[0];
+          outputFileName = `${folderName}.zip`;
+        } else {
+          // If multiple files are uploaded that aren't a directory set output file name to archive.zip
+          outputFileName = "archive.zip";
         }
 
         const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -370,7 +338,7 @@ export default function App() {
         .filter((key) => recipients.includes(key.id.toString()))
         .map((key) => key.publicKey);
 
-      // Validation for empty recipients and password
+      // Validate that at least one recipient or a password is provided.
       if (recipientKeysPublic.length === 0 && !encryptionPassword) {
         toast.error(
           "Please select at least one recipient or provide a password"
@@ -399,47 +367,8 @@ export default function App() {
         encryptionOptions.passwords = [encryptionPassword];
       }
 
-      // Find the selected signer and decrypt their private key if needed
-      let privateKey = null;
-      const signer = signerKeys.find((key) => key.id.toString() === signerKey);
-
-      if (signer) {
-        const privateKeyObject = await openpgp.readPrivateKey({
-          armoredKey: signer.privateKey,
-        });
-
-        if (!privateKeyObject.isDecrypted()) {
-          let decryptedKey;
-          while (!decryptedKey || !decryptedKey.isDecrypted()) {
-            setIsPasswordModalOpen(true);
-            const passphrase = await new Promise((resolve) => {
-              onSubmitPassword.current = resolve;
-            });
-            try {
-              decryptedKey = await openpgp.decryptKey({
-                privateKey: privateKeyObject,
-                passphrase: passphrase,
-              });
-              if (!decryptedKey || !decryptedKey.isDecrypted()) {
-                toast.error("Incorrect password, please try again", {
-                  position: "top-right",
-                });
-              }
-            } catch (error) {
-              toast.error("Incorrect password, please try again", {
-                position: "top-right",
-              });
-            }
-          }
-          privateKey = decryptedKey;
-          setIsPasswordModalOpen(false);
-        } else {
-          privateKey = privateKeyObject;
-        }
-
-        if (privateKey) {
-          encryptionOptions.signingKeys = privateKey;
-        }
+      if (decryptedKey) {
+        encryptionOptions.signingKeys = decryptedKey;
       }
 
       const encrypted = await openpgp.encrypt({
@@ -447,25 +376,38 @@ export default function App() {
         format: "binary",
       });
 
-      // Convert encrypted content to Blob and download
       const encryptedBlob = new Blob([encrypted], {
         type: "application/octet-stream",
       });
-      const fileName = files.length === 1 ? files[0].name : "archive.zip";
-      saveAs(encryptedBlob, `${fileName}.gpg`);
+      saveAs(encryptedBlob, `${outputFileName}.gpg`);
     } catch (error) {
-      toast.error("Password Incorrect");
+      toast.error("Error encrypting files", { position: "top-right" });
     }
   };
 
   const handleEncrypt = async () => {
-    if (message || files) {
-      await encryptMessage();
-      await encryptFiles();
-    } else {
-      toast.error("Please Enter a Message or Select a File", {
+    let decryptedKey = null;
+    if (signerKey) {
+      decryptedKey = await getDecryptedPrivateKey();
+    }
+
+    if (message) {
+      await encryptMessage(decryptedKey);
+    }
+
+    if (files) {
+      await encryptFiles(files, decryptedKey);
+    }
+
+    if (directoryFiles) {
+      await encryptFiles(directoryFiles, decryptedKey);
+    }
+
+    if (!message && !files) {
+      toast.error("Please enter a message or Select a File", {
         position: "top-right",
       });
+      return;
     }
   };
 
@@ -579,7 +521,34 @@ export default function App() {
         </div>
       </div>
       <br />
-      <Input type="file" multiple onChange={handleFileUpload} />
+      <label htmlFor="file-upload" className="ms-2">
+        Upload Files
+      </label>
+      <br />
+      <Input
+        type="file"
+        className="mt-2 mb-2"
+        multiple
+        onChange={handleFileUpload}
+      />
+      <label htmlFor="folder-upload" className="ms-2">
+        Upload Folder
+      </label>
+      <div
+        data-hover={isInputHovered ? "true" : ""}
+        className="mt-2 mb-6 relative w-full inline-flex tap-highlight-transparent flex-row items-center shadow-sm px-3 gap-3 bg-default-100 data-[hover=true]:bg-default-200 group-data-[focus=true]:bg-default-100 h-10 min-h-10 rounded-medium transition-background motion-reduce:transition-none !duration-150 outline-none group-data-[focus-visible=true]:z-10 group-data-[focus-visible=true]:ring-2 group-data-[focus-visible=true]:ring-focus group-data-[focus-visible=true]:ring-offset-2 group-data-[focus-visible=true]:ring-offset-background"
+        onMouseEnter={() => setisInputHovered(true)}
+        onMouseLeave={() => setisInputHovered(false)}
+      >
+        <div className="inline-flex w-full items-center h-full box-border">
+          <input
+            type="file"
+            className="w-full font-normal bg-transparent !outline-none placeholder:text-foreground-500 focus-visible:outline-none data-[has-start-content=true]:ps-1.5 data-[has-end-content=true]:pe-1.5 file:cursor-pointer file:bg-transparent file:border-0 autofill:bg-transparent bg-clip-text text-small group-data-[has-value=true]:text-default-foreground"
+            {...{ webkitdirectory: "", mozdirectory: "", directory: "" }}
+            onChange={handleDirectoryUpload}
+          />
+        </div>
+      </div>
       <br />
       <h5 className="ms-1">Encrypted PGP Message:</h5>
       <br />
@@ -634,8 +603,8 @@ export default function App() {
               }
             }}
           />
-          <br />
           <Button
+            className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
             onPress={() => {
               if (keyPassphrase) {
                 if (onSubmitPassword.current) {

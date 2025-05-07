@@ -31,6 +31,12 @@ import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import {
+  openDB,
+  getEncryptionKey,
+  decryptData,
+  dbPgpKeys,
+} from "@/lib/indexeddb";
 import * as openpgp from "openpgp";
 
 const statusColorMap = {
@@ -64,88 +70,12 @@ export default function App() {
     { name: "ACTIONS", uid: "actions", width: "11%" },
   ];
 
+  useEffect(() => {
+    openDB(); 
+  }, []);
+
   const [isVisible, setIsVisible] = React.useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
-
-  const dbName = "NextPGP";
-  const dbPgpKeys = "pgpKeys";
-  const selectedSigners = "selectedSigners";
-  const selectedRecipients = "selectedRecipients";
-  const dbCryptoKeys = "cryptoKeys";
-
-  const openDB = () => {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(dbName, 1);
-
-      request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-
-        if (!db.objectStoreNames.contains(dbPgpKeys)) {
-          db.createObjectStore(dbPgpKeys, { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains(selectedSigners)) {
-          db.createObjectStore(selectedSigners, { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains(selectedRecipients)) {
-          db.createObjectStore(selectedRecipients, { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains(dbCryptoKeys)) {
-          db.createObjectStore(dbCryptoKeys, { keyPath: "id" });
-        }
-      };
-
-      request.onsuccess = (e) => resolve(e.target.result);
-      request.onerror = (e) => reject(e.target.error);
-    });
-  };
-
-  // Retrieves (or generates) the master encryption key using the Web Crypto API.
-  const getEncryptionKey = async () => {
-    const db = await openDB();
-    const tx = db.transaction(dbCryptoKeys, "readonly");
-    const store = tx.objectStore(dbCryptoKeys);
-    const request = store.get("mainKey");
-
-    return new Promise(async (resolve, reject) => {
-      request.onsuccess = async () => {
-        if (request.result) {
-          const importedKey = await crypto.subtle.importKey(
-            "raw",
-            request.result.key,
-            { name: "AES-GCM" },
-            true,
-            ["encrypt", "decrypt"]
-          );
-          resolve(importedKey);
-        } else {
-          // Generate Key if not found
-          const key = await crypto.subtle.generateKey(
-            { name: "AES-GCM", length: 256 },
-            true,
-            ["encrypt", "decrypt"]
-          );
-          const exportedKey = await crypto.subtle.exportKey("raw", key);
-
-          const txWrite = db.transaction(dbCryptoKeys, "readwrite");
-          const storeWrite = txWrite.objectStore(dbCryptoKeys);
-          storeWrite.put({ id: "mainKey", key: new Uint8Array(exportedKey) });
-
-          resolve(key);
-        }
-      };
-      request.onerror = (e) => reject(e.target.error);
-    });
-  };
-
-  // Decrypts data using the provided encryption key and IV.
-  const decryptData = async (encryptedData, key, iv) => {
-    const decrypted = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: iv },
-      key,
-      encryptedData
-    );
-    return JSON.parse(new TextDecoder().decode(decrypted));
-  };
 
   const loadKeysFromIndexedDB = async () => {
     const db = await openDB();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button, Input, Modal, ModalContent, Spinner } from "@heroui/react";
 import { logout } from "@/actions/auth";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
@@ -8,74 +8,10 @@ import { toast, ToastContainer } from "react-toastify";
 import { useRouter, useSearchParams } from "next/navigation";
 import UserDetails from "@/components/userdetails";
 import "react-toastify/dist/ReactToastify.css";
-
-const dbName = "NextPGP";
-const dbPgpKeys = "pgpKeys";
-const selectedSigners = "selectedSigners";
-const selectedRecipients = "selectedRecipients";
-const dbCryptoKeys = "cryptoKeys";
-
-const openDB = () => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(dbName, 1);
-
-    request.onupgradeneeded = (e) => {
-      const db = e.target.result;
-
-      if (!db.objectStoreNames.contains(dbPgpKeys)) {
-        db.createObjectStore(dbPgpKeys, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(selectedSigners)) {
-        db.createObjectStore(selectedSigners, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(selectedRecipients)) {
-        db.createObjectStore(selectedRecipients, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(dbCryptoKeys)) {
-        db.createObjectStore(dbCryptoKeys, { keyPath: "id" });
-      }
-    };
-
-    request.onsuccess = (e) => resolve(e.target.result);
-    request.onerror = (e) => reject(e.target.error);
-  });
-};
-
-// Retrieves (or generates) the master encryption key using the Web Crypto API.
-const getEncryptionKey = async () => {
-  const db = await openDB();
-  const tx = db.transaction(dbCryptoKeys, "readonly");
-  const store = tx.objectStore(dbCryptoKeys);
-  const request = store.get("mainKey");
-
-  return new Promise(async (resolve, reject) => {
-    request.onsuccess = async () => {
-      if (request.result) {
-        const importedKey = await crypto.subtle.importKey(
-          "raw",
-          request.result.key,
-          { name: "AES-GCM" },
-          true,
-          ["encrypt", "decrypt"]
-        );
-        resolve(importedKey);
-      } else {
-        // Generate key if not found
-        const key = await crypto.subtle.generateKey(
-          { name: "AES-GCM", length: 256 },
-          true,
-          ["encrypt", "decrypt"]
-        );
-        const exportedKey = await crypto.subtle.exportKey("raw", key);
-        const txWrite = db.transaction(dbCryptoKeys, "readwrite");
-        const storeWrite = txWrite.objectStore(dbCryptoKeys);
-        storeWrite.put({ id: "mainKey", key: new Uint8Array(exportedKey) });
-        resolve(key);
-      }
-    };
-    request.onerror = (e) => reject(e.target.error);
-  });
-};
+import {
+  openDB,
+  getEncryptionKey,
+} from "@/lib/indexeddb";
 
 // Encrypts the vault password using the provided master key.
 const storeVaultPassword = async (password, masterKey) => {
@@ -107,6 +43,10 @@ const Page = () => {
   const searchParams = useSearchParams();
 
   const toggleVisibility = () => setIsVisible(!isVisible);
+
+  useEffect(() => {
+    openDB(); 
+  }, []);
 
   const onKeyPress = (e) => {
     if (e.key === "Enter") {
