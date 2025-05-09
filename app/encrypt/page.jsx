@@ -294,7 +294,7 @@ export default function App() {
 
     try {
       let fileToEncrypt;
-      let outputFileName = "archive.zip";
+      let outputFileName;
       const isDirectoryUpload =
         dataFiles[0].webkitRelativePath &&
         dataFiles[0].webkitRelativePath.trim() !== "";
@@ -403,7 +403,7 @@ export default function App() {
       await encryptFiles(directoryFiles, decryptedKey);
     }
 
-    if (!message && !files) {
+    if (!message && !files && !directoryFiles) {
       toast.error("Please enter a message or Select a File", {
         position: "top-right",
       });
