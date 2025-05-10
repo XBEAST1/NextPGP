@@ -273,7 +273,7 @@ export default function App() {
       const encryptedMessage = await openpgp.encrypt(encryptionOptions);
       setOutput(encryptedMessage);
     } catch (error) {
-      toast.error("Error encrypting message", { position: "top-right" });
+      toast.error("Please Enter a Password", { position: "top-right" });
     }
   };
 
@@ -339,7 +339,7 @@ export default function App() {
         .map((key) => key.publicKey);
 
       // Validate that at least one recipient or a password is provided.
-      if (recipientKeysPublic.length === 0 && !encryptionPassword) {
+      if (recipientKeysPublic.length === 0 && !isChecked) {
         toast.error(
           "Please select at least one recipient or provide a password"
         );
@@ -358,12 +358,12 @@ export default function App() {
       }
 
       // If no recipients are selected but a password is provided, encrypt with the password
-      if (recipientKeysPublic.length === 0 && encryptionPassword) {
+      if (recipientKeysPublic.length === 0 && encryptionPassword && isChecked) {
         encryptionOptions.passwords = [encryptionPassword];
       }
 
       // If both recipients and password are selected, include both in encryption
-      if (recipientKeysPublic.length > 0 && encryptionPassword) {
+      if (recipientKeysPublic.length > 0 && encryptionPassword && isChecked) {
         encryptionOptions.passwords = [encryptionPassword];
       }
 
@@ -381,7 +381,7 @@ export default function App() {
       });
       saveAs(encryptedBlob, `${outputFileName}.gpg`);
     } catch (error) {
-      toast.error("Error encrypting files", { position: "top-right" });
+      toast.error("Please Enter a Password", { position: "top-right" });
     }
   };
 

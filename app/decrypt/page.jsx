@@ -172,14 +172,7 @@ export default function App() {
 
           functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
 
-          if (!signatures || signatures.length === 0) {
-            // If No signatures found
-
-            functionDetails += `Message successfully decrypted using key: ${
-              keyData.name || "Unnamed Key"
-            }\n`;
-            functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
-          } else {
+          if (signatures && signatures.length > 0) {
             for (const sig of signatures) {
               // Resolve the signature and extract created time
               const { signature } = sig;
@@ -248,6 +241,11 @@ export default function App() {
 
               functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
             }
+          } else {
+            functionDetails += `Message successfully decrypted using key: ${
+              keyData.name || "Unnamed Key"
+            }\n`;
+            functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
           }
 
           setDetails((prev) => prev + functionDetails);
@@ -350,14 +348,7 @@ export default function App() {
             ? "Recipients:\n" + recipients.join("\n") + "\n\n"
             : "No recipients found\n\n";
 
-        if (!signatures || signatures.length === 0) {
-          // If No signatures found
-
-          functionDetails += `Message successfully decrypted using key: ${
-            keyData.name || "Unnamed Key"
-          }\n`;
-          functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
-        } else {
+        if (signatures && signatures.length > 0) {
           for (const sig of signatures) {
             const { signature } = sig;
             const resolvedSignature = await signature;
@@ -414,12 +405,17 @@ export default function App() {
               }
             }
 
+            functionDetails += `Message successfully decrypted using Password\n`;
+
             functionDetails += `Signature by: ${userID}`;
             if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
             functionDetails += `\n`;
 
             functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
           }
+        } else {
+          functionDetails += `Message successfully decrypted using Password\n`;
+          functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
         }
 
         setDetails((prev) => prev + functionDetails);
@@ -494,14 +490,7 @@ export default function App() {
 
       functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
 
-      if (!signatures || signatures.length === 0) {
-        // If No signatures found
-
-        functionDetails += `Message successfully decrypted using key: ${
-          keyData.name || "Unnamed Key"
-        }\n`;
-        functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
-      } else {
+      if (signatures && signatures.length > 0) {
         for (const sig of signatures) {
           // Resolve the signature and extract created time
           const { signature } = sig;
@@ -570,6 +559,11 @@ export default function App() {
 
           functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
         }
+      } else {
+        functionDetails += `Message successfully decrypted using key: ${
+          keyData.name || "Unnamed Key"
+        }\n`;
+        functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
       }
 
       setDetails((prev) => prev + functionDetails);
@@ -684,14 +678,7 @@ export default function App() {
             });
             functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
 
-            if (!signatures || signatures.length === 0) {
-              // If No signatures found
-
-              functionDetails += `File successfully decrypted using key: ${
-                keyData.name || "Unnamed Key"
-              }\n`;
-              functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
-            } else {
+            if (signatures && signatures.length > 0) {
               for (const sig of signatures) {
                 const { signature } = sig;
                 const resolvedSignature = await signature;
@@ -756,6 +743,11 @@ export default function App() {
                 functionDetails += `\n`;
                 functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
               }
+            } else {
+              functionDetails += `File successfully decrypted using key: ${
+                keyData.name || "Unnamed Key"
+              }\n`;
+              functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
             }
 
             setDetails((prev) => prev + functionDetails);
@@ -866,14 +858,7 @@ export default function App() {
               ? "Recipients:\n" + recipients.join("\n") + "\n\n"
               : "No recipients found\n\n";
 
-          if (!signatures || signatures.length === 0) {
-            // If No signatures found
-
-            functionDetails += `File successfully decrypted using key: ${
-              keyData.name || "Unnamed Key"
-            }\n`;
-            functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
-          } else {
+          if (signatures && signatures.length > 0) {
             for (const sig of signatures) {
               const { signature } = sig;
               const resolvedSignature = await signature;
@@ -928,15 +913,16 @@ export default function App() {
                 }
               }
 
-              functionDetails += `File successfully decrypted using key: ${
-                keyData.name || "Unnamed Key"
-              }\n`;
+              functionDetails += `File successfully decrypted using Password\n`;
 
               functionDetails += `Signature by: ${userID}`;
               if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
               functionDetails += `\n`;
               functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
             }
+          } else {
+            functionDetails += `File successfully decrypted using Password\n`;
+            functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
           }
 
           setDetails((prev) => prev + functionDetails);
@@ -1016,14 +1002,7 @@ export default function App() {
 
         functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
 
-        if (!signatures || signatures.length === 0) {
-          // If No signatures found
-
-          functionDetails += `File successfully decrypted using key: ${
-            keyData.name || "Unnamed Key"
-          }\n`;
-          functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
-        } else {
+        if (signatures && signatures.length > 0) {
           for (const sig of signatures) {
             const { signature } = sig;
             const resolvedSignature = await signature;
@@ -1087,6 +1066,11 @@ export default function App() {
             functionDetails += `\n`;
             functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
           }
+        } else {
+          functionDetails += `File successfully decrypted using key: ${
+            keyData.name || "Unnamed Key"
+          }\n`;
+          functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
         }
 
         setDetails((prev) => prev + functionDetails);
