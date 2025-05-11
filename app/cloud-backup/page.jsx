@@ -22,7 +22,7 @@ import {
   EyeSlashFilledIcon,
   SearchIcon,
 } from "@/components/icons";
-import Link from "next/link";
+import { NProgressLink } from "@/components/nprogress";
 import { useRouter } from "next/navigation";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
@@ -758,7 +758,11 @@ export default function App() {
               <br />
               <br />
               <div className="ms-2 flex justify-center">
-                <Button className="ps-10 pe-10" as={Link} href="/cloud-manage">
+                <Button
+                  className="ps-10 pe-10"
+                  as={NProgressLink}
+                  href="/cloud-manage"
+                >
                   Import Keyrings From Cloud
                 </Button>
               </div>

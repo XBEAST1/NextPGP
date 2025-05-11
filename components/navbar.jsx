@@ -16,7 +16,7 @@ import {
   Button,
   Link,
 } from "@heroui/react";
-import NextLink from "next/link";
+import { NProgressLink } from "@/components/nprogress";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { HeartFilledIcon } from "@/components/icons";
 import Logo from "@/assets/Logo.png";
@@ -55,14 +55,14 @@ export const Navbar = () => {
         justify="start"
       >
         <NavbarBrand as="li" className="gap-3 max-w-fit">
-          <NextLink className="flex justify-start items-center gap-1" href="/">
+          <NProgressLink className="flex justify-start items-center gap-1" href="/">
             <img
               width={70}
               src={theme === "light" ? LogoLight.src : Logo.src}
               alt="Logo"
             />
             <p className="font-bold text-inherit">Next PGP</p>
-          </NextLink>
+          </NProgressLink>
         </NavbarBrand>
       </NavbarContent>
 
@@ -81,17 +81,17 @@ export const Navbar = () => {
             }}
           >
             <DropdownItem textValue="Manage Keyrings">
-              <NextLink className="text-decoration-none" href="/">
+              <NProgressLink className="text-decoration-none" href="/">
                 <div>
                   Manage Keyrings
                   <p className="text-default-500 text-xs">
                     View, edit, or delete existing keyrings.
                   </p>
                 </div>
-              </NextLink>
+              </NProgressLink>
             </DropdownItem>
             <DropdownItem textValue="Generate Keyrings">
-              <NextLink className="text-decoration-none" href="/generate">
+              <NProgressLink className="text-decoration-none" href="/generate">
                 <div>
                   Generate Keyring
                   <p className="text-default-500 text-xs">
@@ -99,17 +99,17 @@ export const Navbar = () => {
                     data.
                   </p>
                 </div>
-              </NextLink>
+              </NProgressLink>
             </DropdownItem>
             <DropdownItem textValue="Import Key">
-              <NextLink className="text-decoration-none" href="/import">
+              <NProgressLink className="text-decoration-none" href="/import">
                 <div>
                   Import Key
                   <p className="text-default-500 text-xs">
                     Import a PGP keyring to encrypt or decrypt messages.
                   </p>
                 </div>
-              </NextLink>
+              </NProgressLink>
             </DropdownItem>
           </DropdownMenu>
         </Dropdown>
@@ -130,24 +130,24 @@ export const Navbar = () => {
             }}
           >
             <DropdownItem textValue="Encrypt">
-              <NextLink className="text-decoration-none" href="/encrypt">
+              <NProgressLink className="text-decoration-none" href="/encrypt">
                 <div>
                   Encrypt
                   <p className="text-default-500 text-xs">
                     Encrypt data using a PGP public key.
                   </p>
                 </div>
-              </NextLink>
+              </NProgressLink>
             </DropdownItem>
             <DropdownItem textValue="Decrypt">
-              <NextLink className="text-decoration-none" href="/decrypt">
+              <NProgressLink className="text-decoration-none" href="/decrypt">
                 <div>
                   Decrypt
                   <p className="text-default-500 text-xs">
                     Decrypt data using a PGP private key.
                   </p>
                 </div>
-              </NextLink>
+              </NProgressLink>
             </DropdownItem>
           </DropdownMenu>
         </Dropdown>
@@ -168,24 +168,24 @@ export const Navbar = () => {
             }}
           >
             <DropdownItem textValue="Backup">
-              <NextLink className="text-decoration-none" href="/cloud-backup">
+              <NProgressLink className="text-decoration-none" href="/cloud-backup">
                 <div>
                   Backup Keyrings
                   <p className="text-default-500 text-xs">
                     Backip PGP keys on cloud storage.
                   </p>
                 </div>
-              </NextLink>
+              </NProgressLink>
             </DropdownItem>
             <DropdownItem textValue="Import">
-              <NextLink className="text-decoration-none" href="/cloud-manage">
+              <NProgressLink className="text-decoration-none" href="/cloud-manage">
                 <div>
                   Manage Keyrings
                   <p className="text-default-500 text-xs">
                     View, import, or delete keyrings on cloud.
                   </p>
                 </div>
-              </NextLink>
+              </NProgressLink>
             </DropdownItem>
           </DropdownMenu>
         </Dropdown>
@@ -224,7 +224,7 @@ export const Navbar = () => {
             className="mx-auto mt-5"
             key={`${item.label}-${index}`}
           >
-            <NextLink
+            <NProgressLink
               className={`w-full ${index === menuItems.length - 1 ? "text-danger" : "text-foreground"}`}
               href={item.href}
               size="lg"
@@ -232,7 +232,7 @@ export const Navbar = () => {
               target={item.href.startsWith("http") ? "_blank" : undefined}
             >
               {item.label}
-            </NextLink>
+            </NProgressLink>
           </NavbarMenuItem>
         ))}
       </NavbarMenu>

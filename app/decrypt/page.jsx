@@ -1099,6 +1099,7 @@ export default function App() {
 
   const handleDecrypt = async () => {
     setDetails("");
+    setDecryptedMessage("");
 
     if (inputMessage) {
       await messageDecrypt();
@@ -1133,7 +1134,7 @@ export default function App() {
     }
   };
 
-  // Details Text Areas Logic
+  // Details Text Areas Auto Expand Height
 
   const decryptedDetails = details.trimEnd();
   const detailsRef = useRef(null);
@@ -1150,6 +1151,8 @@ export default function App() {
       ta.style.height = `${ta.scrollHeight}px`;
     });
   }, [decryptedDetails]);
+
+  // Decrypted Message Text Areas Auto Expand Height
 
   const outputMessage = decryptedMessage.trimEnd();
   const outputRef = useRef(null);

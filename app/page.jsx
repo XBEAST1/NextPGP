@@ -26,7 +26,7 @@ import {
   VerticalDotsIcon,
   SearchIcon,
 } from "@/components/icons";
-import Link from "next/link";
+import { NProgressLink } from "@/components/nprogress";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
 import { toast, ToastContainer } from "react-toastify";
@@ -603,15 +603,15 @@ export default function App() {
               <br />
               <br />
               <div className="ms-6 flex justify-center">
-                <Button as={Link} href="/import">
+                <Button as={NProgressLink} href="/import">
                   Import Key
                 </Button>
                 <span className="mx-3 mt-1">or</span>
-                <Button as={Link} href="/cloud-manage">
+                <Button as={NProgressLink} href="/cloud-manage">
                   Import Keyrings From Cloud
                 </Button>
                 <span className="mx-3 mt-1">or</span>
-                <Button as={Link} href="/generate">
+                <Button as={NProgressLink} href="/generate">
                   Generate Key
                 </Button>
               </div>

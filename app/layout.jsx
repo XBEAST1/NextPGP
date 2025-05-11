@@ -5,8 +5,9 @@ import { Providers } from "./providers";
 import { fontSans } from "@/config/fonts";
 import { Navbar } from "@/components/navbar";
 import { GoogleAnalytics } from "@next/third-parties/google";
-import { auth } from "@/auth"
+import { auth } from "@/auth";
 import { SessionProvider } from "next-auth/react";
+import { NavigationProgress } from "@/components/nprogress";
 
 const twittercardimg = `https://nextpgp.vercel.app${Logo.src}`;
 
@@ -74,6 +75,7 @@ export default async function RootLayout({ children }) {
           )}
         >
           <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
+            <NavigationProgress />
             <div className="relative flex flex-col h-screen">
               <Navbar />
               <main className="container mx-auto max-w-7xl pt-6 px-6 flex-grow">

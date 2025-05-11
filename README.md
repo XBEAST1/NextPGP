@@ -11,6 +11,8 @@
   <li><b>Key Generation:</b> Effortlessly generate secure PGP keys to protect sensitive information.</li>
   <li><b>Keyring Management:</b> Easily add, manage, and delete keyrings for seamless key organization.</li>
   <li><b>Encryption & Decryption:</b> Encrypt and decrypt messages and files securely with an intuitive user interface.</li>
+  <li><b>Batch File Encryption & Decryption:</b> Efficiently encrypt and decrypt multiple files at once.</li>
+  <li><b>Folder Encryption & Decryption:</b> Securely Encrypt and Decrypt entire folders while maintaining the <b>original directory structure</b> (recursive encryption).</li>
   <li><b>Cloud Management:</b> Securely backup and manage PGP keys in the cloud, with encrypted vaults ensuring top tier protection.</li>
   <li><b>Encrypted Vaults:</b> Each user has a personal vault. The vault password is encrypted using <b>Argon2</b>, and keys are encrypted using <b>AES-256-GCM</b> for maximum security.</li>
 </ul>
@@ -44,9 +46,11 @@
 
 ---
 
-<h2>💻 Click To Watch Preview</h2>
+<h2>💻 Click To Watch Previews</h2>
 
-[![Next PGP](https://img.youtube.com/vi/1gl4OlUaibY/maxresdefault.jpg)](https://www.youtube.com/watch?v=1gl4OlUaibY)
+| Video 1 | Video 2 |
+| ------ | ------ |
+| [![Next PGP](https://img.youtube.com/vi/1gl4OlUaibY/maxresdefault.jpg)](https://www.youtube.com/watch?v=1gl4OlUaibY) | [![Next PGP](https://img.youtube.com/vi/NRofMNqZPfo/maxresdefault.jpg)](https://www.youtube.com/watch?v=NRofMNqZPfo) |
 
 ---
 
