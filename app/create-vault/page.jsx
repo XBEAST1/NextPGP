@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast, ToastContainer } from "react-toastify";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import UserDetails from "@/components/userdetails";
+import NProgress from "nprogress";
 import "react-toastify/dist/ReactToastify.css";
 
 const Page = () => {
@@ -24,6 +25,7 @@ const Page = () => {
       if (res.ok) {
         const { exists } = await res.json();
         if (exists) {
+          NProgress.start();
           router.push("/vault");
         }
       }
@@ -54,6 +56,7 @@ const Page = () => {
     });
 
     if (res.ok) {
+      NProgress.start();
       router.push("/vault");
     } else {
       const errorData = await res.json();

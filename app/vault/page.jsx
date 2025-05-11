@@ -6,12 +6,10 @@ import { logout } from "@/actions/auth";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { toast, ToastContainer } from "react-toastify";
 import { useRouter, useSearchParams } from "next/navigation";
+import NProgress from "nprogress";
 import UserDetails from "@/components/userdetails";
 import "react-toastify/dist/ReactToastify.css";
-import {
-  openDB,
-  getEncryptionKey,
-} from "@/lib/indexeddb";
+import { openDB, getEncryptionKey } from "@/lib/indexeddb";
 
 // Encrypts the vault password using the provided master key.
 const storeVaultPassword = async (password, masterKey) => {
@@ -45,7 +43,7 @@ const Page = () => {
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   useEffect(() => {
-    openDB(); 
+    openDB();
   }, []);
 
   const onKeyPress = (e) => {
@@ -82,6 +80,7 @@ const Page = () => {
       setLoading(false);
       setIsLocked(false);
       const redirectUrl = searchParams.get("redirect") ?? "/cloud-backup";
+      NProgress.start();
       router.push(redirectUrl);
     } else {
       toast.error("Incorrect password", {
@@ -102,6 +101,7 @@ const Page = () => {
     });
 
     if (res.ok) {
+      NProgress.start();
       router.push("/create-vault");
     } else {
       console.log("Error deleting vault");

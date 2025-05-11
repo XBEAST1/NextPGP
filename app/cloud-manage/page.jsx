@@ -22,6 +22,7 @@ import {
   EyeSlashFilledIcon,
   SearchIcon,
 } from "@/components/icons";
+import NProgress from "nprogress";
 import { NProgressLink } from "@/components/nprogress";
 import { useRouter } from "next/navigation";
 import Keyring from "@/assets/Keyring.png";
@@ -84,7 +85,13 @@ export default function App() {
     { name: "NAME", uid: "name", sortable: true },
     { name: "EMAIL", uid: "email", width: "17%" },
     { name: "EXPIRY DATE", uid: "expirydate", sortable: true, width: "20%" },
-    { name: "STATUS", uid: "status", sortable: true, width: "20%", align: "center" },
+    {
+      name: "STATUS",
+      uid: "status",
+      sortable: true,
+      width: "20%",
+      align: "center",
+    },
     { name: "IMPORT", uid: "import" },
     { name: "DELETE", uid: "delete", width: "8%" },
   ];
@@ -118,6 +125,7 @@ export default function App() {
         } catch (err) {
           console.error("Failed to lock vault:", err);
         } finally {
+          NProgress.start();
           router.push("/vault");
         }
       };
@@ -669,6 +677,7 @@ export default function App() {
 
                 sessionStorage.removeItem("encryptedVaultPassword");
 
+                NProgress.start();
                 router.push("/vault");
               } catch (error) {
                 console.error("Error locking vault:", error);
