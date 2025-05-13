@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button, Input, Modal, ModalContent, Spinner } from "@heroui/react";
+import {
+  Button,
+  Input,
+  Modal,
+  ModalContent,
+  Spinner,
+  InputOtp,
+} from "@heroui/react";
 import { logout } from "@/actions/auth";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { toast, ToastContainer } from "react-toastify";
@@ -32,11 +39,14 @@ const storeVaultPassword = async (password, masterKey) => {
 
 const Page = () => {
   const [isVisible, setIsVisible] = useState(false);
+  const [deleteSpinner, setDeleteSpinner] = useState(false);
+  const [OTPSpinner, setOTPSpinner] = useState(false);
+  const [OTP, setOTP] = useState("");
   const [password, setPassword] = useState("");
   const [DeleteModal, setDeleteModal] = useState(false);
   const [confirmInput, setConfirmInput] = useState("");
-  const [isLocked, setIsLocked] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [otpStep, setOtpStep] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -78,7 +88,6 @@ const Page = () => {
       });
 
       setLoading(false);
-      setIsLocked(false);
       const redirectUrl = searchParams.get("redirect") ?? "/cloud-backup";
       NProgress.start();
       router.push(redirectUrl);
@@ -90,22 +99,61 @@ const Page = () => {
     }
   };
 
-  const triggerDeleteModal = () => {
-    setConfirmInput("");
-    setDeleteModal(true);
+  const sendOtpEmail = async () => {
+    try {
+      const emailRes = await fetch("/api/vault/delete-otp", {
+        method: "POST",
+      });
+      const data = await emailRes.json();
+      if (emailRes.ok) {
+        toast.success("Confirmation email sent");
+        setOTPSpinner(false);
+      } else {
+        toast.error(data.error || "Failed to send confirmation email");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("An error occurred");
+    }
   };
 
-  const handleDeleteVault = async () => {
-    const res = await fetch("/api/vault", {
-      method: "DELETE",
-    });
-
-    if (res.ok) {
-      NProgress.start();
-      router.push("/create-vault");
-    } else {
-      console.log("Error deleting vault");
+  const onOtpInputChange = async (value) => {
+    setOTP(value);
+    if (value.length === 6) {
+      // Verify the OTP on the server
+      const verifyRes = await fetch("/api/vault/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: value }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) {
+        toast.error(verifyData.error || "Invalid OTP");
+        return;
+      }
+      // If verified, delete the vault
+      const res = await fetch("/api/vault", { method: "DELETE" });
+      if (res.ok) {
+        NProgress.start();
+        router.push("/create-vault");
+      } else {
+        console.log("Error deleting vault");
+      }
+      setDeleteModal(false);
     }
+  };
+
+  const triggerOtpVerification = async () => {
+    if (!otpStep) {
+      await sendOtpEmail();
+      setOtpStep(true);
+    }
+  };
+
+  const triggerDeleteModal = () => {
+    setConfirmInput("");
+    setOTP("");
+    setDeleteModal(true);
   };
 
   return (
@@ -168,47 +216,87 @@ const Page = () => {
       <Modal
         backdrop="blur"
         isOpen={DeleteModal}
-        onClose={() => setDeleteModal(false)}
+        onClose={() => {
+          setDeleteModal(false);
+          setOTP("");
+          setConfirmInput("");
+        }}
       >
         <ModalContent className="p-5">
-          <h3 className="mb-2">Are You Sure You Want To Delete Your Vault?</h3>
-          <p className="text-sm mb-3 text-gray-500">
-            Please type <strong>DeleteMyVault</strong> to confirm.
-          </p>
-          <Input
-            type="text"
-            placeholder="Enter DeleteMyVault"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && confirmInput === "DeleteMyVault") {
-                handleDeleteVault();
-                setDeleteModal(false);
-              }
-            }}
-            value={confirmInput}
-            onChange={(e) => setConfirmInput(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <Button
-              className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
-              onPress={() => setDeleteModal(false)}
-            >
-              No
-            </Button>
-            <Button
-              className={`w-full mt-4 px-4 py-2 text-white rounded-full ${
-                confirmInput === "DeleteMyVault"
-                  ? "bg-danger-300"
-                  : "bg-danger-200 cursor-not-allowed"
-              }`}
-              isDisabled={confirmInput !== "DeleteMyVault"}
-              onPress={() => {
-                handleDeleteVault();
-                setDeleteModal(false);
-              }}
-            >
-              Yes
-            </Button>
-          </div>
+          {otpStep ? (
+            <>
+              <h3 className="mb-2">Enter OTP</h3>
+              <p className="text-sm mb-3 text-gray-500">
+                Enter the 6-digit OTP sent to your email.
+              </p>
+              <div className="sm:ms-3 sm:flex sm:flex-row sm:items-start sm:gap-2 flex flex-col items-center">
+                <InputOtp
+                  length={6}
+                  value={OTP}
+                  onValueChange={onOtpInputChange}
+                />
+                <Button
+                  className="mt-2 ms-2 sm:min-w-28 min-w-32"
+                  onPress={() => {
+                    setOTPSpinner(true);
+                    sendOtpEmail();
+                  }}
+                >
+                  {OTPSpinner ? (
+                    <Spinner color="white" size="sm" />
+                  ) : (
+                    "Resend OTP"
+                  )}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 className="mb-2">
+                Are You Sure You Want To Delete Your Vault?
+              </h3>
+              <p className="text-sm mb-3 text-gray-500">
+                Please type <strong>DeleteMyVault</strong> to confirm.
+              </p>
+              <Input
+                type="text"
+                placeholder="Enter DeleteMyVault"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && confirmInput === "DeleteMyVault") {
+                    triggerOtpVerification();
+                  }
+                }}
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
+              />
+              <div className="flex gap-2 mt-4">
+                <Button
+                  className="w-full px-4 py-2 bg-default-300 text-white rounded-full"
+                  onPress={() => {
+                    setDeleteModal(false);
+                    setOTP("");
+                    setConfirmInput("");
+                  }}
+                >
+                  No
+                </Button>
+                <Button
+                  className={`w-full px-4 py-2 text-white rounded-full ${
+                    confirmInput === "DeleteMyVault"
+                      ? "bg-danger-300"
+                      : "bg-danger-200 cursor-not-allowed"
+                  }`}
+                  isDisabled={confirmInput !== "DeleteMyVault" || deleteSpinner}
+                  onPress={() => {
+                    setDeleteSpinner(true);
+                    triggerOtpVerification();
+                  }}
+                >
+                  {deleteSpinner ? <Spinner color="white" size="sm" /> : "Yes"}
+                </Button>
+              </div>
+            </>
+          )}
         </ModalContent>
       </Modal>
     </div>

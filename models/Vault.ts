@@ -5,6 +5,8 @@ export interface IVault extends Document {
   passwordHash: string;
   encryptionSalt: string;
   userId: mongoose.Types.ObjectId;
+  deleteOtp?: string;
+  otpExpiresAt?: Date;
   createdAt: Date;
   lastActivity?: Date;
 }
@@ -15,6 +17,8 @@ const VaultSchema = new Schema<IVault>(
     passwordHash: { type: String, required: true },
     encryptionSalt: { type: String, required: true },
     userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+    deleteOtp: { type: String, default: null },
+    otpExpiresAt: { type: Date, default: null },
     lastActivity: { type: Date, default: Date.now },
   },
   {
