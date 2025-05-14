@@ -68,13 +68,19 @@ const withPWA = require("@ducanh2912/next-pwa").default({
         handler: "StaleWhileRevalidate",
         options: {
           cacheName: "static-resources",
+          expiration: {
+            maxEntries: 50,
+          },
         },
       },
       {
         urlPattern: ({ request }) => request.destination === "image",
-        handler: "NetworkFirst",
+        handler: "StaleWhileRevalidate",
         options: {
           cacheName: "image-cache",
+          expiration: {
+            maxEntries: 50,
+          },
         },
       },
     ],
@@ -83,7 +89,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 
 const nextConfig = {
   turbopack: {
-    //
+    resolveExtensions: [".mdx", ".tsx", ".ts", ".jsx", ".js", ".json"],
   },
 };
 

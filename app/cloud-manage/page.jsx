@@ -110,9 +110,9 @@ export default function App() {
     return new TextDecoder().decode(decrypted);
   };
 
-  const checkVaultPassword = sessionStorage.getItem("encryptedVaultPassword");
-
   useEffect(() => {
+    const checkVaultPassword = sessionStorage.getItem("encryptedVaultPassword");
+
     if (!checkVaultPassword) {
       const lockVault = async () => {
         try {
@@ -132,7 +132,7 @@ export default function App() {
 
       lockVault();
     }
-  }, [checkVaultPassword, router]);
+  }, [router]);
 
   const loadKeysFromCloud = async () => {
     try {
@@ -234,7 +234,7 @@ export default function App() {
                   key.privateKey.trim() !== "";
                 const hasPublicKey =
                   key.publicKey && key.publicKey.trim() !== "";
-                if (hasPrivateKey && hasPublicKey) {
+                if (hasPrivateKey) {
                   return Keyring.src;
                 } else if (hasPublicKey) {
                   return Public.src;
@@ -336,16 +336,33 @@ export default function App() {
       }
 
       try {
+        let publicKey = selectedUser.publicKey;
+        const privateKey = selectedUser.privateKey;
+
+        // If there's only a private key, generate the public key
+        if (privateKey && (!publicKey || publicKey.trim() === "")) {
+          try {
+            const privateKeyObj = await openpgp.readKey({
+              armoredKey: privateKey,
+            });
+            const publicKeyObj = privateKeyObj.toPublic();
+            publicKey = publicKeyObj.armor();
+          } catch (err) {
+            console.error("Error generating public key:", err);
+            throw new Error("Failed to generate public key from private key");
+          }
+        }
+
         const keyData = {
           id: Date.now(),
           name: selectedUser.name,
           email: selectedUser.email,
-          publicKey: selectedUser.publicKey,
+          publicKey: publicKey,
           privateKey:
-            selectedUser.privateKey &&
-            selectedUser.privateKey.trim().toLowerCase() !== "null" &&
-            selectedUser.privateKey.trim() !== ""
-              ? selectedUser.privateKey
+            privateKey &&
+            privateKey.trim().toLowerCase() !== "null" &&
+            privateKey.trim() !== ""
+              ? privateKey
               : null,
         };
 
@@ -519,17 +536,25 @@ export default function App() {
         return;
       }
 
-      // Send delete request to the correct endpoint
+      const requestBody = {
+        keyId: user.id,
+        vaultPassword: vaultPassword,
+      };
+
+      if (user.privateKey) {
+        requestBody.privateKey = user.privateKey;
+      } else if (user.publicKey) {
+        requestBody.publicKey = user.publicKey;
+      } else {
+        throw new Error("No key data found");
+      }
+
       const deleteResponse = await fetch("/api/manage-keys", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          keyId: user.id,
-          vaultPassword: vaultPassword,
-          publicKey: user.publicKey,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!deleteResponse.ok) {

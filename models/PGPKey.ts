@@ -11,19 +11,17 @@ export interface IPGPKeys extends Document {
 
 const PGPKeySchema = new Schema<IPGPKeys>(
   {
-    publicKey: { type: String, default: null },
-    privateKey: { type: String, default: null },
+    privateKey: { type: String },
     privateKeyHash: {
       type: String,
       unique: true,
       sparse: true,
-      default: null,
     },
+    publicKey: { type: String },
     publicKeyHash: {
       type: String,
       unique: true,
       sparse: true,
-      default: null,
     },
     vaultId: {
       type: Schema.Types.ObjectId,

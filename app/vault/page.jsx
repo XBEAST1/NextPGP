@@ -106,7 +106,7 @@ const Page = () => {
       });
       const data = await emailRes.json();
       if (emailRes.ok) {
-        toast.success("Confirmation email sent");
+        toast.success(`Confirmation email sent to ${data.maskedEmail}`);
         setOTPSpinner(false);
       } else {
         toast.error(data.error || "Failed to send confirmation email");

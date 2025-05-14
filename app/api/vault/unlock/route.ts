@@ -18,11 +18,11 @@ export async function POST() {
     { $set: { lastActivity: new Date() } }
   );
 
-  // Issue a vault‑unlock JWT for 5 minutes
+  // Issue a vault‑unlock JWT for 30 minutes
   const token = jwt.sign(
     { sub: session.user.id, type: "vault-unlock" },
     process.env.AUTH_SECRET!,
-    { expiresIn: "5m" }
+    { expiresIn: "30m" }
   );
 
   // Set HttpOnly cookie for middleware to verify
@@ -32,7 +32,7 @@ export async function POST() {
     value: token,
     httpOnly: true,
     path: "/",
-    maxAge: 5 * 60, // 5 minutes
+    maxAge: 30 * 60, // 30 minutes
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
   });

@@ -64,73 +64,85 @@ export async function POST(req: Request) {
   try {
     payload = await req.json();
   } catch (error) {
-    return NextResponse.json(
-      { error: "Invalid JSON payload" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
   const { privateKey, publicKey, vaultPassword } = payload;
 
   if (!vaultPassword) {
-    return NextResponse.json(
-      { error: "Vault password is required" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Vault password is required" }, { status: 400 });
   }
 
   const vault = await Vault.findOne({ userId: session.user.id });
   if (!vault) {
+    return NextResponse.json({ error: "Vault not found for current user" }, { status: 404 });
+  }
+
+  const hasPrivate = typeof privateKey === 'string' && privateKey.trim() !== '';
+  const hasPublic = typeof publicKey === 'string' && publicKey.trim() !== '';
+
+  if (!hasPrivate && !hasPublic) {
     return NextResponse.json(
-      { error: "Vault not found for current user" },
-      { status: 404 }
+      { message: "At least one key (private or public) is required" },
+      { status: 400 }
     );
   }
 
-  if (!privateKey && !publicKey) {
-    return NextResponse.json(
-      { message: "Atleast one key required" },
-      { status: 200 }
-    );
-  } else {
-    try {
-      const privateKeyHash = await hashKey(privateKey);
-      const publicKeyHash = await hashKey(publicKey);
+  try {
+    // When both keys provided, only backup private key
+    const shouldBackupPrivate = hasPrivate;
+    const shouldBackupPublic = !hasPrivate && hasPublic;
 
-      const existingKey = await PGPKey.findOne({
-        vaultId: vault._id,
-        $or: [{ privateKeyHash }, { publicKeyHash }],
-      });
+    let privateKeyHash: string | null = null;
+    let encryptedPrivateKey: string | null = null;
+    let publicKeyHash: string | null = null;
+    let encryptedPublicKey: string | null = null;
 
-      if (existingKey) {
-        return NextResponse.json(
-          { message: "Key already backed up." },
-          { status: 200 }
-        );
-      }
+    if (shouldBackupPrivate) {
+      privateKeyHash = await hashKey(privateKey);
+      encryptedPrivateKey = await encrypt(privateKey, vaultPassword);
+    }
 
-      const encryptedPrivateKey = await encrypt(privateKey, vaultPassword);
-      const encryptedPublicKey = await encrypt(publicKey, vaultPassword);
+    if (shouldBackupPublic) {
+      publicKeyHash = await hashKey(publicKey);
+      encryptedPublicKey = await encrypt(publicKey, vaultPassword);
+    }
 
-      const storedKey = await PGPKey.create({
-        privateKey: encryptedPrivateKey,
-        publicKey: encryptedPublicKey,
-        privateKeyHash,
-        publicKeyHash,
-        vaultId: vault._id,
-      });
+    // Duplicate check conditions
+    const orConditions: any[] = [];
+    if (privateKeyHash) orConditions.push({ privateKeyHash });
+    if (publicKeyHash) orConditions.push({ publicKeyHash });
 
-      return NextResponse.json({
-        message: "Key stored successfully",
-        key: storedKey,
-      });
-    } catch (error) {
-      console.error("Failed to store key data:", error);
+    const existingKey = await PGPKey.findOne({
+      vaultId: vault._id,
+      $or: orConditions,
+    });
+
+    if (existingKey) {
       return NextResponse.json(
-        { error: "Internal Server Error" },
-        { status: 500 }
+        { message: "Key already backed up." },
+        { status: 200 }
       );
     }
+
+    const storedKey = await PGPKey.create({
+      vaultId: vault._id,
+      ...(encryptedPrivateKey && { privateKey: encryptedPrivateKey }),
+      ...(encryptedPublicKey && { publicKey: encryptedPublicKey }),
+      ...(privateKeyHash && { privateKeyHash }),
+      ...(publicKeyHash && { publicKeyHash }),
+    });    
+
+    return NextResponse.json(
+      { message: "Key stored successfully", key: storedKey },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Failed to store key data:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -142,8 +154,8 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { keyId, vaultPassword, publicKey } = await req.json();
-    if (!keyId || !vaultPassword || !publicKey) {
+    const { keyId, vaultPassword, publicKey, privateKey } = await req.json();
+    if (!keyId || !vaultPassword || (!publicKey && !privateKey)) {
       return NextResponse.json(
         { error: "Missing required parameters" },
         { status: 400 }
@@ -158,13 +170,17 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const publicKeyHash = await hashKey(publicKey);
+    let keyQuery: any = { _id: keyId, vaultId: vault._id };
 
-    const keyToDelete = await PGPKey.findOne({
-      _id: keyId,
-      vaultId: vault._id,
-      publicKeyHash,
-    });
+    if (publicKey) {
+      const publicKeyHash = await hashKey(publicKey);
+      keyQuery.publicKeyHash = publicKeyHash;
+    } else if (privateKey) {
+      const privateKeyHash = await hashKey(privateKey);
+      keyQuery.privateKeyHash = privateKeyHash;
+    }
+
+    const keyToDelete = await PGPKey.findOne(keyQuery);
 
     if (!keyToDelete) {
       return NextResponse.json(

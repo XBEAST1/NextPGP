@@ -83,9 +83,9 @@ export default function App() {
     return new TextDecoder().decode(decrypted);
   };
 
-  const checkVaultPassword = sessionStorage.getItem("encryptedVaultPassword");
-
   useEffect(() => {
+    const checkVaultPassword = sessionStorage.getItem("encryptedVaultPassword");
+    
     if (!checkVaultPassword) {
       const lockVault = async () => {
         try {
@@ -105,7 +105,7 @@ export default function App() {
 
       lockVault();
     }
-  }, [checkVaultPassword, router]);
+  }, [router]);
 
   const loadKeysFromIndexedDB = async () => {
     const db = await openDB();
@@ -691,7 +691,7 @@ export default function App() {
                 }
 
                 sessionStorage.removeItem("encryptedVaultPassword");
-                
+
                 NProgress.start();
                 router.push("/vault");
               } catch (error) {
