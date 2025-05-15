@@ -40,7 +40,7 @@ export async function sendEmail(to: string, subject: string, html: string) {
     });
 
     const mailOptions = {
-      from: GMAIL_EMAIL,
+      from: `"NextPGP" <${GMAIL_EMAIL}>`,
       to,
       subject,
       html,
