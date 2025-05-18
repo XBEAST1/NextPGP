@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button, Input, Spinner } from "@heroui/react";
 import { logout } from "@/actions/auth";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import UserDetails from "@/components/userdetails";
 import NProgress from "nprogress";
 import "react-toastify/dist/ReactToastify.css";
+import ConnectivityCheck from "@/components/connectivity-check";
 
 const Page = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -17,6 +18,23 @@ const Page = () => {
   const router = useRouter();
 
   const toggleVisibility = () => setIsVisible(!isVisible);
+
+  useEffect(() => {
+    if (!navigator.onLine) {
+      router.push("/offline");
+      return;
+    }
+
+    const handleOffline = () => {
+      router.push("/offline");
+    };
+
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [router]);
 
   useEffect(() => {
     const checkVaultExists = async () => {
@@ -74,6 +92,7 @@ const Page = () => {
 
   return (
     <div>
+      <ConnectivityCheck />
       <ToastContainer theme="dark" />
       <h1 className="sm:me-32 sm:mt-10 text-4xl text-center dm-serif-text-regular">
         Create Vault

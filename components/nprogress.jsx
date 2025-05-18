@@ -20,9 +20,16 @@ export function NavigationProgress() {
 
 // NProgressLink component
 export function NProgressLink({ href, ...props }) {
-  const handleClick = (...args) => {
+  const currentPath = usePathname();
+
+  const handleClick = (e) => {
     NProgress.start();
-    if (props.onClick) props.onClick(...args);
+    if (href === currentPath) {
+      setTimeout(() => {
+        NProgress.done();
+      }, 300);
+    }
+    if (props.onClick) props.onClick(e);
   };
 
   return <NextLink href={href} {...props} onClick={handleClick} />;

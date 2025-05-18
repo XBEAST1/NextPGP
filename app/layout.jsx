@@ -8,6 +8,7 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import { auth } from "@/auth";
 import { SessionProvider } from "next-auth/react";
 import { NavigationProgress } from "@/components/nprogress";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const twittercardimg = `https://nextpgp.vercel.app${Logo.src}`;
 
@@ -75,6 +76,7 @@ export default async function RootLayout({ children }) {
           )}
         >
           <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
+            <SpeedInsights />
             <NavigationProgress />
             <div className="relative flex flex-col h-screen">
               <Navbar />
@@ -91,7 +93,7 @@ export default async function RootLayout({ children }) {
                     target="blank"
                     className="text-default-800"
                   >
-                    XBEAST
+                    XBEAST 🖤✨
                   </a>
                 </div>
               </footer>

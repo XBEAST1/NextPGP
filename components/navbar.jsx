@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import { useReducer } from "react";
 import {
   Navbar as NextUINavbar,
   NavbarContent,
@@ -24,7 +24,7 @@ import LogoLight from "@/assets/Logo-Light.png";
 import { useTheme } from "next-themes";
 
 export const Navbar = () => {
-  const [isMenuOpen, setIsMenuOpen] = React.useReducer(
+  const [isMenuOpen, setIsMenuOpen] = useReducer(
     (current) => !current,
     false
   );

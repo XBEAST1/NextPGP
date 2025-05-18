@@ -17,6 +17,7 @@ import NProgress from "nprogress";
 import UserDetails from "@/components/userdetails";
 import "react-toastify/dist/ReactToastify.css";
 import { openDB, getEncryptionKey } from "@/lib/indexeddb";
+import ConnectivityCheck from "@/components/connectivity-check";
 
 // Encrypts the vault password using the provided master key.
 const storeVaultPassword = async (password, masterKey) => {
@@ -158,6 +159,7 @@ const Page = () => {
 
   return (
     <div>
+      <ConnectivityCheck/>
       <ToastContainer theme="dark" />
       <h1 className="sm:mt-10 sm:me-32 text-4xl text-center dm-serif-text-regular">
         Open Vault

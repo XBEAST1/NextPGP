@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { useState, useEffect } from "react";
 import { Button, DatePicker, Input, Checkbox } from "@heroui/react";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
@@ -114,7 +113,7 @@ export default function App() {
     }
   };
 
-  const [isVisible, setIsVisible] = React.useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   return (

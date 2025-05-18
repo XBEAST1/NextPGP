@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import {
   Button,
   Card,
@@ -9,11 +8,13 @@ import {
   Image,
 } from "@heroui/react";
 import { login } from "@/actions/auth";
+import ConnectivityCheck from "@/components/connectivity-check";
 import Logo from "@/assets/Logo2.jpg";
 
 const page = () => {
   return (
     <div className="mt-20 flex justify-center gap-4">
+      <ConnectivityCheck />
       <Card className="w-[500px] p-4">
         <CardHeader className="flex justify-center gap-3">
           <Image

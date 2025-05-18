@@ -7,7 +7,6 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
-  swcMinify: true,
   disable: process.env.NODE_ENV === "development",
   workboxOptions: {
     disableDevLogs: true,
@@ -25,115 +24,18 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       { url: "/vault", revision: buildTimestamp },
       { url: "/cloud-backup", revision: buildTimestamp },
       { url: "/cloud-manage", revision: buildTimestamp },
+      { url: "/offline", revision: buildTimestamp },
     ],
     runtimeCaching: [
       // Cache all main pages permanently
       {
-        urlPattern: /^https:\/\/nextpgp\.vercel\.app\/$/,
+        urlPattern:
+          /^https:\/\/nextpgp\.vercel\.app\/($|generate|import|encrypt|decrypt|login|create-vault|vault|cloud-backup|cloud-manage|offline)$/,
         handler: "NetworkFirst",
         options: {
-          cacheName: "main-page-cache",
+          cacheName: "main-pages",
           expiration: {
-            maxEntries: 1,
-            maxAgeSeconds: 60 * 60 * 24 * 365,
-          },
-        },
-      },
-      {
-        urlPattern: /^https:\/\/nextpgp\.vercel\.app\/generate$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "generate-page-cache",
-          expiration: {
-            maxEntries: 1,
-            maxAgeSeconds: 60 * 60 * 24 * 365,
-          },
-        },
-      },
-      {
-        urlPattern: /^https:\/\/nextpgp\.vercel\.app\/import$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "import-page-cache",
-          expiration: {
-            maxEntries: 1,
-            maxAgeSeconds: 60 * 60 * 24 * 365,
-          },
-        },
-      },
-      {
-        urlPattern: /^https:\/\/nextpgp\.vercel\.app\/encrypt$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "encrypt-page-cache",
-          expiration: {
-            maxEntries: 1,
-            maxAgeSeconds: 60 * 60 * 24 * 365,
-          },
-        },
-      },
-      {
-        urlPattern: /^https:\/\/nextpgp\.vercel\.app\/decrypt$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "decrypt-page-cache",
-          expiration: {
-            maxEntries: 1,
-            maxAgeSeconds: 60 * 60 * 24 * 365,
-          },
-        },
-      },
-      {
-        urlPattern: /^https:\/\/nextpgp\.vercel\.app\/login$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "login-page-cache",
-          expiration: {
-            maxEntries: 1,
-            maxAgeSeconds: 60 * 60 * 24 * 365,
-          },
-        },
-      },
-      {
-        urlPattern: /^https:\/\/nextpgp\.vercel\.app\/create-vault$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "create-vault-page-cache",
-          expiration: {
-            maxEntries: 1,
-            maxAgeSeconds: 60 * 60 * 24 * 365,
-          },
-        },
-      },
-      {
-        urlPattern: /^https:\/\/nextpgp\.vercel\.app\/vault$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "vault-page-cache",
-          expiration: {
-            maxEntries: 1,
-            maxAgeSeconds: 60 * 60 * 24 * 365,
-          },
-        },
-      },
-      {
-        urlPattern: /^https:\/\/nextpgp\.vercel\.app\/cloud-backup$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "cloud-backup-page-cache",
-          expiration: {
-            maxEntries: 1,
-            maxAgeSeconds: 60 * 60 * 24 * 365,
-          },
-        },
-      },
-      {
-        urlPattern: /^https:\/\/nextpgp\.vercel\.app\/cloud-manage$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "cloud-manage-page-cache",
-          expiration: {
-            maxEntries: 1,
+            maxEntries: 13,
             maxAgeSeconds: 60 * 60 * 24 * 365,
           },
         },

@@ -18,6 +18,7 @@
   "@react-aria/ssr": "3.9.7",
   "@react-aria/visually-hidden": "3.8.18",
   "@react-types/datepicker": "^3.9.0",
+  "@vercel/speed-insights": "^1.2.0",
   "argon2": "^0.41.1",
   "clsx": "2.1.1",
   "file-saver": "^2.0.5",

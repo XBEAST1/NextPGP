@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Table,
   TableHeader,
@@ -36,6 +36,7 @@ import {
   dbPgpKeys,
 } from "@/lib/indexeddb";
 import * as openpgp from "openpgp";
+import ConnectivityCheck from "@/components/connectivity-check";
 
 const statusColorMap = {
   "Backed Up": "success",
@@ -68,10 +69,10 @@ export default function App() {
       width: "15%",
       align: "center",
     },
-    { name: "BACKUP", uid: "backup", width: "0%", width: "8%" },
+    { name: "BACKUP", uid: "backup", width: "8%" },
   ];
 
-  const [isVisible, setIsVisible] = React.useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   const decryptVaultPassword = async (encryptedData, key, iv) => {
@@ -319,7 +320,7 @@ export default function App() {
     };
   }, []);
 
-  const filteredItems = React.useMemo(() => {
+  const filteredItems = useMemo(() => {
     let filteredUsers = [...users];
 
     if (filterValue) {
@@ -333,7 +334,7 @@ export default function App() {
 
   const pages = Math.ceil(filteredItems.length / rowsPerPage);
 
-  const sortedItems = React.useMemo(() => {
+  const sortedItems = useMemo(() => {
     const start = (page - 1) * rowsPerPage;
     const end = start + rowsPerPage;
 
@@ -352,7 +353,7 @@ export default function App() {
 
   const headerColumns = columns;
 
-  const renderCell = React.useCallback((user, columnKey) => {
+  const renderCell = useCallback((user, columnKey) => {
     const cellValue = user[columnKey];
 
     switch (columnKey) {
@@ -585,24 +586,24 @@ export default function App() {
     });
   };
 
-  const onNextPage = React.useCallback(() => {
+  const onNextPage = useCallback(() => {
     if (page < pages) {
       setPage(page + 1);
     }
   }, [page, pages]);
 
-  const onPreviousPage = React.useCallback(() => {
+  const onPreviousPage = useCallback(() => {
     if (page > 1) {
       setPage(page - 1);
     }
   }, [page]);
 
-  const onRowsPerPageChange = React.useCallback((e) => {
+  const onRowsPerPageChange = useCallback((e) => {
     setRowsPerPage(Number(e.target.value));
     setPage(1);
   }, []);
 
-  const onSearchChange = React.useCallback((value) => {
+  const onSearchChange = useCallback((value) => {
     if (value) {
       setFilterValue(value);
       setPage(1);
@@ -611,12 +612,12 @@ export default function App() {
     }
   }, []);
 
-  const onClear = React.useCallback(() => {
+  const onClear = useCallback(() => {
     setFilterValue("");
     setPage(1);
   }, []);
 
-  const topContent = React.useMemo(() => {
+  const topContent = useMemo(() => {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-center text-4xl dm-serif-text-regular">
@@ -660,7 +661,7 @@ export default function App() {
     hasSearchFilter,
   ]);
 
-  const bottomContent = React.useMemo(() => {
+  const bottomContent = useMemo(() => {
     return (
       <div className="py-2 px-2 relative flex justify-between items-center">
         <Pagination
@@ -728,6 +729,7 @@ export default function App() {
 
   return (
     <>
+      <ConnectivityCheck/>
       <ToastContainer theme="dark" />
       <Table
         isHeaderSticky
