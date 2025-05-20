@@ -35,6 +35,7 @@ import {
   openDB,
   getEncryptionKey,
   decryptData,
+  encryptData,
   dbPgpKeys,
 } from "@/lib/indexeddb";
 import * as openpgp from "openpgp";
@@ -55,6 +56,14 @@ export default function App() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [selectedKeyName, setSelectedKeyName] = useState("");
+  const [password, setPassword] = useState("");
+  const [newKeyPassword, setnewKeyPassword] = useState(null);
+  const [passwordModal, setPasswordModal] = useState(false);
+  const [newPasswordChangeModal, setnewPasswordChangeModal] = useState(false);
+  const [removePasswordModal, setremovePasswordModal] = useState(false);
+  const [deleteModal, setdeleteModal] = useState(false);
 
   const columns = [
     { name: "NAME", uid: "name", sortable: true },
@@ -71,11 +80,88 @@ export default function App() {
   ];
 
   useEffect(() => {
-    openDB(); 
+    openDB();
   }, []);
 
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
+
+  const isPasswordProtected = async (privateKeyArmored) => {
+    try {
+      const privateKey = await openpgp.readPrivateKey({
+        armoredKey: privateKeyArmored,
+      });
+      return privateKey.isPrivate() && !privateKey.isDecrypted();
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const UserActionsDropdown = ({ user }) => {
+    const [isProtected, setIsProtected] = useState(null);
+
+    useEffect(() => {
+      let mounted = true;
+      const checkProtected = async () => {
+        if (user.privateKey?.trim()) {
+          const result = await isPasswordProtected(user.privateKey);
+          if (mounted) setIsProtected(result);
+        } else {
+          setIsProtected(false);
+        }
+      };
+      checkProtected();
+      return () => {
+        mounted = false;
+      };
+    }, [user.privateKey]);
+
+    return (
+      <div className="relative flex justify-end items-center gap-2 me-10">
+        <Dropdown>
+          <DropdownTrigger>
+            <Button isIconOnly size="sm" variant="light">
+              <VerticalDotsIcon className="text-default-300" />
+            </Button>
+          </DropdownTrigger>
+          <DropdownMenu>
+            <DropdownItem onPress={() => exportPublicKey(user)}>
+              Export Public Key
+            </DropdownItem>
+
+            {user.privateKey?.trim() && isProtected !== null && (
+              <>
+                <DropdownItem onPress={() => backupKeyring(user)}>
+                  Backup Keyring
+                </DropdownItem>
+
+                {isProtected ? (
+                  <>
+                    <DropdownItem onPress={() => addOrChangeKeyPassword(user)}>
+                      Change Password
+                    </DropdownItem>
+                    <DropdownItem onPress={() => triggerRemovePasswordModal(user, user.name)}>
+                      Remove Password
+                    </DropdownItem>
+                  </>
+                ) : (
+                  <DropdownItem onPress={() => addOrChangeKeyPassword(user)}>
+                    Add Password
+                  </DropdownItem>
+                )}
+              </>
+            )}
+
+            <DropdownItem
+              onPress={() => triggerdeleteModal(user.id, user.name)}
+            >
+              Delete
+            </DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
+      </div>
+    );
+  };
 
   const loadKeysFromIndexedDB = async () => {
     const db = await openDB();
@@ -151,20 +237,7 @@ export default function App() {
                   };
                 }
               } catch (error) {
-                console.error("Error getting key expiration time:", error);
                 return { expirydate: "Error", status: "unknown" };
-              }
-            };
-
-            const isPasswordProtected = async (privateKeyArmored) => {
-              try {
-                const privateKey = await openpgp.readPrivateKey({
-                  armoredKey: privateKeyArmored,
-                });
-                return privateKey.isPrivate() && !privateKey.isDecrypted();
-              } catch (error) {
-                console.error("Error reading private key:", error);
-                return false;
               }
             };
 
@@ -300,34 +373,7 @@ export default function App() {
           </Chip>
         );
       case "actions":
-        return (
-          <div className="relative flex justify-end items-center gap-2 me-10">
-            <Dropdown>
-              <DropdownTrigger>
-                <Button isIconOnly size="sm" variant="light">
-                  <VerticalDotsIcon className="text-default-300 " />
-                </Button>
-              </DropdownTrigger>
-              <DropdownMenu>
-                <DropdownItem onPress={() => exportPublicKey(user)}>
-                  Export Public Key
-                </DropdownItem>
-                {user.privateKey && user.privateKey.trim() !== "" ? (
-                  <DropdownItem onPress={() => backupKeyring(user)}>
-                    Backup Keyring
-                  </DropdownItem>
-                ) : (
-                  ""
-                )}
-                <DropdownItem
-                  onPress={() => triggerDeleteModal(user.id, user.name)}
-                >
-                  Delete
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
-          </div>
-        );
+        return <UserActionsDropdown user={user} />;
       default:
         return cellValue;
     }
@@ -355,7 +401,7 @@ export default function App() {
 
       if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
         if (!password) {
-          const enteredPassword = await triggerPasswordModal(user);
+          const enteredPassword = await triggerKeyPasswordModal(user);
           password = enteredPassword;
         }
 
@@ -388,16 +434,13 @@ export default function App() {
     }
   };
 
-  const [passwordResolve, setPasswordResolve] = useState(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [password, setPassword] = useState("");
-
-  const triggerPasswordModal = async (user) => {
-    setIsOpen(true);
+  const triggerKeyPasswordModal = async (user) => {
+    setPassword("");
+    setPasswordModal(true);
     return new Promise((resolve) => {
       const tryPassword = async () => {
         const enteredPassword = await new Promise((res) => {
-          setPasswordResolve(() => res);
+          setnewKeyPassword(() => res);
         });
         try {
           const privateKey = await openpgp.readKey({
@@ -407,7 +450,7 @@ export default function App() {
             privateKey,
             passphrase: enteredPassword,
           });
-          setIsOpen(false);
+          setPasswordModal(false);
           resolve(enteredPassword);
         } catch (error) {
           toast.error("Incorrect Password", {
@@ -419,6 +462,145 @@ export default function App() {
 
       tryPassword();
     });
+  };
+
+  const triggernewPasswordChangeModal = () =>
+    new Promise((resolve) => {
+      setPassword("");
+      setnewPasswordChangeModal(true);
+      setnewKeyPassword(() => (pwd) => {
+        setnewPasswordChangeModal(false);
+        setnewKeyPassword(null);
+        resolve(pwd);
+      });
+    });
+
+  const updateKeyPassword = async (userId, newArmoredKey) => {
+    const db = await openDB();
+    const encryptionKey = await getEncryptionKey();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction("pgpKeys", "readonly");
+      const store = transaction.objectStore("pgpKeys");
+      const getRequest = store.get(userId);
+
+      getRequest.onsuccess = async () => {
+        const record = getRequest.result;
+        if (!record) {
+          return reject(new Error("Key record not found"));
+        }
+
+        try {
+          const originalDecrypted = await decryptData(
+            record.encrypted,
+            encryptionKey,
+            record.iv
+          );
+
+          const updatedDecrypted = {
+            ...originalDecrypted,
+            privateKey: newArmoredKey,
+          };
+
+          const { encrypted, iv } = await encryptData(
+            updatedDecrypted,
+            encryptionKey
+          );
+          record.encrypted = encrypted;
+          record.iv = iv;
+        } catch (error) {
+          return reject(error);
+        }
+
+        const writeTx = db.transaction("pgpKeys", "readwrite");
+        const writeStore = writeTx.objectStore("pgpKeys");
+        const putRequest = writeStore.put(record);
+
+        putRequest.onsuccess = () => {
+          resolve();
+        };
+        putRequest.onerror = (e) => {
+          reject(e.target.error);
+        };
+      };
+
+      getRequest.onerror = (e) => {
+        reject(e.target.error);
+      };
+    });
+  };
+
+  const addOrChangeKeyPassword = async (user) => {
+    try {
+      let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+        const currentPassword = await triggerKeyPasswordModal(user);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+
+      const newPassword = await triggernewPasswordChangeModal();
+
+      const updatedKey = await openpgp.encryptKey({
+        privateKey,
+        passphrase: newPassword,
+      });
+      const armored = updatedKey.armor();
+
+      await updateKeyPassword(user.id, armored);
+
+      const updatedKeys = await loadKeysFromIndexedDB();
+
+      setUsers(updatedKeys);
+      toast.success("Password Changed Successfully", { position: "top-right" });
+    } catch (error) {
+      toast.error("Failed to change password", { position: "top-right" });
+    }
+  };
+
+  const triggerRemovePasswordModal = async (user, name) => {
+    setSelectedUserId(user);
+    setSelectedKeyName(name);
+    setremovePasswordModal(true);
+  };
+
+  const removePasswordFromKey = async () => {
+    try {
+      let privateKey = await openpgp.readKey({
+        armoredKey: selectedUserId.privateKey,
+      });
+      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+        const currentPassword = await triggerKeyPasswordModal(selectedUserId);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+      const armored = privateKey.armor();
+
+      await updateKeyPassword(selectedUserId.id, armored);
+
+      toast.success("Password removed successfully", { position: "top-right" });
+      const refreshedKeys = await loadKeysFromIndexedDB();
+      setUsers(refreshedKeys);
+    } catch (error) {
+      toast.error("Failed to remove password", { position: "top-right" });
+    }
+    closeremovePasswordModal();
+  };
+
+  const closeremovePasswordModal = () => {
+    setSelectedUserId(null);
+    setSelectedKeyName("");
+    setremovePasswordModal(false);
+  };
+
+  const triggerdeleteModal = (userId, name) => {
+    setSelectedUserId(userId);
+    setSelectedKeyName(name);
+    setdeleteModal(true);
   };
 
   const deleteKey = async (userId) => {
@@ -443,20 +625,10 @@ export default function App() {
     });
   };
 
-  const [DeleteModal, setDeleteModal] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState(null);
-  const [selectedKeyName, setSelectedKeyName] = useState("");
-
-  const triggerDeleteModal = (userId, name) => {
-    setSelectedUserId(userId);
-    setSelectedKeyName(name);
-    setDeleteModal(true);
-  };
-
-  const closeDeleteModal = () => {
+  const closedeleteModal = () => {
     setSelectedUserId(null);
     setSelectedKeyName("");
-    setDeleteModal(false);
+    setdeleteModal(false);
   };
 
   const onNextPage = useCallback(() => {
@@ -628,7 +800,11 @@ export default function App() {
           )}
         </TableBody>
       </Table>
-      <Modal backdrop="blur" isOpen={isOpen} onClose={() => setIsOpen(false)}>
+      <Modal
+        backdrop="blur"
+        isOpen={passwordModal}
+        onClose={() => setPasswordModal(false)}
+      >
         <ModalContent className="p-5">
           <h3 className="mb-4">Enter Password for Protected Key</h3>
           <Input
@@ -644,8 +820,8 @@ export default function App() {
                   toast.error("Please Enter a Password", {
                     position: "top-right",
                   });
-                } else if (passwordResolve) {
-                  passwordResolve(password);
+                } else if (newKeyPassword) {
+                  newKeyPassword(password);
                 }
               }
             }}
@@ -671,8 +847,8 @@ export default function App() {
                 toast.error("Please Enter a Password", {
                   position: "top-right",
                 });
-              } else if (passwordResolve) {
-                passwordResolve(password);
+              } else if (newKeyPassword) {
+                newKeyPassword(password);
               }
             }}
           >
@@ -680,7 +856,89 @@ export default function App() {
           </Button>
         </ModalContent>
       </Modal>
-      <Modal backdrop="blur" isOpen={DeleteModal} onClose={closeDeleteModal}>
+      <Modal
+        backdrop="blur"
+        isOpen={newPasswordChangeModal}
+        onClose={() => setnewPasswordChangeModal(false)}
+      >
+        <ModalContent className="p-5">
+          <h3 className="mb-4">Enter New Password</h3>
+          <Input
+            id="newPasswordInput"
+            name="password"
+            placeholder="Enter Password"
+            type={isVisible ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                if (password.trim() === "") {
+                  toast.error("Please Enter a Password", {
+                    position: "top-right",
+                  });
+                } else if (newKeyPassword) {
+                  newKeyPassword(password);
+                }
+              }
+            }}
+            endContent={
+              <button
+                aria-label="toggle password visibility"
+                className="focus:outline-none"
+                type="button"
+                onClick={toggleVisibility}
+              >
+                {isVisible ? (
+                  <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                ) : (
+                  <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                )}
+              </button>
+            }
+          />
+          <Button
+            className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+            onPress={() => {
+              if (password.trim() === "") {
+                toast.error("Please Enter a Password", {
+                  position: "top-right",
+                });
+              } else if (newKeyPassword) {
+                newKeyPassword(password);
+              }
+            }}
+          >
+            Submit
+          </Button>
+        </ModalContent>
+      </Modal>
+      <Modal
+        backdrop="blur"
+        isOpen={removePasswordModal}
+        onClose={closeremovePasswordModal}
+      >
+        <ModalContent className="p-5">
+          <h3 className="mb-2">
+            Are You Sure You Want To Remove The Password From {selectedKeyName}
+            &apos;s Key?
+          </h3>
+          <div className="flex gap-2">
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+              onPress={closeremovePasswordModal}
+            >
+              No
+            </Button>
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
+              onPress={removePasswordFromKey}
+            >
+              Yes
+            </Button>
+          </div>
+        </ModalContent>
+      </Modal>
+      <Modal backdrop="blur" isOpen={deleteModal} onClose={closedeleteModal}>
         <ModalContent className="p-5">
           <h3 className="mb-2">
             Are You Sure You Want To Delete {selectedKeyName}&apos;s Key?
@@ -688,7 +946,7 @@ export default function App() {
           <div className="flex gap-2">
             <Button
               className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
-              onPress={closeDeleteModal}
+              onPress={closedeleteModal}
             >
               No
             </Button>
@@ -696,7 +954,7 @@ export default function App() {
               className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
               onPress={() => {
                 deleteKey(selectedUserId);
-                closeDeleteModal();
+                closedeleteModal();
               }}
             >
               Yes
