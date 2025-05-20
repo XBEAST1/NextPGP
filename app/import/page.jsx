@@ -31,6 +31,7 @@ const extractPGPKeys = (content) => {
 
 export default function ImportKeyPage() {
   const [keyInput, setKeyInput] = useState("");
+  const [fileContents, setFileContents] = useState([]);
 
   useEffect(() => {
     openDB();
@@ -113,7 +114,7 @@ export default function ImportKeyPage() {
       }
 
       if (await checkIfKeyExists(keyData)) {
-        toast.error("Key already exists", {
+        toast.info(`${keyData.name}'s Key already exists`, {
           position: "top-right",
         });
         return;
@@ -121,9 +122,14 @@ export default function ImportKeyPage() {
 
       saveKeyToIndexedDB(keyData);
 
-      toast.success(isPrivateKey ? "Keyring Imported" : "Public key imported", {
-        position: "top-right",
-      });
+      toast.success(
+        isPrivateKey
+          ? `${keyData.name}'s Keyring Imported`
+          : `${keyData.name}'s Public key imported`,
+        {
+          position: "top-right",
+        }
+      );
     } catch (error) {
       toast.error(`Failed to import key: ${error.message}`, {
         position: "top-right",
@@ -132,20 +138,42 @@ export default function ImportKeyPage() {
   };
 
   const handleFileInput = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const fileContent = e.target.result;
-        setKeyInput(fileContent);
-      };
-      reader.readAsText(file);
+    const files = event.target.files;
+    if (files) {
+      const newContents = [];
+      let processedFiles = 0;
+      Array.from(files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          newContents.push(e.target.result);
+          processedFiles++;
+          if (processedFiles === files.length) {
+            setFileContents(newContents);
+            if (files.length === 1) {
+              setKeyInput(newContents[0]);
+            }
+          }
+        };
+        reader.readAsText(file);
+      });
     }
   };
 
   const handleImport = async () => {
     try {
-      await importKey(keyInput);
+      let importedFromText = false;
+
+      if (keyInput.trim()) {
+        await importKey(keyInput);
+        importedFromText = true;
+      }
+
+      for (const content of fileContents) {
+        if (importedFromText && content.trim() === keyInput.trim()) {
+          continue;
+        }
+        await importKey(content);
+      }
     } catch (error) {
       toast.error(`An error occurred: ${error.message}`, {
         position: "top-right",
@@ -159,7 +187,12 @@ export default function ImportKeyPage() {
       <h1 className="text-center text-4xl dm-serif-text-regular">Import Key</h1>
       <br />
       <p className="ms-1 mb-3 text-small">Upload PGP Key File</p>
-      <Input type="file" accept=".asc,.txt,.key" onChange={handleFileInput} />
+      <Input
+        multiple
+        type="file"
+        accept=".asc,.txt,.key"
+        onChange={handleFileInput}
+      />
       <br />
       <Textarea
         disableAutosize

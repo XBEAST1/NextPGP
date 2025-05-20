@@ -24,7 +24,11 @@ export function NProgressLink({ href, ...props }) {
 
   const handleClick = (e) => {
     NProgress.start();
-    if (href === currentPath) {
+    const isNewTab =
+      e.ctrlKey || e.metaKey || e.shiftKey || e.nativeEvent?.button === 1;
+    if (isNewTab) {
+      NProgress.done();
+    } else if (href === currentPath) {
       setTimeout(() => {
         NProgress.done();
       }, 300);

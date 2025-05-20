@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button, DatePicker, Input, Checkbox } from "@heroui/react";
+import {
+  Button,
+  DatePicker,
+  Input,
+  Checkbox,
+  Autocomplete,
+  AutocompleteItem,
+} from "@heroui/react";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -22,9 +29,45 @@ export default function App() {
   const [expiryDate, setExpiryDate] = useState(null);
   const [nameInvalid, setNameInvalid] = useState(false);
   const [emailInvalid, setEmailInvalid] = useState(false);
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState("curve25519");
+
+  const keyalgorithms = [
+    {
+      label: "Curve25519 (EdDSA/ECDH) - Recommended",
+      key: "curve25519",
+    },
+    {
+      label: "NIST P-256 (ECDSA/ECDH)",
+      key: "nistP256",
+    },
+    {
+      label: "NIST P-521 (ECDSA/ECDH)",
+      key: "nistP521",
+    },
+    {
+      label: "Brainpool P-256r1 (ECDSA/ECDH)",
+      key: "brainpoolP256r1",
+    },
+    {
+      label: "Brainpool P-512r1 (ECDSA/ECDH)",
+      key: "brainpoolP512r1",
+    },
+    {
+      label: "RSA 2048",
+      key: "rsa2048",
+    },
+    {
+      label: "RSA 3072",
+      key: "rsa3072",
+    },
+    {
+      label: "RSA 4096",
+      key: "rsa4096",
+    },
+  ];
 
   useEffect(() => {
-    openDB(); 
+    openDB();
   }, []);
 
   // Save Encrypted PGP Key to IndexedDB
@@ -79,14 +122,26 @@ export default function App() {
         }
       }
 
-      const options = {
-        type: "ecc",
-        curve: "ed25519",
-        userIDs: [{ name, email: validEmail }],
-        passphrase: passphraseToUse,
-        format: "armored",
-        keyExpirationTime: keyExpirationTime,
-      };
+      let options;
+      if (selectedAlgorithm.startsWith("rsa")) {
+        options = {
+          type: "rsa",
+          rsaBits: parseInt(selectedAlgorithm.replace("rsa", "")),
+          userIDs: [{ name, email: validEmail }],
+          passphrase: passphraseToUse,
+          format: "armored",
+          keyExpirationTime: keyExpirationTime,
+        };
+      } else {
+        options = {
+          type: "ecc",
+          curve: selectedAlgorithm,
+          userIDs: [{ name, email: validEmail }],
+          passphrase: passphraseToUse,
+          format: "armored",
+          keyExpirationTime: keyExpirationTime,
+        };
+      }
 
       const key = await openpgp.generateKey(options);
       const { privateKey, publicKey } = key;
@@ -147,6 +202,29 @@ export default function App() {
         onChange={(e) => setEmail(e.target.value)}
       />
 
+      <br />
+
+      <Autocomplete
+        className="max-w-md"
+        defaultItems={keyalgorithms}
+        defaultSelectedKey="curve25519"
+        label="Select Key Algorithm"
+        onSelectionChange={(selectedItem) => {
+          const selectedKey =
+            typeof selectedItem === "object" && selectedItem !== null
+              ? selectedItem.key
+              : selectedItem;
+          if (selectedKey) {
+            setSelectedAlgorithm(selectedKey);
+          }
+        }}
+      >
+        {(item) => (
+          <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>
+        )}
+      </Autocomplete>
+
+      <br />
       <br />
 
       <Checkbox
