@@ -10,6 +10,10 @@ import {
   TableCell,
   Input,
   Button,
+  DropdownTrigger,
+  Dropdown,
+  DropdownMenu,
+  DropdownItem,
   Chip,
   User,
   Pagination,
@@ -21,6 +25,7 @@ import {
   EyeFilledIcon,
   EyeSlashFilledIcon,
   SearchIcon,
+  ChevronDownIcon,
 } from "@/components/icons";
 import NProgress from "nprogress";
 import { NProgressLink } from "@/components/nprogress";
@@ -43,9 +48,79 @@ const statusColorMap = {
   "Not Backed Up": "danger",
 };
 
+const keyStatusColorMap = {
+  active: "success",
+  expired: "danger",
+};
+
 const passwordprotectedColorMap = {
   Yes: "success",
   No: "danger",
+};
+
+const INITIAL_VISIBLE_COLUMNS = [
+  "name",
+  "email",
+  "creationdate",
+  "expirydate",
+  "keystatus",
+  "passwordprotected",
+  "status",
+  "backup",
+];
+
+const columns = [
+  { name: "NAME", uid: "name", width: "15%", sortable: true },
+  {
+    name: "EMAIL",
+    uid: "email",
+    width: "23%",
+    align: "center",
+    sortable: true,
+  },
+  {
+    name: "CREATION DATE",
+    uid: "creationdate",
+    width: "15%",
+    sortable: true,
+  },
+  {
+    name: "EXPIRY DATE",
+    uid: "expirydate",
+    width: "12%",
+    sortable: true,
+  },
+  {
+    name: "KEY STATUS",
+    uid: "keystatus",
+    width: "10%",
+    align: "center",
+    sortable: true,
+  },
+  {
+    name: "PASSWORD",
+    uid: "passwordprotected",
+    width: "10%",
+    align: "center",
+    sortable: true,
+  },
+  {
+    name: "STATUS",
+    uid: "status",
+    width: "15%",
+    align: "center",
+    sortable: true,
+  },
+  { name: "KEY ID", uid: "keyid", align: "center" },
+  { name: "FINGERPRINT", uid: "fingerprint", align: "center" },
+  { name: "ALGORITHM", uid: "algorithm", align: "center" },
+  { name: "BACKUP", uid: "backup", width: "8%", align: "center" },
+];
+
+const capitalize = (s) => {
+  if (!s) return "";
+  if (s.toLowerCase() === "key id") return "Key ID";
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
 export default function App() {
@@ -55,22 +130,10 @@ export default function App() {
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
   const [locking, setLocking] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(
+    new Set(INITIAL_VISIBLE_COLUMNS)
+  );
   const router = useRouter();
-
-  const columns = [
-    { name: "NAME", uid: "name", sortable: true },
-    { name: "EMAIL", uid: "email", width: "23%" },
-    { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
-    { name: "PASSWORD", uid: "passwordprotected", sortable: true },
-    {
-      name: "STATUS",
-      uid: "status",
-      sortable: true,
-      width: "15%",
-      align: "center",
-    },
-    { name: "BACKUP", uid: "backup", width: "8%" },
-  ];
 
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
@@ -86,7 +149,7 @@ export default function App() {
 
   useEffect(() => {
     const checkVaultPassword = sessionStorage.getItem("encryptedVaultPassword");
-    
+
     if (!checkVaultPassword) {
       const lockVault = async () => {
         try {
@@ -204,29 +267,25 @@ export default function App() {
               return `${day}-${month}-${year}`;
             };
 
-            const getKeyExpiryInfo = async (key, isBackedUp) => {
+            const getKeyExpiryInfo = async (key) => {
               try {
                 const expirationTime = await key.getExpirationTime();
                 const now = new Date();
                 if (expirationTime === null || expirationTime === Infinity) {
-                  return {
-                    expirydate: "No Expiry",
-                    status: isBackedUp ? "Backed Up" : "Not Backed Up",
-                  };
+                  return { expirydate: "No Expiry", keystatus: "active" };
                 } else if (expirationTime < now) {
                   return {
                     expirydate: formatDate(expirationTime),
-                    status: "expired",
+                    keystatus: "expired",
                   };
                 } else {
                   return {
                     expirydate: formatDate(expirationTime),
-                    status: isBackedUp ? "Backed Up" : "Not Backed Up",
+                    keystatus: "active",
                   };
                 }
               } catch (error) {
-                console.error("Error getting key expiration time:", error);
-                return { expirydate: "Error", status: "unknown" };
+                return { expirydate: "Error", keystatus: "unknown" };
               }
             };
 
@@ -256,22 +315,90 @@ export default function App() {
                       backedUpKey.privateKey === key.privateKey)
                 );
 
-                const { expirydate, status } = await getKeyExpiryInfo(
-                  openpgpKey,
-                  isBackedUp
-                );
+                const status = isBackedUp ? "Backed Up" : "Not Backed Up";
+
+                const creationdate = formatDate(openpgpKey.getCreationTime());
+
+                const { expirydate, keystatus } =
+                  await getKeyExpiryInfo(openpgpKey);
 
                 const passwordProtected = key.privateKey
                   ? await isPasswordProtected(key.privateKey)
                   : false;
 
+                const formatFingerprint = (fingerprint) => {
+                  const parts = fingerprint.match(/.{1,4}/g);
+                  const nbsp = "\u00A0";
+                  return (
+                    parts.slice(0, 5).join(" ") +
+                    nbsp.repeat(6) +
+                    parts.slice(5).join(" ")
+                  );
+                };
+                const fingerprint = formatFingerprint(
+                  openpgpKey.getFingerprint().toUpperCase()
+                );
+
+                const formatKeyID = (keyid) => keyid.match(/.{1,4}/g).join(" ");
+                const keyid = formatKeyID(
+                  openpgpKey.getKeyID().toHex().toUpperCase()
+                );
+
+                const formatAlgorithm = (algoInfo) => {
+                  // ECC curve detection
+                  const labelMap = {
+                    curve25519: "Curve25519 (EdDSA/ECDH)",
+                    nistP256: "NIST P-256 (ECDSA/ECDH)",
+                    nistP521: "NIST P-521 (ECDSA/ECDH)",
+                    brainpoolP256r1: "Brainpool P-256r1 (ECDSA/ECDH)",
+                    brainpoolP512r1: "Brainpool P-512r1 (ECDSA/ECDH)",
+                  };
+
+                  if (
+                    ["eddsa", "eddsaLegacy", "curve25519"].includes(
+                      algoInfo.algorithm
+                    )
+                  ) {
+                    return labelMap.curve25519;
+                  }
+
+                  if (algoInfo.curve && labelMap[algoInfo.curve]) {
+                    return labelMap[algoInfo.curve];
+                  }
+
+                  // RSA detection
+                  if (/^rsa/i.test(algoInfo.algorithm)) {
+                    switch (algoInfo.bits) {
+                      case 2048:
+                        return "RSA 2048";
+                      case 3072:
+                        return "RSA 3072";
+                      case 4096:
+                        return "RSA 4096";
+                      default:
+                        return `RSA (${algoInfo.bits || "?"} bits)`;
+                    }
+                  }
+
+                  return algoInfo.algorithm || "Unknown Algorithm";
+                };
+
+                const algorithm = formatAlgorithm(
+                  openpgpKey.getAlgorithmInfo()
+                );
+
                 return {
                   id: key.id,
                   name: key.name,
                   email: key.email,
+                  creationdate: creationdate,
                   expirydate: expirydate,
+                  keystatus: keystatus,
                   passwordprotected: passwordProtected ? "Yes" : "No",
                   status: status,
+                  keyid: keyid,
+                  fingerprint: fingerprint,
+                  algorithm: algorithm,
                   avatar: (() => {
                     const hasPrivateKey =
                       key.privateKey && key.privateKey.trim() !== "";
@@ -351,7 +478,13 @@ export default function App() {
 
   const hasSearchFilter = Boolean(filterValue);
 
-  const headerColumns = columns;
+  const headerColumns = useMemo(() => {
+    if (visibleColumns === "all") return columns;
+
+    return columns.filter((column) =>
+      Array.from(visibleColumns).includes(column.uid)
+    );
+  }, [visibleColumns]);
 
   const renderCell = useCallback((user, columnKey) => {
     const cellValue = user[columnKey];
@@ -363,6 +496,16 @@ export default function App() {
             avatarProps={{ radius: "lg", src: user.avatar }}
             name={cellValue}
           ></User>
+        );
+      case "keystatus":
+        return (
+          <Chip
+            className="-ms-5 capitalize"
+            color={keyStatusColorMap[user.keystatus]}
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
         );
       case "status":
         return (
@@ -377,9 +520,8 @@ export default function App() {
       case "passwordprotected":
         return (
           <Chip
-            className="ms-5 capitalize"
+            className="-ms-6 capitalize"
             color={passwordprotectedColorMap[user.passwordprotected]}
-            size="sm"
             variant="flat"
           >
             {cellValue}
@@ -388,7 +530,7 @@ export default function App() {
       case "backup":
         return (
           <Button
-            className="-ms-3"
+            className="ms-2"
             color="secondary"
             variant="flat"
             onPress={() => backupKey(user)}
@@ -634,6 +776,32 @@ export default function App() {
             onClear={() => onClear()}
             onValueChange={onSearchChange}
           />
+          <Dropdown>
+            <DropdownTrigger>
+              <Button
+                endContent={<ChevronDownIcon className="text-small" />}
+                variant="flat"
+              >
+                Columns
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu
+              disallowEmptySelection
+              aria-label="Table Columns"
+              closeOnSelect={false}
+              selectedKeys={visibleColumns}
+              selectionMode="multiple"
+              onSelectionChange={setVisibleColumns}
+            >
+              {columns
+                .filter((column) => column.uid !== "backup")
+                .map((column) => (
+                  <DropdownItem key={column.uid} className="capitalize">
+                    {capitalize(column.name)}
+                  </DropdownItem>
+                ))}
+            </DropdownMenu>
+          </Dropdown>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-default-400 text-small">
@@ -657,6 +825,7 @@ export default function App() {
     filterValue,
     onRowsPerPageChange,
     users.length,
+    visibleColumns,
     onSearchChange,
     hasSearchFilter,
   ]);
@@ -729,7 +898,7 @@ export default function App() {
 
   return (
     <>
-      <ConnectivityCheck/>
+      <ConnectivityCheck />
       <ToastContainer theme="dark" />
       <Table
         isHeaderSticky
@@ -748,7 +917,20 @@ export default function App() {
           {(column) => (
             <TableColumn
               key={column.uid}
-              align={column.uid === "actions" ? "center" : "start"}
+              align={
+                [
+                  "email",
+                  "keystatus",
+                  "passwordprotected",
+                  "status",
+                  "keyid",
+                  "fingerprint",
+                  "algorithm",
+                  "backup",
+                ].includes(column.uid)
+                  ? "center"
+                  : "start"
+              }
               allowsSorting={column.sortable}
               style={{ width: column.width }}
             >

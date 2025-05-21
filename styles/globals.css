@@ -9,3 +9,9 @@
     font-weight: 400;
     font-style: normal;
 }
+
+table,
+th,
+td {
+    white-space: nowrap !important;
+}

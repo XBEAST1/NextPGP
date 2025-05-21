@@ -10,6 +10,10 @@ import {
   TableCell,
   Input,
   Button,
+  DropdownTrigger,
+  Dropdown,
+  DropdownMenu,
+  DropdownItem,
   Chip,
   User,
   Pagination,
@@ -21,6 +25,7 @@ import {
   EyeFilledIcon,
   EyeSlashFilledIcon,
   SearchIcon,
+  ChevronDownIcon,
 } from "@/components/icons";
 import NProgress from "nprogress";
 import { NProgressLink } from "@/components/nprogress";
@@ -42,6 +47,16 @@ import ConnectivityCheck from "@/components/connectivity-check";
 const statusColorMap = {
   Imported: "success",
   "Not Imported": "danger",
+};
+
+const keyStatusColorMap = {
+  active: "success",
+  expired: "danger",
+};
+
+const passwordprotectedColorMap = {
+  Yes: "success",
+  No: "danger",
 };
 
 const formatDate = (isoDate) => {
@@ -73,6 +88,73 @@ const formatDate = (isoDate) => {
   return `${day}-${month}-${year}`;
 };
 
+const INITIAL_VISIBLE_COLUMNS = [
+  "name",
+  "email",
+  "creationdate",
+  "expirydate",
+  "keystatus",
+  "passwordprotected",
+  "status",
+  "import",
+  "delete",
+];
+
+const columns = [
+  { name: "NAME", uid: "name", width: "15%", sortable: true },
+  {
+    name: "EMAIL",
+    uid: "email",
+    width: "25%",
+    align: "center",
+    sortable: true,
+  },
+  {
+    name: "CREATION DATE",
+    uid: "creationdate",
+    width: "12%",
+    sortable: true,
+  },
+  {
+    name: "EXPIRY DATE",
+    uid: "expirydate",
+    width: "10%",
+    sortable: true,
+  },
+  {
+    name: "KEY STATUS",
+    uid: "keystatus",
+    width: "10%",
+    align: "center",
+    sortable: true,
+  },
+  {
+    name: "PASSWORD",
+    uid: "passwordprotected",
+    width: "10%",
+    align: "center",
+    sortable: true,
+  },
+  {
+    name: "STATUS",
+    uid: "status",
+    width: "15%",
+    align: "center",
+    sortable: true,
+  },
+  { name: "KEY ID", uid: "keyid", align: "center" },
+  { name: "FINGERPRINT", uid: "fingerprint", align: "center" },
+  { name: "ALGORITHM", uid: "algorithm", align: "center" },
+  { name: "IMPORT", uid: "import", width: "10%", align: "center" },
+  { name: "DELETE", uid: "delete", align: "center" },
+];
+
+const capitalize = (s) => {
+  if (!s) return "";
+  if (s.toLowerCase() === "key id") return "Key ID";
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+};
+
 export default function App() {
   const [filterValue, setFilterValue] = useState("");
   const [users, setUsers] = useState([]);
@@ -80,25 +162,24 @@ export default function App() {
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
   const [locking, setLocking] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(
+    new Set(INITIAL_VISIBLE_COLUMNS)
+  );
   const router = useRouter();
-
-  const columns = [
-    { name: "NAME", uid: "name", sortable: true },
-    { name: "EMAIL", uid: "email", width: "17%" },
-    { name: "EXPIRY DATE", uid: "expirydate", sortable: true, width: "20%" },
-    {
-      name: "STATUS",
-      uid: "status",
-      sortable: true,
-      width: "20%",
-      align: "center",
-    },
-    { name: "IMPORT", uid: "import" },
-    { name: "DELETE", uid: "delete", width: "8%" },
-  ];
 
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
+
+  const isPasswordProtected = async (privateKeyArmored) => {
+    try {
+      const privateKey = await openpgp.readPrivateKey({
+        armoredKey: privateKeyArmored,
+      });
+      return privateKey.isPrivate() && !privateKey.isDecrypted();
+    } catch (error) {
+      return false;
+    }
+  };
 
   // Add this new function alongside your other utility functions
   const decryptVaultPassword = async (encryptedData, key, iv) => {
@@ -183,6 +264,28 @@ export default function App() {
       // Get locally stored keys first
       const storedKeys = await getStoredKeys();
 
+      const getKeyExpiryInfo = async (key) => {
+        try {
+          const expirationTime = await key.getExpirationTime();
+          const now = new Date();
+          if (expirationTime === null || expirationTime === Infinity) {
+            return { expirydate: "No Expiry", keystatus: "active" };
+          } else if (expirationTime < now) {
+            return {
+              expirydate: formatDate(expirationTime),
+              keystatus: "expired",
+            };
+          } else {
+            return {
+              expirydate: formatDate(expirationTime),
+              keystatus: "active",
+            };
+          }
+        } catch (error) {
+          return { expirydate: "Error", keystatus: "unknown" };
+        }
+      };
+
       // Process and format each key from cloud
       const processedKeys = await Promise.all(
         keys.map(async (key) => {
@@ -191,6 +294,15 @@ export default function App() {
               armoredKey: key.publicKey || key.privateKey,
             });
 
+            const creationdate = formatDate(openpgpKey.getCreationTime());
+
+            const { expirydate, keystatus } =
+              await getKeyExpiryInfo(openpgpKey);
+
+            const passwordProtected = key.privateKey
+              ? await isPasswordProtected(key.privateKey)
+              : false;
+              
             // Extract User IDs
             const userIds = openpgpKey.users.map((user) => {
               const userId = user.userID;
@@ -199,17 +311,64 @@ export default function App() {
               return { name, email };
             });
 
-            // Get expiration info
-            const expirationTime = await openpgpKey.getExpirationTime();
-            const now = new Date();
-            let expirydate = "No Expiry";
+            const formatFingerprint = (fingerprint) => {
+              const parts = fingerprint.match(/.{1,4}/g);
+              const nbsp = "\u00A0";
+              return (
+                parts.slice(0, 5).join(" ") +
+                nbsp.repeat(6) +
+                parts.slice(5).join(" ")
+              );
+            };
+            const fingerprint = formatFingerprint(
+              openpgpKey.getFingerprint().toUpperCase()
+            );
 
-            if (expirationTime !== null && expirationTime !== Infinity) {
-              if (expirationTime < now) {
-                status = "expired";
+            const formatKeyID = (keyid) => keyid.match(/.{1,4}/g).join(" ");
+            const keyid = formatKeyID(
+              openpgpKey.getKeyID().toHex().toUpperCase()
+            );
+
+            const formatAlgorithm = (algoInfo) => {
+              // ECC curve detection
+              const labelMap = {
+                curve25519: "Curve25519 (EdDSA/ECDH)",
+                nistP256: "NIST P-256 (ECDSA/ECDH)",
+                nistP521: "NIST P-521 (ECDSA/ECDH)",
+                brainpoolP256r1: "Brainpool P-256r1 (ECDSA/ECDH)",
+                brainpoolP512r1: "Brainpool P-512r1 (ECDSA/ECDH)",
+              };
+
+              if (
+                ["eddsa", "eddsaLegacy", "curve25519"].includes(
+                  algoInfo.algorithm
+                )
+              ) {
+                return labelMap.curve25519;
               }
-              expirydate = formatDate(expirationTime);
-            }
+
+              if (algoInfo.curve && labelMap[algoInfo.curve]) {
+                return labelMap[algoInfo.curve];
+              }
+
+              // RSA detection
+              if (/^rsa/i.test(algoInfo.algorithm)) {
+                switch (algoInfo.bits) {
+                  case 2048:
+                    return "RSA 2048";
+                  case 3072:
+                    return "RSA 3072";
+                  case 4096:
+                    return "RSA 4096";
+                  default:
+                    return `RSA (${algoInfo.bits || "?"} bits)`;
+                }
+              }
+
+              return algoInfo.algorithm || "Unknown Algorithm";
+            };
+
+            const algorithm = formatAlgorithm(openpgpKey.getAlgorithmInfo());
 
             // Check if this key is already imported
             const isImported = storedKeys.some((storedKey) => {
@@ -226,8 +385,14 @@ export default function App() {
               id: key.id || Date.now(),
               name: userIds[0]?.name || "N/A",
               email: userIds[0]?.email || "N/A",
+              creationdate: creationdate,
               expirydate: expirydate,
+              keystatus: keystatus,
+              passwordprotected: passwordProtected ? "Yes" : "No",
               status: isImported ? "Imported" : "Not Imported",
+              keyid: keyid,
+              fingerprint: fingerprint,
+              algorithm: algorithm,
               avatar: (() => {
                 const hasPrivateKey =
                   key.privateKey &&
@@ -456,7 +621,13 @@ export default function App() {
 
   const hasSearchFilter = Boolean(filterValue);
 
-  const headerColumns = columns;
+  const headerColumns = useMemo(() => {
+    if (visibleColumns === "all") return columns;
+
+    return columns.filter((column) =>
+      Array.from(visibleColumns).includes(column.uid)
+    );
+  }, [visibleColumns]);
 
   const renderCell = useCallback((user, columnKey) => {
     const cellValue = user[columnKey];
@@ -469,6 +640,16 @@ export default function App() {
             name={cellValue}
           ></User>
         );
+      case "keystatus":
+        return (
+          <Chip
+            className="-ms-5 capitalize"
+            color={keyStatusColorMap[user.keystatus]}
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
+        );
       case "status":
         return (
           <Chip
@@ -479,10 +660,20 @@ export default function App() {
             {cellValue}
           </Chip>
         );
+      case "passwordprotected":
+        return (
+          <Chip
+            className="-ms-6 capitalize"
+            color={passwordprotectedColorMap[user.passwordprotected]}
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
+        );
       case "import":
         return (
           <Button
-            className="-ms-4"
+            className="ms-2"
             color="secondary"
             variant="flat"
             onPress={() => importFromCloud(user)}
@@ -493,7 +684,7 @@ export default function App() {
       case "delete":
         return (
           <Button
-            className="-ms-4"
+            className="ms-2"
             color="danger"
             variant="flat"
             onPress={() => triggerDeleteModal(user)}
@@ -644,6 +835,32 @@ export default function App() {
             onClear={() => onClear()}
             onValueChange={onSearchChange}
           />
+          <Dropdown>
+            <DropdownTrigger>
+              <Button
+                endContent={<ChevronDownIcon className="text-small" />}
+                variant="flat"
+              >
+                Columns
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu
+              disallowEmptySelection
+              aria-label="Table Columns"
+              closeOnSelect={false}
+              selectedKeys={visibleColumns}
+              selectionMode="multiple"
+              onSelectionChange={setVisibleColumns}
+            >
+              {columns
+                .filter((column) => !["import", "delete"].includes(column.uid))
+                .map((column) => (
+                  <DropdownItem key={column.uid} className="capitalize">
+                    {capitalize(column.name)}
+                  </DropdownItem>
+                ))}
+            </DropdownMenu>
+          </Dropdown>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-default-400 text-small">
@@ -667,6 +884,7 @@ export default function App() {
     filterValue,
     onRowsPerPageChange,
     users.length,
+    visibleColumns,
     onSearchChange,
     hasSearchFilter,
   ]);
@@ -739,7 +957,7 @@ export default function App() {
 
   return (
     <>
-      <ConnectivityCheck/>
+      <ConnectivityCheck />
       <ToastContainer theme="dark" />
       <Table
         isHeaderSticky
@@ -758,7 +976,21 @@ export default function App() {
           {(column) => (
             <TableColumn
               key={column.uid}
-              align={column.uid === "actions" ? "center" : "start"}
+              align={
+                [
+                  "email",
+                  "keystatus",
+                  "passwordprotected",
+                  "status",
+                  "keyid",
+                  "fingerprint",
+                  "algorithm",
+                  "import",
+                  "delete",
+                ].includes(column.uid)
+                  ? "center"
+                  : "start"
+              }
               allowsSorting={column.sortable}
               style={{ width: column.width }}
             >
