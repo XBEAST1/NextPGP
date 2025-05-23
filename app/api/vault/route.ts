@@ -16,7 +16,10 @@ export async function GET() {
 
   const vault = await Vault.findOne({ userId: session.user.id }).lean();
 
-  return NextResponse.json({ exists: Boolean(vault) });
+  return NextResponse.json({
+    exists: Boolean(vault),
+    encryptionSalt: vault ? vault.encryptionSalt : null,
+  });
 }
 
 export async function POST(req: Request) {
@@ -26,7 +29,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { password } = await req.json();
+  const { SHA256PasswordHash } = await req.json();
 
   try {
     const vault = await Vault.findOne({ userId: session.user.id });
@@ -35,7 +38,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Vault not found" }, { status: 404 });
     }
 
-    const isValidPassword = await argon2.verify(vault.passwordHash, password);
+    const isValidPassword = await argon2.verify(vault.passwordHash, SHA256PasswordHash);
 
     if (!isValidPassword) {
       return NextResponse.json(

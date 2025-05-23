@@ -14,7 +14,7 @@
   <li><b>Batch File Encryption & Decryption:</b> Efficiently encrypt and decrypt multiple files at once.</li>
   <li><b>Folder Encryption & Decryption:</b> Securely Encrypt and Decrypt entire folders while maintaining the <b>original directory structure</b> (recursive encryption).</li>
   <li><b>Cloud Management:</b> Securely backup and manage PGP keys in the cloud, with encrypted vaults ensuring top tier protection.</li>
-  <li><b>Encrypted Vaults:</b> Each user has a personal vault. The vault password is encrypted using <b>Argon2</b>, and keys are encrypted using <b>AES-256-GCM</b> for maximum security.</li>
+  <li><b>Encrypted Vaults:</b> Each user has a personal vault. The vault password is encrypted using <b>Argon2</b>, and keys are encrypted using <b>AES-256-GCM + PBKDF2</b> for maximum security.</li>
 </ul>
 
 ---
@@ -42,7 +42,17 @@
 ---
 
 <h2>🔒 Security</h2>
-<p><b>Next PGP</b> uses secure encryption algorithms to ensure message privacy. Key data is handled safely and efficiently, with no compromises on security.</p>
+<p><b>Next PGP</b> is built around a <b>Zero-Knowledge</b> and <b>End-to-End Encryption (E2EE)</b> model — ensuring that your secrets stay yours, even in the cloud.</p>
+
+<ul>
+  <li><b>True End-to-End Encryption (E2EE):</b> All encryption and decryption happens entirely on the <b>client-side</b>. Your <b>PGP keys</b>, <b>vault contents</b>, and <b>sensitive data</b> are encrypted before ever <b>leaving your device</b> — the server never sees them <b>unencrypted</b>.</li>
+  <li><b>Vault Protection:</b> Your vault password is used to derive an encryption key (via <b>PBKDF2</b>) on the client, securing your data with <b>AES-256-GCM</b>. For authentication, the password is re-hashed on the server with <b>Argon2</b>, ensuring <b>password confidentiality</b> at every layer.</li>
+  <li><b>Zero-knowledge cloud storage:</b> Although you can back up and sync your encrypted vault to the cloud, it is <b>fully opaque</b> to the server. Only <b>you can decrypt it</b>.</li>
+  <li><b>In-memory vault context:</b> Vault password is never stored in session or local storage — it’s kept in <b>memory only</b> while the app is open, adding an additional layer of <b>runtime safety</b>.</li>
+  <li><b>Built on HTTPS + Web Crypto API:</b> Communication is always <b>encrypted in transit</b>, and cryptographic operations use <b>trusted, native browser APIs</b>.</li>
+</ul>
+
+<p><b>⚠️ TL;DR:</b> Although it's a web app, <b>all cryptographic operations happen on your device</b>. You're never sending <b>raw passwords or secrets</b> to the server — not even once. <b>Next PGP is secure by design.</b></p>
 
 ---
 

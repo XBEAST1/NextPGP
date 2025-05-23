@@ -35,21 +35,22 @@ export async function POST(req: Request) {
     );
   }
 
-  const { password } = await req.json();
+  const { SHA256PasswordHash, encryptionSalt } = await req.json();
 
   try {
-    const hash = await argon2.hash(password, {
+    // Rehash the SHA256 hash using argon2
+    const hashedPassword = await argon2.hash(SHA256PasswordHash, {
       type: argon2.argon2id,
-      timeCost: 3,
-      memoryCost: 2 ** 16,
+      timeCost: 5,
+      memoryCost: 2 ** 17,
       parallelism: 1,
     });
 
     const vaultDoc = new Vault({
       name: session.user.name ? `${session.user.name}'s Vault` : "Vault",
-      passwordHash: hash,
-      encryptionSalt: crypto.randomUUID(),
+      passwordHash: hashedPassword,
       userId: session.user.id,
+      encryptionSalt, // PBKDF2 salt for future login derivation
     });
 
     await vaultDoc.save();

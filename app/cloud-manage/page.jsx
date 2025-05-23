@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useVault } from "@/context/VaultContext";
 import {
   Table,
   TableHeader,
@@ -155,6 +156,57 @@ const capitalize = (s) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
+// AES-GCM decryption
+async function decrypt(encryptedBase64, password) {
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+
+  const encryptedBytes = Uint8Array.from(atob(encryptedBase64), (c) =>
+    c.charCodeAt(0)
+  );
+  const salt = encryptedBytes.slice(0, 16);
+  const iv = encryptedBytes.slice(16, 28);
+  const data = encryptedBytes.slice(28);
+
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveKey"]
+  );
+
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["decrypt"]
+  );
+
+  const decryptedBuffer = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    data
+  );
+
+  return dec.decode(decryptedBuffer);
+}
+
+async function computeKeyHash(keyString) {
+  const enc = new TextEncoder();
+  const buffer = enc.encode(keyString);
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export default function App() {
   const [filterValue, setFilterValue] = useState("");
   const [users, setUsers] = useState([]);
@@ -192,67 +244,38 @@ export default function App() {
     return new TextDecoder().decode(decrypted);
   };
 
-  useEffect(() => {
-    const checkVaultPassword = sessionStorage.getItem("encryptedVaultPassword");
+  const { getVaultPassword, lockVault } = useVault();
 
-    if (!checkVaultPassword) {
-      const lockVault = async () => {
+  useEffect(() => {
+    const checkVault = async () => {
+      const vaultPassword = await getVaultPassword();
+      if (!vaultPassword) {
         try {
-          await fetch("/api/vault/lock", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          });
+          await lockVault();
         } catch (err) {
           console.error("Failed to lock vault:", err);
         } finally {
           NProgress.start();
           router.push("/vault");
         }
-      };
-
-      lockVault();
-    }
-  }, [router]);
+      }
+    };
+    checkVault();
+  }, [router, getVaultPassword]);
 
   const loadKeysFromCloud = async () => {
     try {
-      // Get vault password from session storage
-      const storedVaultData = sessionStorage.getItem("encryptedVaultPassword");
-      if (!storedVaultData) {
-        console.warn("No vault password found in sessionStorage");
-        return [];
-      }
-
-      let vaultPassword;
-      let parsedVaultData;
-      try {
-        parsedVaultData = JSON.parse(storedVaultData);
-      } catch {
-        vaultPassword = storedVaultData;
-      }
-
-      if (!vaultPassword && parsedVaultData) {
-        const ivBytes = new Uint8Array(parsedVaultData.iv);
-        const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
-        const encryptionKey = await getEncryptionKey();
-        vaultPassword = await decryptVaultPassword(
-          encryptedPasswordBytes,
-          encryptionKey,
-          ivBytes
-        );
-      }
-
+      // Get vault password from context
+      const vaultPassword = await getVaultPassword();
       if (!vaultPassword) {
-        throw new Error("Failed to decrypt vault password");
+        throw new Error("Vault password not available");
       }
 
       // Fetch keys from API
       const response = await fetch("/api/manage-keys/fetch-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vaultPassword }),
+        body: JSON.stringify({}),
       });
       if (!response.ok) {
         throw new Error("Failed to fetch keys from API");
@@ -264,45 +287,60 @@ export default function App() {
       // Get locally stored keys first
       const storedKeys = await getStoredKeys();
 
-      const getKeyExpiryInfo = async (key) => {
-        try {
-          const expirationTime = await key.getExpirationTime();
-          const now = new Date();
-          if (expirationTime === null || expirationTime === Infinity) {
-            return { expirydate: "No Expiry", keystatus: "active" };
-          } else if (expirationTime < now) {
-            return {
-              expirydate: formatDate(expirationTime),
-              keystatus: "expired",
-            };
-          } else {
-            return {
-              expirydate: formatDate(expirationTime),
-              keystatus: "active",
-            };
-          }
-        } catch (error) {
-          return { expirydate: "Error", keystatus: "unknown" };
-        }
-      };
-
-      // Process and format each key from cloud
+      // Process and decrypt each key from cloud
       const processedKeys = await Promise.all(
         keys.map(async (key) => {
           try {
+            // Decrypt Cloud privateKey and publicKey using the vault password.
+            let decryptedCloudPrivateKey = "";
+            let decryptedCloudPublicKey = "";
+            if (key.privateKey) {
+              decryptedCloudPrivateKey = await decrypt(
+                key.privateKey,
+                vaultPassword
+              );
+            }
+            if (key.publicKey) {
+              decryptedCloudPublicKey = await decrypt(
+                key.publicKey,
+                vaultPassword
+              );
+            }
+
             const openpgpKey = await openpgp.readKey({
-              armoredKey: key.publicKey || key.privateKey,
+              armoredKey: decryptedCloudPrivateKey || decryptedCloudPublicKey,
             });
 
             const creationdate = formatDate(openpgpKey.getCreationTime());
 
+            const getKeyExpiryInfo = async (key) => {
+              try {
+                const expirationTime = await key.getExpirationTime();
+                const now = new Date();
+                if (expirationTime === null || expirationTime === Infinity) {
+                  return { expirydate: "No Expiry", keystatus: "active" };
+                } else if (expirationTime < now) {
+                  return {
+                    expirydate: formatDate(expirationTime),
+                    keystatus: "expired",
+                  };
+                } else {
+                  return {
+                    expirydate: formatDate(expirationTime),
+                    keystatus: "active",
+                  };
+                }
+              } catch (error) {
+                return { expirydate: "Error", keystatus: "unknown" };
+              }
+            };
             const { expirydate, keystatus } =
               await getKeyExpiryInfo(openpgpKey);
 
             const passwordProtected = key.privateKey
               ? await isPasswordProtected(key.privateKey)
               : false;
-              
+
             // Extract User IDs
             const userIds = openpgpKey.users.map((user) => {
               const userId = user.userID;
@@ -372,11 +410,11 @@ export default function App() {
 
             // Check if this key is already imported
             const isImported = storedKeys.some((storedKey) => {
-              if (key.publicKey && storedKey.publicKey) {
-                return storedKey.publicKey === key.publicKey;
+              if (decryptedCloudPublicKey && storedKey.publicKey) {
+                return storedKey.publicKey === decryptedCloudPublicKey;
               }
-              if (key.privateKey && storedKey.privateKey) {
-                return storedKey.privateKey === key.privateKey;
+              if (decryptedCloudPrivateKey && storedKey.privateKey) {
+                return storedKey.privateKey === decryptedCloudPrivateKey;
               }
               return false;
             });
@@ -407,8 +445,8 @@ export default function App() {
                 }
                 return null;
               })(),
-              publicKey: key.publicKey,
-              privateKey: key.privateKey,
+              decryptedPrivateKey: decryptedCloudPrivateKey,
+              decryptedPublicKey: decryptedCloudPublicKey,
             };
           } catch (error) {
             console.error("Error processing key:", error);
@@ -463,47 +501,14 @@ export default function App() {
 
   const importFromCloud = async (selectedUser) => {
     try {
-      let vaultPassword;
-      try {
-        const storedVaultData = sessionStorage.getItem(
-          "encryptedVaultPassword"
-        );
-        if (!storedVaultData)
-          throw new Error("No vault password found in sessionStorage.");
-
-        let parsedVaultData;
-        try {
-          parsedVaultData = JSON.parse(storedVaultData);
-        } catch {
-          vaultPassword = storedVaultData;
-        }
-
-        if (!vaultPassword) {
-          if (!parsedVaultData.iv || !parsedVaultData.data) {
-            throw new Error("Encrypted vault password data is incomplete.");
-          }
-          const ivBytes = new Uint8Array(parsedVaultData.iv);
-          const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
-          const encryptionKey = await getEncryptionKey();
-          vaultPassword = await decryptVaultPassword(
-            encryptedPasswordBytes,
-            encryptionKey,
-            ivBytes
-          );
-        }
-
-        if (!vaultPassword) throw new Error("Vault password is missing.");
-      } catch (e) {
-        console.error(e);
-        toast.error("Failed to decrypt vault password", {
-          position: "top-right",
-        });
-        return;
+      const vaultPassword = await getVaultPassword();
+      if (!vaultPassword) {
+        throw new Error("Vault password not available");
       }
 
       try {
-        let publicKey = selectedUser.publicKey;
-        const privateKey = selectedUser.privateKey;
+        let publicKey = selectedUser.decryptedPublicKey;
+        const privateKey = selectedUser.decryptedPrivateKey;
 
         // If there's only a private key, generate the public key
         if (privateKey && (!publicKey || publicKey.trim() === "")) {
@@ -699,46 +704,20 @@ export default function App() {
 
   const deleteKey = async (user) => {
     try {
-      // Get vault password from session storage for authentication
-      const storedVaultData = sessionStorage.getItem("encryptedVaultPassword");
-      if (!storedVaultData) {
-        toast.error("No vault password found", { position: "top-right" });
-        return;
-      }
-
-      let vaultPassword;
-      try {
-        const parsedVaultData = JSON.parse(storedVaultData);
-        const ivBytes = new Uint8Array(parsedVaultData.iv);
-        const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
-        const encryptionKey = await getEncryptionKey();
-        vaultPassword = await decryptVaultPassword(
-          encryptedPasswordBytes,
-          encryptionKey,
-          ivBytes
-        );
-      } catch (e) {
-        vaultPassword = storedVaultData;
-      }
-
-      if (!vaultPassword) {
-        toast.error("Failed to decrypt vault password", {
-          position: "top-right",
-        });
-        return;
-      }
-
-      const requestBody = {
-        keyId: user.id,
-        vaultPassword: vaultPassword,
-      };
-
-      if (user.privateKey) {
-        requestBody.privateKey = user.privateKey;
-      } else if (user.publicKey) {
-        requestBody.publicKey = user.publicKey;
-      } else {
+      // Use the decrypted keys for deletion
+      const keyForHash = user.decryptedPrivateKey || user.decryptedPublicKey;
+      if (!keyForHash) {
         throw new Error("No key data found");
+      }
+
+      let requestBody = { keyId: user.id };
+
+      if (user.decryptedPrivateKey) {
+        const privateKeyHash = await computeKeyHash(user.decryptedPrivateKey);
+        requestBody.privateKeyHash = privateKeyHash;
+      } else if (user.decryptedPublicKey) {
+        const publicKeyHash = await computeKeyHash(user.decryptedPublicKey);
+        requestBody.publicKeyHash = publicKeyHash;
       }
 
       const deleteResponse = await fetch("/api/manage-keys", {
@@ -754,7 +733,6 @@ export default function App() {
         throw new Error(errorData.error || "Failed to delete key");
       }
 
-      const responseData = await deleteResponse.json();
       toast.success("Key deleted successfully", { position: "top-right" });
       const refreshedKeys = await loadKeysFromCloud();
       setUsers(refreshedKeys);
@@ -874,7 +852,7 @@ export default function App() {
             >
               <option value="5">5</option>
               <option value="10">10</option>
-              <option value="15">15</option>
+              <option value="20">20</option>
             </select>
           </label>
         </div>
@@ -908,19 +886,7 @@ export default function App() {
             onPress={async () => {
               setLocking(true);
               try {
-                const response = await fetch("/api/vault/lock", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                });
-
-                if (!response.ok) {
-                  throw new Error("Failed to lock vault");
-                }
-
-                sessionStorage.removeItem("encryptedVaultPassword");
-
+                await lockVault();
                 NProgress.start();
                 router.push("/vault");
               } catch (error) {

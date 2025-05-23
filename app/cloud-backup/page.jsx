@@ -42,6 +42,118 @@ import {
 } from "@/lib/indexeddb";
 import * as openpgp from "openpgp";
 import ConnectivityCheck from "@/components/connectivity-check";
+import { useVault } from "@/context/VaultContext";
+
+function bufferToHex(buffer) {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function hashKey(text) {
+  const enc = new TextEncoder();
+  const buffer = enc.encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return bufferToHex(digest);
+}
+
+// AES-GCM encryption (client-side)
+async function encrypt(text, password) {
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveKey"]
+  );
+
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt"]
+  );
+
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    enc.encode(text)
+  );
+
+  // Combine salt, iv, and the encrypted content
+  const combined = new Uint8Array(
+    salt.byteLength + iv.byteLength + encryptedBuffer.byteLength
+  );
+  combined.set(salt, 0);
+  combined.set(iv, salt.byteLength);
+  combined.set(
+    new Uint8Array(encryptedBuffer),
+    salt.byteLength + iv.byteLength
+  );
+
+  // Binary-safe base64 encoding
+  function toBase64(uint8array) {
+    let binary = "";
+    for (let i = 0; i < uint8array.length; i++) {
+      binary += String.fromCharCode(uint8array[i]);
+    }
+    return btoa(binary);
+  }
+
+  return toBase64(combined);
+}
+
+// AES-GCM decryption (client-side)
+async function decrypt(encryptedBase64, password) {
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+
+  const encryptedBytes = Uint8Array.from(atob(encryptedBase64), (c) =>
+    c.charCodeAt(0)
+  );
+  const salt = encryptedBytes.slice(0, 16);
+  const iv = encryptedBytes.slice(16, 28);
+  const data = encryptedBytes.slice(28);
+
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveKey"]
+  );
+
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["decrypt"]
+  );
+
+  const decryptedBuffer = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    data
+  );
+
+  return dec.decode(decryptedBuffer);
+}
 
 const statusColorMap = {
   "Backed Up": "success",
@@ -130,6 +242,7 @@ export default function App() {
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
   const [locking, setLocking] = useState(false);
+  const [backingUp, setBackingUp] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
   );
@@ -138,38 +251,26 @@ export default function App() {
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
 
-  const decryptVaultPassword = async (encryptedData, key, iv) => {
-    const decrypted = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: iv },
-      key,
-      encryptedData
-    );
-    return new TextDecoder().decode(decrypted);
-  };
+  const { getVaultPassword, lockVault } = useVault();
 
   useEffect(() => {
-    const checkVaultPassword = sessionStorage.getItem("encryptedVaultPassword");
-
-    if (!checkVaultPassword) {
-      const lockVault = async () => {
+    const checkVault = async () => {
+      const vaultPassword = await getVaultPassword();
+      if (!vaultPassword) {
         try {
-          await fetch("/api/vault/lock", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          });
+          await lockVault();
         } catch (err) {
           console.error("Failed to lock vault:", err);
         } finally {
           NProgress.start();
           router.push("/vault");
         }
-      };
+      }
+    };
+    checkVault();
+  }, [router, getVaultPassword]);
 
-      lockVault();
-    }
-  }, [router]);
+  let vaultPassword;
 
   const loadKeysFromIndexedDB = async () => {
     const db = await openDB();
@@ -177,39 +278,20 @@ export default function App() {
 
     let backedUpKeys = [];
     try {
-      const storedVaultData = sessionStorage.getItem("encryptedVaultPassword");
-      if (!storedVaultData) {
-        console.warn("No vault password found in sessionStorage");
-      } else {
-        let vaultPassword;
-        let parsedVaultData;
-        try {
-          parsedVaultData = JSON.parse(storedVaultData);
-        } catch {
-          vaultPassword = storedVaultData;
-        }
-
-        if (!vaultPassword && parsedVaultData) {
-          const ivBytes = new Uint8Array(parsedVaultData.iv);
-          const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
-          vaultPassword = await decryptVaultPassword(
-            encryptedPasswordBytes,
-            encryptionKey,
-            ivBytes
-          );
-        }
-        if (vaultPassword) {
-          const response = await fetch("/api/manage-keys/fetch-keys", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ vaultPassword }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            backedUpKeys = data.keys || [];
-          }
-        }
+      // Retrieve vault password via VaultContext
+      vaultPassword = await getVaultPassword();
+      if (!vaultPassword) {
+        throw new Error("Vault password not available");
+        return [];
+      }
+      const response = await fetch("/api/manage-keys/fetch-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        backedUpKeys = data.keys || [];
       }
     } catch (error) {
       console.error("Error fetching backed up keys:", error);
@@ -307,13 +389,32 @@ export default function App() {
                   armoredKey: key.publicKey,
                 });
 
-                // Check if the key is backed up
-                const isBackedUp = backedUpKeys.some(
-                  (backedUpKey) =>
-                    backedUpKey.publicKey === key.publicKey ||
-                    (key.privateKey &&
-                      backedUpKey.privateKey === key.privateKey)
-                );
+                const isBackedUp = await (async () => {
+                  const statuses = await Promise.all(
+                    backedUpKeys.map(async (backedUpKey) => {
+                      let decryptedCloudPublicKey = "";
+                      let decryptedCloudPrivateKey = "";
+                      if (backedUpKey.publicKey) {
+                        decryptedCloudPublicKey = await decrypt(
+                          backedUpKey.publicKey,
+                          vaultPassword
+                        );
+                      }
+                      if (backedUpKey.privateKey) {
+                        decryptedCloudPrivateKey = await decrypt(
+                          backedUpKey.privateKey,
+                          vaultPassword
+                        );
+                      }
+                      return (
+                        decryptedCloudPublicKey === key.publicKey ||
+                        (key.privateKey &&
+                          decryptedCloudPrivateKey === key.privateKey)
+                      );
+                    })
+                  );
+                  return statuses.some((status) => status);
+                })();
 
                 const status = isBackedUp ? "Backed Up" : "Not Backed Up";
 
@@ -441,10 +542,7 @@ export default function App() {
     };
 
     window.addEventListener("storage", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-    };
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const filteredItems = useMemo(() => {
@@ -486,70 +584,75 @@ export default function App() {
     );
   }, [visibleColumns]);
 
-  const renderCell = useCallback((user, columnKey) => {
-    const cellValue = user[columnKey];
+  const renderCell = useCallback(
+    (user, columnKey) => {
+      const cellValue = user[columnKey];
 
-    switch (columnKey) {
-      case "name":
-        return (
-          <User
-            avatarProps={{ radius: "lg", src: user.avatar }}
-            name={cellValue}
-          ></User>
-        );
-      case "keystatus":
-        return (
-          <Chip
-            className="-ms-5 capitalize"
-            color={keyStatusColorMap[user.keystatus]}
-            variant="flat"
-          >
-            {cellValue}
-          </Chip>
-        );
-      case "status":
-        return (
-          <Chip
-            className="capitalize -ms-4"
-            color={statusColorMap[user.status]}
-            variant="flat"
-          >
-            {cellValue}
-          </Chip>
-        );
-      case "passwordprotected":
-        return (
-          <Chip
-            className="-ms-6 capitalize"
-            color={passwordprotectedColorMap[user.passwordprotected]}
-            variant="flat"
-          >
-            {cellValue}
-          </Chip>
-        );
-      case "backup":
-        return (
-          <Button
-            className="ms-2"
-            color="secondary"
-            variant="flat"
-            onPress={() => backupKey(user)}
-          >
-            Backup
-          </Button>
-        );
-      default:
-        return cellValue;
-    }
-  }, []);
+      switch (columnKey) {
+        case "name":
+          return (
+            <User
+              avatarProps={{ radius: "lg", src: user.avatar }}
+              name={cellValue}
+            ></User>
+          );
+        case "keystatus":
+          return (
+            <Chip
+              className="-ms-5 capitalize"
+              color={keyStatusColorMap[user.keystatus]}
+              variant="flat"
+            >
+              {cellValue}
+            </Chip>
+          );
+        case "status":
+          return (
+            <Chip
+              className="capitalize -ms-4"
+              color={statusColorMap[user.status]}
+              variant="flat"
+            >
+              {cellValue}
+            </Chip>
+          );
+        case "passwordprotected":
+          return (
+            <Chip
+              className="-ms-6 capitalize"
+              color={passwordprotectedColorMap[user.passwordprotected]}
+              variant="flat"
+            >
+              {cellValue}
+            </Chip>
+          );
+        case "backup":
+          return (
+            <Button
+              className="ms-2"
+              color="secondary"
+              variant="flat"
+              onPress={() => {
+                backupKey(user);
+              }}
+            >
+              {backingUp ? <Spinner color="white" size="sm" /> : "Backup"}
+            </Button>
+          );
+        default:
+          return cellValue;
+      }
+    },
+    [backingUp]
+  );
 
   const backupKey = async (user, password = null) => {
+    setBackingUp(true);
     try {
       let key = null;
-      let privateKey = null;
+      let privateKeyRaw = null;
       let isPublicKeyOnly = false;
 
-      // Try loading private key if available
       if (user.privateKey) {
         try {
           key = await openpgp.readKey({ armoredKey: user.privateKey });
@@ -570,7 +673,7 @@ export default function App() {
               return;
             }
           }
-          privateKey = user.privateKey;
+          privateKeyRaw = user.privateKey;
         } catch (e) {
           console.warn(
             "Failed to read or decrypt private key. Falling back to public key."
@@ -585,7 +688,7 @@ export default function App() {
       if (!key && user.publicKey) {
         try {
           key = await openpgp.readKey({ armoredKey: user.publicKey });
-          privateKey = null;
+          privateKeyRaw = null;
         } catch {
           throw new Error("Failed to read both private and public keys.");
         }
@@ -595,51 +698,37 @@ export default function App() {
         throw new Error("No valid PGP key found.");
       }
 
-      let vaultPassword;
-      try {
-        const storedVaultData = sessionStorage.getItem(
-          "encryptedVaultPassword"
-        );
-        if (!storedVaultData) {
-          toast.error(
-            "No vault password found in session. Please lock the vault and open again.",
-            {
-              position: "top-right",
-            }
-          );
-        }
-
-        let parsedVaultData;
-        try {
-          parsedVaultData = JSON.parse(storedVaultData);
-        } catch {
-          vaultPassword = storedVaultData;
-        }
-
-        if (!vaultPassword) {
-          if (!parsedVaultData.iv || !parsedVaultData.data) {
-            throw new Error("Encrypted vault password data is incomplete.");
-          }
-          const ivBytes = new Uint8Array(parsedVaultData.iv);
-          const encryptedPasswordBytes = new Uint8Array(parsedVaultData.data);
-          const encryptionKey = await getEncryptionKey();
-          vaultPassword = await decryptVaultPassword(
-            encryptedPasswordBytes,
-            encryptionKey,
-            ivBytes
-          );
-        }
-
-        if (!vaultPassword) throw new Error("Vault password is missing.");
-      } catch (e) {
-        console.warn("Failed to decrypt vault password");
+      const vaultPassword = await getVaultPassword();
+      if (!vaultPassword) {
+        toast.error("No vault password found. Please lock and reopen vault.", {
+          position: "top-right",
+        });
         return;
       }
 
+      // Compute hashes and encrypt the keys
+      let privateKeyHash = null,
+        encryptedPrivateKey = null;
+      let publicKeyHash = null,
+        encryptedPublicKey = null;
+      const hasPrivate = privateKeyRaw && privateKeyRaw.trim() !== "";
+      const hasPublic = user.publicKey && user.publicKey.trim() !== "";
+
+      if (hasPrivate) {
+        privateKeyHash = await hashKey(privateKeyRaw);
+        encryptedPrivateKey = await encrypt(privateKeyRaw, vaultPassword);
+      }
+      if (!hasPrivate && hasPublic) {
+        publicKeyHash = await hashKey(user.publicKey);
+        encryptedPublicKey = await encrypt(user.publicKey, vaultPassword);
+      }
+
+      // Construct payload with already hashed + encrypted keys
       const payload = {
-        privateKey: privateKey,
-        publicKey: user.publicKey,
-        vaultPassword,
+        ...(encryptedPrivateKey ? { encryptedPrivateKey } : {}),
+        ...(encryptedPublicKey ? { encryptedPublicKey } : {}),
+        ...(privateKeyHash ? { privateKeyHash } : {}),
+        ...(publicKeyHash ? { publicKeyHash } : {}),
       };
 
       const response = await fetch("/api/manage-keys", {
@@ -652,28 +741,21 @@ export default function App() {
 
       if (response.ok) {
         if (responseData.message === "Key already backed up.") {
+          setBackingUp(false);
           toast.info(
             `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} is already backed up`,
-            {
-              position: "top-right",
-            }
+            { position: "top-right" }
           );
         } else {
+          setBackingUp(false);
           toast.success(
             `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} successfully backed up to the cloud!`,
-            {
-              position: "top-right",
-            }
+            { position: "top-right" }
           );
-
           setUsers((prevUsers) =>
             prevUsers.map((prevUser) => {
-              if (prevUser.id === user.id) {
-                return {
-                  ...prevUser,
-                  status: "Backed Up",
-                };
-              }
+              if (prevUser.id === user.id)
+                return { ...prevUser, status: "Backed Up" };
               return prevUser;
             })
           );
@@ -685,11 +767,12 @@ export default function App() {
         toast.error(errorMessage, { position: "top-right" });
       }
     } catch (error) {
-      console.log(error);
-      toast.error(
-        `Failed to process ${user.name}'s key. The key is not valid or there was an error.`,
-        { position: "top-right" }
-      );
+      console.error(error);
+      toast.error(`Failed to process ${user.name}'s key.`, {
+        position: "top-right",
+      });
+    } finally {
+      setBackingUp(false);
     }
   };
 
@@ -815,7 +898,7 @@ export default function App() {
             >
               <option value="5">5</option>
               <option value="10">10</option>
-              <option value="15">15</option>
+              <option value="20">20</option>
             </select>
           </label>
         </div>
@@ -849,19 +932,7 @@ export default function App() {
             onPress={async () => {
               setLocking(true);
               try {
-                const response = await fetch("/api/vault/lock", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                });
-
-                if (!response.ok) {
-                  throw new Error("Failed to lock vault");
-                }
-
-                sessionStorage.removeItem("encryptedVaultPassword");
-
+                await lockVault();
                 NProgress.start();
                 router.push("/vault");
               } catch (error) {

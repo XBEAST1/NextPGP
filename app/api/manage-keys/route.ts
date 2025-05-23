@@ -6,54 +6,15 @@ import PGPKey from "@/models/PGPKey";
 
 await connectToDatabase();
 
-// Utility: Hash with SHA-256
-async function hashKey(text: string): Promise<string> {
+// Utility: Rehashing for duplicate check or for verifying key integrity using SHA-256
+async function serverHashKey(text: string): Promise<string> {
   const enc = new TextEncoder();
   const buffer = enc.encode(text);
   const digest = await crypto.subtle.digest("SHA-256", buffer);
   return Buffer.from(digest).toString("hex");
 }
 
-// AES-GCM encryption
-async function encrypt(text: string, password: string): Promise<string> {
-  const enc = new TextEncoder();
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    { name: "PBKDF2" },
-    false,
-    ["deriveKey"]
-  );
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt,
-      iterations: 100000,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt"]
-  );
-
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    enc.encode(text)
-  );
-  const encryptedBytes = new Uint8Array([
-    ...salt,
-    ...iv,
-    ...new Uint8Array(encrypted),
-  ]);
-  return Buffer.from(encryptedBytes).toString("base64");
-}
-
-// POST: Encrypt and store new key
+// POST: Store new key
 export async function POST(req: Request) {
   const session = await auth();
   if (!session || !session.user?.id) {
@@ -67,10 +28,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  const { privateKey, publicKey, vaultPassword } = payload;
+  const {
+    encryptedPrivateKey,
+    encryptedPublicKey,
+    privateKeyHash,
+    publicKeyHash,
+  } = payload;
 
-  if (!vaultPassword) {
-    return NextResponse.json({ error: "Vault password is required" }, { status: 400 });
+  if (!encryptedPrivateKey && !encryptedPublicKey) {
+    return NextResponse.json(
+      { message: "At least one key (private or public) is required" },
+      { status: 400 }
+    );
   }
 
   const vault = await Vault.findOne({ userId: session.user.id });
@@ -78,60 +47,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Vault not found for current user" }, { status: 404 });
   }
 
-  const hasPrivate = typeof privateKey === 'string' && privateKey.trim() !== '';
-  const hasPublic = typeof publicKey === 'string' && publicKey.trim() !== '';
+  // Duplicate check conditions using the hash values sent from client
+  const orConditions: any[] = [];
+  if (privateKeyHash) orConditions.push({ privateKeyHash });
+  if (publicKeyHash) orConditions.push({ publicKeyHash });
 
-  if (!hasPrivate && !hasPublic) {
-    return NextResponse.json(
-      { message: "At least one key (private or public) is required" },
-      { status: 400 }
-    );
+  const existingKey = await PGPKey.findOne({
+    vaultId: vault._id,
+    $or: orConditions,
+  });
+
+  if (existingKey) {
+    return NextResponse.json({ message: "Key already backed up." }, { status: 200 });
   }
 
   try {
-    // When both keys provided, only backup private key
-    const shouldBackupPrivate = hasPrivate;
-    const shouldBackupPublic = !hasPrivate && hasPublic;
-
-    let privateKeyHash: string | null = null;
-    let encryptedPrivateKey: string | null = null;
-    let publicKeyHash: string | null = null;
-    let encryptedPublicKey: string | null = null;
-
-    if (shouldBackupPrivate) {
-      privateKeyHash = await hashKey(privateKey);
-      encryptedPrivateKey = await encrypt(privateKey, vaultPassword);
-    }
-
-    if (shouldBackupPublic) {
-      publicKeyHash = await hashKey(publicKey);
-      encryptedPublicKey = await encrypt(publicKey, vaultPassword);
-    }
-
-    // Duplicate check conditions
-    const orConditions: any[] = [];
-    if (privateKeyHash) orConditions.push({ privateKeyHash });
-    if (publicKeyHash) orConditions.push({ publicKeyHash });
-
-    const existingKey = await PGPKey.findOne({
-      vaultId: vault._id,
-      $or: orConditions,
-    });
-
-    if (existingKey) {
-      return NextResponse.json(
-        { message: "Key already backed up." },
-        { status: 200 }
-      );
-    }
-
     const storedKey = await PGPKey.create({
       vaultId: vault._id,
       ...(encryptedPrivateKey && { privateKey: encryptedPrivateKey }),
       ...(encryptedPublicKey && { publicKey: encryptedPublicKey }),
       ...(privateKeyHash && { privateKeyHash }),
       ...(publicKeyHash && { publicKeyHash }),
-    });    
+    });
 
     return NextResponse.json(
       { message: "Key stored successfully", key: storedKey },
@@ -139,10 +76,7 @@ export async function POST(req: Request) {
     );
   } catch (error) {
     console.error("Failed to store key data:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -154,8 +88,9 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { keyId, vaultPassword, publicKey, privateKey } = await req.json();
-    if (!keyId || !vaultPassword || (!publicKey && !privateKey)) {
+    // Expect keyId and a hash of the key (either publicKeyHash or privateKeyHash)
+    const { keyId, publicKeyHash, privateKeyHash } = await req.json();
+    if (!keyId || (!publicKeyHash && !privateKeyHash)) {
       return NextResponse.json(
         { error: "Missing required parameters" },
         { status: 400 }
@@ -172,11 +107,9 @@ export async function DELETE(req: Request) {
 
     let keyQuery: any = { _id: keyId, vaultId: vault._id };
 
-    if (publicKey) {
-      const publicKeyHash = await hashKey(publicKey);
+    if (publicKeyHash) {
       keyQuery.publicKeyHash = publicKeyHash;
-    } else if (privateKey) {
-      const privateKeyHash = await hashKey(privateKey);
+    } else if (privateKeyHash) {
       keyQuery.privateKeyHash = privateKeyHash;
     }
 

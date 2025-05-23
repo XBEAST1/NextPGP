@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import { SessionProvider } from "next-auth/react";
 import { NavigationProgress } from "@/components/nprogress";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { VaultProvider } from "@/context/VaultContext"; // import the Vault Context
 
 const twittercardimg = `https://nextpgp.vercel.app${Logo.src}`;
 
@@ -76,29 +77,31 @@ export default async function RootLayout({ children }) {
           )}
         >
           <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
-            <SpeedInsights />
-            <NavigationProgress />
-            <div className="relative flex flex-col h-screen">
-              <Navbar />
-              <main className="container mx-auto max-w-7xl pt-6 px-6 flex-grow">
-                {children}
-                <GoogleAnalytics gaId="G-EJ067X6M97" />
-              </main>
-              <br />
-              <footer className="w-full flex items-center justify-center py-3">
-                <div className="flex items-center gap-1 text-current">
-                  <span className="text-default-400">Developed By</span>
-                  <a
-                    href="https://github.com/XBEAST1"
-                    target="blank"
-                    className="text-default-800"
-                  >
-                    XBEAST 🖤✨
-                  </a>
-                </div>
-              </footer>
-              <br />
-            </div>
+            <VaultProvider>
+              <SpeedInsights />
+              <NavigationProgress />
+              <div className="relative flex flex-col h-screen">
+                <Navbar />
+                <main className="container mx-auto max-w-7xl pt-6 px-6 flex-grow">
+                  {children}
+                  <GoogleAnalytics gaId="G-EJ067X6M97" />
+                </main>
+                <br />
+                <footer className="w-full flex items-center justify-center py-3">
+                  <div className="flex items-center gap-1 text-current">
+                    <span className="text-default-400">Developed By</span>
+                    <a
+                      href="https://github.com/XBEAST1"
+                      target="blank"
+                      className="text-default-800"
+                    >
+                      XBEAST 🖤✨
+                    </a>
+                  </div>
+                </footer>
+                <br />
+              </div>
+            </VaultProvider>
           </Providers>
         </body>
       </html>

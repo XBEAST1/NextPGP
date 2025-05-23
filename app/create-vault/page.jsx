@@ -60,32 +60,72 @@ const Page = () => {
 
   const handleCreateVault = async () => {
     if (!password.trim()) {
-      toast.error("Please enter a password", {
-        position: "top-right",
-      });
+      toast.error("Please enter a password", { position: "top-right" });
       return;
     }
     setLoading(true);
 
-    const res = await fetch("/api/create-vault", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
+    try {
+      // Generate random 16-byte encryption salt
+      const encryptionSalt = new Uint8Array(16);
+      crypto.getRandomValues(encryptionSalt);
 
-    if (res.ok) {
-      NProgress.start();
-      router.push("/vault");
-    } else {
-      const errorData = await res.json();
-      if (errorData.error === "Vault already exists") {
-        toast.error("Vault already exists", { position: "top-right" });
+      // Client Side PBKDF2 key derivation
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(password),
+        { name: "PBKDF2" },
+        false,
+        ["deriveBits"]
+      );
+
+      const derivedBits = await crypto.subtle.deriveBits(
+        {
+          name: "PBKDF2",
+          salt: encryptionSalt,
+          iterations: 100000,
+          hash: "SHA-256",
+        },
+        keyMaterial,
+        256
+      );
+
+      const derivedKey = new Uint8Array(derivedBits);
+      const derivedKeyBase64 = btoa(String.fromCharCode(...derivedKey));
+      const saltBase64 = btoa(String.fromCharCode(...encryptionSalt));
+
+      // Send derived key and salt to server
+      const res = await fetch("/api/create-vault", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          SHA256PasswordHash: derivedKeyBase64,
+          encryptionSalt: saltBase64,
+        }),
+      });
+
+      if (res.ok) {
+        NProgress.start();
+        router.push("/vault");
       } else {
-        toast.error("There Was An Error Creating The Vault", {
-          position: "top-right",
-        });
+        const { error } = await res.json();
+        toast.error(
+          error === "Vault already exists"
+            ? "Vault already exists"
+            : "There was an error creating the vault",
+          { position: "top-right" }
+        );
+        setLoading(false);
       }
-      console.log("Error creating vault:", errorData.error);
+    } catch (e) {
+      console.error("Hashing failed:", e);
+      toast.error(
+        "Encryption failed. Your device may be low on memory or CPU power",
+        {
+          position: "top-right",
+        }
+      );
       setLoading(false);
     }
   };
@@ -94,18 +134,28 @@ const Page = () => {
     <div>
       <ConnectivityCheck />
       <ToastContainer theme="dark" />
-      <h1 className="sm:me-32 sm:mt-10 text-4xl text-center dm-serif-text-regular">
-        Create Vault
-      </h1>
+      <div className="sm:mt-10 sm:me-32 text-center dm-serif-text-regular">
+        <h1 className="text-4xl mb-6">Create Vault</h1>
+        <span className="text-xl text-gray-400 flex justify-center items-center gap-2">
+          <span className="glow-pulse">🔒</span>
+          <span className="shine-text">End-to-End Encrypted</span>
+        </span>
+      </div>
       <div className="flex flex-col sm:flex-row sm:justify-between items-center sm:items-start mt-6">
         <div className="flex flex-col items-center sm:hidden mt-6 order-1">
           <UserDetails />
         </div>
         <div className="w-full sm:pe-6 order-2">
-          <p className="text-center text-red-500 text-sm mt-6 sm:mt-16 mb-5">
-            This password cannot be recovered. If forgotten, the vault will be
-            permanently inaccessible and must be deleted.
-          </p>
+          <div className="text-center text-sm mt-6 sm:mt-10 mb-5">
+            <p className="text-red-500 sm:mb-1 mb-4">
+              This password cannot be recovered. If forgotten, the vault will be
+              permanently inaccessible and must be deleted. <br />
+            </p>
+            <span className="text-gray-300 font-medium">
+              Use a strong, unique passphrase — it&apos;s the unbreakable key
+              that guards your encrypted data.
+            </span>
+          </div>
           <Input
             name="password"
             placeholder="Enter vault password"
