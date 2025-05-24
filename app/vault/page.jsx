@@ -306,6 +306,7 @@ const Page = () => {
                 placeholder="Enter DeleteMyVault"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && confirmInput === "DeleteMyVault") {
+                    setDeleteSpinner(true);
                     triggerOtpVerification();
                   }
                 }}

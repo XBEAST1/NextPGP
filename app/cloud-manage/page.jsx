@@ -62,13 +62,6 @@ const passwordprotectedColorMap = {
 
 const formatDate = (isoDate) => {
   const date = new Date(isoDate);
-  if (
-    date.getUTCHours() === 23 &&
-    date.getUTCMinutes() === 59 &&
-    date.getUTCSeconds() === 59
-  ) {
-    date.setUTCDate(date.getUTCDate() + 1);
-  }
   const monthNames = [
     "Jan",
     "Feb",
@@ -83,9 +76,11 @@ const formatDate = (isoDate) => {
     "Nov",
     "Dec",
   ];
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  const month = monthNames[date.getUTCMonth()];
-  const year = date.getUTCFullYear();
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = monthNames[date.getMonth()];
+  const year = date.getFullYear();
+
   return `${day}-${month}-${year}`;
 };
 

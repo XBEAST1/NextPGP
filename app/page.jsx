@@ -19,6 +19,8 @@ import {
   Pagination,
   Modal,
   ModalContent,
+  DatePicker,
+  Checkbox,
 } from "@heroui/react";
 import {
   EyeFilledIcon,
@@ -116,6 +118,9 @@ export default function App() {
   const [page, setPage] = useState(1);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedKeyName, setSelectedKeyName] = useState("");
+  const [isNoExpiryChecked, setIsNoExpiryChecked] = useState(true);
+  const [validityModal, setvalidityModal] = useState(false);
+  const [expiryDate, setExpiryDate] = useState(null);
   const [password, setPassword] = useState("");
   const [newKeyPassword, setnewKeyPassword] = useState(null);
   const [passwordModal, setPasswordModal] = useState(false);
@@ -125,6 +130,7 @@ export default function App() {
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
   );
+  const [selectedValidityKey, setSelectedValidityKey] = useState(null);
 
   useEffect(() => {
     openDB();
@@ -196,9 +202,19 @@ export default function App() {
                     </DropdownItem>
                   </>
                 ) : (
-                  <DropdownItem onPress={() => addOrChangeKeyPassword(user)}>
-                    Add Password
-                  </DropdownItem>
+                  <>
+                    <DropdownItem
+                      onPress={() => {
+                        setSelectedValidityKey(user);
+                        setvalidityModal(true);
+                      }}
+                    >
+                      Change Validity
+                    </DropdownItem>
+                    <DropdownItem onPress={() => addOrChangeKeyPassword(user)}>
+                      Add Password
+                    </DropdownItem>
+                  </>
                 )}
               </>
             )}
@@ -243,13 +259,6 @@ export default function App() {
 
             const formatDate = (isoDate) => {
               const date = new Date(isoDate);
-              if (
-                date.getUTCHours() === 23 &&
-                date.getUTCMinutes() === 59 &&
-                date.getUTCSeconds() === 59
-              ) {
-                date.setUTCDate(date.getUTCDate() + 1);
-              }
               const monthNames = [
                 "Jan",
                 "Feb",
@@ -264,9 +273,11 @@ export default function App() {
                 "Nov",
                 "Dec",
               ];
-              const day = String(date.getUTCDate()).padStart(2, "0");
-              const month = monthNames[date.getUTCMonth()];
-              const year = date.getUTCFullYear();
+
+              const day = String(date.getDate()).padStart(2, "0");
+              const month = monthNames[date.getMonth()];
+              const year = date.getFullYear();
+
               return `${day}-${month}-${year}`;
             };
 
@@ -297,7 +308,7 @@ export default function App() {
                 const openpgpKey = await openpgp.readKey({
                   armoredKey: key.publicKey,
                 });
-                
+
                 const creationdate = formatDate(openpgpKey.getCreationTime());
 
                 const { expirydate, status } =
@@ -504,24 +515,19 @@ export default function App() {
     }
   }, []);
 
-  function generateRandomHexCode() {
-    const randomValue = Math.floor(Math.random() * 0xffffffff);
-    return `0x${randomValue.toString(16).toUpperCase().padStart(8, "0")}`;
-  }
-
   const exportPublicKey = (user) => {
-    const randomHex = generateRandomHexCode();
+    const keyid = user.keyid.replace(/\s/g, "");
     const publicKey = user.publicKey;
     const blob = new Blob([publicKey], { type: "text/plain" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `${user.name}_${randomHex}_PUBLIC.asc`;
+    link.download = `${user.name}_0x${keyid}_PUBLIC.asc`;
     link.click();
   };
 
   const backupKeyring = async (user, password = null) => {
     try {
-      const randomHex = generateRandomHexCode();
+      const keyid = user.keyid.replace(/\s/g, "");
       let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
 
       if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
@@ -547,7 +553,7 @@ export default function App() {
       const blob = new Blob([privateKeyBackup], { type: "text/plain" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `${user.name}_${randomHex}_SECRET.asc`;
+      link.download = `${user.name}_0x${keyid}_SECRET.asc`;
       link.click();
     } catch (error) {
       toast.error(
@@ -556,6 +562,104 @@ export default function App() {
           position: "top-right",
         }
       );
+    }
+  };
+
+  const updateKeyValidity = async (keyId, updatedKeys) => {
+    const db = await openDB();
+    const encryptionKey = await getEncryptionKey();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction("pgpKeys", "readonly");
+      const store = transaction.objectStore("pgpKeys");
+      const getRequest = store.get(keyId);
+
+      getRequest.onsuccess = async () => {
+        const record = getRequest.result;
+        if (!record) {
+          return reject(new Error("Key record not found"));
+        }
+
+        try {
+          const originalDecrypted = await decryptData(
+            record.encrypted,
+            encryptionKey,
+            record.iv
+          );
+          const updatedDecrypted = {
+            ...originalDecrypted,
+            privateKey: updatedKeys.privateKey,
+            publicKey: updatedKeys.publicKey,
+          };
+
+          const { encrypted, iv } = await encryptData(
+            updatedDecrypted,
+            encryptionKey
+          );
+          record.encrypted = encrypted;
+          record.iv = iv;
+        } catch (error) {
+          return reject(error);
+        }
+
+        const writeTx = db.transaction("pgpKeys", "readwrite");
+        const writeStore = writeTx.objectStore("pgpKeys");
+        const putRequest = writeStore.put(record);
+
+        putRequest.onsuccess = () => resolve();
+        putRequest.onerror = (e) => reject(e.target.error);
+      };
+
+      getRequest.onerror = (e) => reject(e.target.error);
+    });
+  };
+
+  const handleUpdateValidity = async () => {
+    if (!selectedValidityKey) return;
+    try {
+      const now = new Date();
+      let keyExpirationTime;
+      if (isNoExpiryChecked || !expiryDate) {
+        keyExpirationTime = undefined;
+      } else {
+        const expiry = new Date(expiryDate);
+        keyExpirationTime = Math.floor((expiry - now) / 1000);
+        if (keyExpirationTime <= 0) {
+          toast.error("The expiry date must be in the future", {
+            position: "top-right",
+          });
+          return;
+        }
+      }
+
+      const key = await openpgp.readKey({
+        armoredKey: selectedValidityKey.privateKey,
+      });
+
+      const updatedKeyPair = await openpgp.reformatKey({
+        privateKey: key,
+        keyExpirationTime: keyExpirationTime,
+        date: new Date(),
+        format: "armored",
+        userIDs: [
+          { name: selectedValidityKey.name, email: selectedValidityKey.email },
+        ],
+      });
+
+      await updateKeyValidity(selectedValidityKey.id, {
+        privateKey: updatedKeyPair.privateKey,
+        publicKey: updatedKeyPair.publicKey,
+      });
+
+      toast.success("Validity Updated Successfully", { position: "top-right" });
+      const refreshedKeys = await loadKeysFromIndexedDB();
+      setUsers(refreshedKeys);
+
+      setvalidityModal(false);
+      setSelectedValidityKey(null);
+    } catch (error) {
+      toast.error("Failed to update validity", { position: "top-right" });
+      console.error(error);
     }
   };
 
@@ -961,6 +1065,39 @@ export default function App() {
           )}
         </TableBody>
       </Table>
+      <Modal
+        size="sm"
+        backdrop="blur"
+        isOpen={validityModal}
+        onClose={() => {
+          setvalidityModal(false);
+          setSelectedValidityKey(null);
+        }}
+      >
+        <ModalContent className="p-5">
+          <Checkbox
+            defaultSelected={isNoExpiryChecked}
+            color="default"
+            onChange={(e) => setIsNoExpiryChecked(e.target.checked)}
+          >
+            No Expiry
+          </Checkbox>
+          <br />
+          <DatePicker
+            color="default"
+            isDisabled={isNoExpiryChecked}
+            label="Expiry date"
+            value={expiryDate}
+            onChange={(date) => setExpiryDate(date)}
+          />
+          <Button
+            className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+            onPress={handleUpdateValidity}
+          >
+            Confirm
+          </Button>
+        </ModalContent>
+      </Modal>
       <Modal
         backdrop="blur"
         isOpen={passwordModal}

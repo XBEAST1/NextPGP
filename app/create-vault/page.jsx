@@ -195,7 +195,7 @@ const Page = () => {
         </Button>
       </div>
       <br />
-      <div className="sm:justify-end ms-4 flex justify-center items-center">
+      <div className="sm:justify-end sm:mt-0 mt-6 ms-4 flex justify-center items-center">
         <Button className="me-5" onPress={() => logout("google")}>
           Sign Out
         </Button>
