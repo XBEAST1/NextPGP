@@ -39,7 +39,6 @@ const Page = () => {
   useEffect(() => {
     const checkVaultExists = async () => {
       const res = await fetch("/api/create-vault");
-
       if (res.ok) {
         const { exists } = await res.json();
         if (exists) {
@@ -52,12 +51,6 @@ const Page = () => {
     checkVaultExists();
   }, [router]);
 
-  const onKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleCreateVault();
-    }
-  };
-
   const handleCreateVault = async () => {
     if (!password.trim()) {
       toast.error("Please enter a password", { position: "top-right" });
@@ -65,43 +58,84 @@ const Page = () => {
     }
     setLoading(true);
 
-    try {
-      // Generate random 16-byte encryption salt
-      const encryptionSalt = new Uint8Array(16);
-      crypto.getRandomValues(encryptionSalt);
+    // Helper to convert buffer to hex string
+    function bufferToHex(buffer) {
+      return Array.from(new Uint8Array(buffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    }
 
-      // Client Side PBKDF2 key derivation
+    // AES-GCM encryption (client-side)
+    async function encrypt(text, password) {
       const enc = new TextEncoder();
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+
       const keyMaterial = await crypto.subtle.importKey(
         "raw",
         enc.encode(password),
         { name: "PBKDF2" },
         false,
-        ["deriveBits"]
+        ["deriveKey"]
       );
 
-      const derivedBits = await crypto.subtle.deriveBits(
+      const key = await crypto.subtle.deriveKey(
         {
           name: "PBKDF2",
-          salt: encryptionSalt,
-          iterations: 100000,
+          salt,
+          iterations: 1000000,
           hash: "SHA-256",
         },
         keyMaterial,
-        256
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt"]
       );
 
-      const derivedKey = new Uint8Array(derivedBits);
-      const derivedKeyBase64 = btoa(String.fromCharCode(...derivedKey));
-      const saltBase64 = btoa(String.fromCharCode(...encryptionSalt));
+      const encryptedBuffer = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        key,
+        enc.encode(text)
+      );
 
-      // Send derived key and salt to server
+      // Combine salt, iv, and the encrypted content
+      const combined = new Uint8Array(
+        salt.byteLength + iv.byteLength + encryptedBuffer.byteLength
+      );
+      combined.set(salt, 0);
+      combined.set(iv, salt.byteLength);
+      combined.set(
+        new Uint8Array(encryptedBuffer),
+        salt.byteLength + iv.byteLength
+      );
+
+      // Binary-safe base64 encoding
+      function toBase64(uint8array) {
+        let binary = "";
+        for (let i = 0; i < uint8array.length; i++) {
+          binary += String.fromCharCode(uint8array[i]);
+        }
+        return btoa(binary);
+      }
+
+      return toBase64(combined);
+    }
+
+    try {
+      // Generate a random 32-byte verification text
+      const randomBytes = crypto.getRandomValues(new Uint8Array(32));
+      const verificationText = bufferToHex(randomBytes);
+
+      // Store the verification text with a prefix to identify it
+      const combinedText = `VERIFY:${verificationText}`;
+      const verificationCipher = await encrypt(combinedText, password);
+
+      // Only send the cipher
       const res = await fetch("/api/create-vault", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          SHA256PasswordHash: derivedKeyBase64,
-          encryptionSalt: saltBase64,
+          verificationCipher,
         }),
       });
 
@@ -119,12 +153,10 @@ const Page = () => {
         setLoading(false);
       }
     } catch (e) {
-      console.error("Hashing failed:", e);
+      console.error("Vault creation failed:", e);
       toast.error(
         "Encryption failed. Your device may be low on memory or CPU power",
-        {
-          position: "top-right",
-        }
+        { position: "top-right" }
       );
       setLoading(false);
     }
@@ -161,7 +193,11 @@ const Page = () => {
             placeholder="Enter vault password"
             type={isVisible ? "text" : "password"}
             value={password}
-            onKeyDown={onKeyPress}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleCreateVault();
+              }
+            }}
             onChange={(e) => setPassword(e.target.value)}
             endContent={
               <button

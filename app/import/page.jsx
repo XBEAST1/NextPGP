@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Textarea, Button, Input } from "@heroui/react";
-import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {
   openDB,
@@ -11,6 +9,8 @@ import {
   getStoredKeys,
   dbPgpKeys,
 } from "@/lib/indexeddb";
+import { Textarea, Button, Input } from "@heroui/react";
+import { toast, ToastContainer } from "react-toastify";
 import * as openpgp from "openpgp";
 
 // Extract only the PGP keys from the content

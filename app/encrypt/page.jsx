@@ -12,9 +12,6 @@ import {
   ModalContent,
   Snippet,
 } from "@heroui/react";
-import { toast, ToastContainer } from "react-toastify";
-import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
-import "react-toastify/dist/ReactToastify.css";
 import {
   openDB,
   getStoredKeys,
@@ -22,9 +19,12 @@ import {
   selectedSigners,
   selectedRecipients,
 } from "@/lib/indexeddb";
-import * as openpgp from "openpgp";
-import JSZip from "jszip";
+import { toast, ToastContainer } from "react-toastify";
+import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { saveAs } from "file-saver";
+import "react-toastify/dist/ReactToastify.css";
+import JSZip from "jszip";
+import * as openpgp from "openpgp";
 
 export default function App() {
   const [pgpKeys, setPgpKeys] = useState([]);
@@ -43,7 +43,7 @@ export default function App() {
   const [directoryFiles, setdirectoryFiles] = useState(null);
   const [isInputHovered, setisInputHovered] = useState(false);
   const onSubmitPassword = useRef(null);
-  
+
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   useEffect(() => {
@@ -53,14 +53,33 @@ export default function App() {
       try {
         const keysFromStorage = await getStoredKeys();
 
-        const filteredSignerKeys = keysFromStorage.filter(
+        // Check for revoked keys and filter them out
+        const validKeys = await Promise.all(
+          keysFromStorage.map(async (key) => {
+            try {
+              const publicKeyObj = await openpgp.readKey({
+                armoredKey: key.publicKey,
+              });
+              const isRevoked = await publicKeyObj.isRevoked();
+              return isRevoked ? null : key;
+            } catch (error) {
+              console.error("Error checking key revocation:", error);
+              return null;
+            }
+          })
+        );
+
+        // Remove null entries (revoked keys)
+        const filteredKeys = validKeys.filter((key) => key !== null);
+
+        const filteredSignerKeys = filteredKeys.filter(
           (key) => key.publicKey && key.privateKey
         );
-        const filteredRecipientKeys = keysFromStorage.filter(
+        const filteredRecipientKeys = filteredKeys.filter(
           (key) => key.publicKey
         );
 
-        setPgpKeys(keysFromStorage);
+        setPgpKeys(filteredKeys);
         setSignerKeys(filteredSignerKeys);
         setRecipientKeys(filteredRecipientKeys);
       } catch (error) {

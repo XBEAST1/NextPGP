@@ -9,15 +9,16 @@ import {
   Autocomplete,
   AutocompleteItem,
 } from "@heroui/react";
-import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import {
   openDB,
   getEncryptionKey,
   encryptData,
   dbPgpKeys,
 } from "@/lib/indexeddb";
+import { today, getLocalTimeZone } from "@internationalized/date";
+import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
 
 export default function App() {
@@ -112,14 +113,19 @@ export default function App() {
       let keyExpirationTime = undefined;
       if (!isNoExpiryChecked && expiryDate) {
         const now = new Date();
-        const expiry = new Date(expiryDate);
+        const selected = new Date(expiryDate);
+        const expiry = new Date(
+          Date.UTC(
+            selected.getFullYear(),
+            selected.getMonth(),
+            selected.getDate() + 1,
+            0,
+            0,
+            0,
+            0
+          )
+        );
         keyExpirationTime = Math.floor((expiry - now) / 1000);
-        if (keyExpirationTime <= 0) {
-          toast.error("The expiry date must be in the future", {
-            position: "top-right",
-          });
-          return;
-        }
       }
 
       let options;
@@ -238,6 +244,7 @@ export default function App() {
       <br />
 
       <DatePicker
+        minValue={today(getLocalTimeZone()).add({ days: 1 })}
         isDisabled={isNoExpiryChecked}
         className="max-w-[284px]"
         label="Expiry date"

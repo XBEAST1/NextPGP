@@ -21,6 +21,7 @@ import {
   ModalContent,
   DatePicker,
   Checkbox,
+  Spinner,
 } from "@heroui/react";
 import {
   EyeFilledIcon,
@@ -29,11 +30,6 @@ import {
   SearchIcon,
   ChevronDownIcon,
 } from "@/components/icons";
-import { NProgressLink } from "@/components/nprogress";
-import Keyring from "@/assets/Keyring.png";
-import Public from "@/assets/Public.png";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import {
   openDB,
   getEncryptionKey,
@@ -41,11 +37,18 @@ import {
   encryptData,
   dbPgpKeys,
 } from "@/lib/indexeddb";
+import { today, getLocalTimeZone, CalendarDate } from "@internationalized/date";
+import { toast, ToastContainer } from "react-toastify";
+import { NProgressLink } from "@/components/nprogress";
+import Keyring from "@/assets/Keyring.png";
+import Public from "@/assets/Public.png";
+import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
 
 const statusColorMap = {
   active: "success",
   expired: "danger",
+  revoked: "danger",
 };
 
 const passwordprotectedColorMap = {
@@ -120,17 +123,19 @@ export default function App() {
   const [selectedKeyName, setSelectedKeyName] = useState("");
   const [isNoExpiryChecked, setIsNoExpiryChecked] = useState(true);
   const [validityModal, setvalidityModal] = useState(false);
+  const [selectedValidityKey, setSelectedValidityKey] = useState(null);
   const [expiryDate, setExpiryDate] = useState(null);
   const [password, setPassword] = useState("");
   const [newKeyPassword, setnewKeyPassword] = useState(null);
   const [passwordModal, setPasswordModal] = useState(false);
   const [newPasswordChangeModal, setnewPasswordChangeModal] = useState(false);
   const [removePasswordModal, setremovePasswordModal] = useState(false);
+  const [revokeModal, setrevokeModal] = useState(false);
   const [deleteModal, setdeleteModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
   );
-  const [selectedValidityKey, setSelectedValidityKey] = useState(null);
 
   useEffect(() => {
     openDB();
@@ -178,48 +183,115 @@ export default function App() {
             </Button>
           </DropdownTrigger>
           <DropdownMenu>
-            <DropdownItem onPress={() => exportPublicKey(user)}>
+            <DropdownItem
+              key="export-public-key"
+              onPress={() => exportPublicKey(user)}
+            >
               Export Public Key
             </DropdownItem>
 
             {user.privateKey?.trim() && isProtected !== null && (
               <>
-                <DropdownItem onPress={() => backupKeyring(user)}>
+                <DropdownItem
+                  key="backup-keyring"
+                  onPress={() => backupKeyring(user)}
+                >
                   Backup Keyring
                 </DropdownItem>
 
-                {isProtected ? (
-                  <>
-                    <DropdownItem onPress={() => addOrChangeKeyPassword(user)}>
-                      Change Password
-                    </DropdownItem>
+                {user.status !== "revoked" &&
+                  (isProtected ? (
+                    <>
+                      <DropdownItem
+                        key="change-password"
+                        onPress={() => addOrChangeKeyPassword(user)}
+                      >
+                        Change Password
+                      </DropdownItem>
+                      <DropdownItem
+                        key="remove-password"
+                        onPress={() =>
+                          triggerRemovePasswordModal(user, user.name)
+                        }
+                      >
+                        Remove Password
+                      </DropdownItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownItem
+                        key="add-password"
+                        onPress={() => addOrChangeKeyPassword(user)}
+                      >
+                        Add Password
+                      </DropdownItem>
+                    </>
+                  ))}
+
+                <>
+                  {user.status === "revoked" ? null : (
                     <DropdownItem
-                      onPress={() =>
-                        triggerRemovePasswordModal(user, user.name)
-                      }
-                    >
-                      Remove Password
-                    </DropdownItem>
-                  </>
-                ) : (
-                  <>
-                    <DropdownItem
+                      key="change-validity"
                       onPress={() => {
                         setSelectedValidityKey(user);
+                        if (user.expirydate === "No Expiry") {
+                          setIsNoExpiryChecked(true);
+                          setExpiryDate(null);
+                        } else {
+                          setIsNoExpiryChecked(false);
+                          const [day, month, year] = user.expirydate.split("-");
+                          const monthMap = {
+                            Jan: 0,
+                            Feb: 1,
+                            Mar: 2,
+                            Apr: 3,
+                            May: 4,
+                            Jun: 5,
+                            Jul: 6,
+                            Aug: 7,
+                            Sep: 8,
+                            Oct: 9,
+                            Nov: 10,
+                            Dec: 11,
+                          };
+                          const date = new Date(
+                            year,
+                            monthMap[month],
+                            parseInt(day)
+                          );
+                          setExpiryDate(
+                            new CalendarDate(
+                              date.getFullYear(),
+                              date.getMonth() + 1,
+                              date.getDate()
+                            )
+                          );
+                        }
                         setvalidityModal(true);
                       }}
                     >
                       Change Validity
                     </DropdownItem>
-                    <DropdownItem onPress={() => addOrChangeKeyPassword(user)}>
-                      Add Password
+                  )}
+
+                  {user.status === "revoked" ? null : (
+                    <DropdownItem
+                      key="revoke-key"
+                      onPress={() => {
+                        setSelectedUserId(user);
+                        setSelectedKeyName(user.name);
+                        setrevokeModal(true);
+                      }}
+                    >
+                      Revoke Key
                     </DropdownItem>
-                  </>
-                )}
+                  )}
+                </>
               </>
             )}
 
             <DropdownItem
+              key="delete-key"
               onPress={() => triggerdeleteModal(user.id, user.name)}
             >
               Delete
@@ -274,15 +346,20 @@ export default function App() {
                 "Dec",
               ];
 
-              const day = String(date.getDate()).padStart(2, "0");
-              const month = monthNames[date.getMonth()];
-              const year = date.getFullYear();
+              const day = String(date.getUTCDate()).padStart(2, "0");
+              const month = monthNames[date.getUTCMonth()];
+              const year = date.getUTCFullYear();
 
               return `${day}-${month}-${year}`;
             };
 
             const getKeyExpiryInfo = async (key) => {
               try {
+                const isRevoked = await key.isRevoked();
+                if (isRevoked) {
+                  return { expirydate: "Revoked", status: "revoked" };
+                }
+
                 const expirationTime = await key.getExpirationTime();
                 const now = new Date();
                 if (expirationTime === null || expirationTime === Infinity) {
@@ -420,22 +497,33 @@ export default function App() {
 
   useEffect(() => {
     const fetchKeys = async () => {
-      const pgpKeys = await loadKeysFromIndexedDB();
-      setUsers(pgpKeys);
+      setIsLoading(true);
+      try {
+        const pgpKeys = await loadKeysFromIndexedDB();
+        setUsers(pgpKeys);
+      } catch (error) {
+        console.error("Error loading keys:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     fetchKeys();
 
     const handleStorageChange = async () => {
-      const updatedKeys = await loadKeysFromIndexedDB();
-      setUsers(updatedKeys);
+      setIsLoading(true);
+      try {
+        const updatedKeys = await loadKeysFromIndexedDB();
+        setUsers(updatedKeys);
+      } catch (error) {
+        console.error("Error loading keys:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     window.addEventListener("storage", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-    };
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const filteredItems = useMemo(() => {
@@ -622,22 +710,36 @@ export default function App() {
       if (isNoExpiryChecked || !expiryDate) {
         keyExpirationTime = undefined;
       } else {
-        const expiry = new Date(expiryDate);
+        const selected = new Date(expiryDate);
+        const expiry = new Date(
+          Date.UTC(
+            selected.getFullYear(),
+            selected.getMonth(),
+            selected.getDate() + 1,
+            0,
+            0,
+            0,
+            0
+          )
+        );
         keyExpirationTime = Math.floor((expiry - now) / 1000);
-        if (keyExpirationTime <= 0) {
-          toast.error("The expiry date must be in the future", {
-            position: "top-right",
-          });
-          return;
-        }
       }
 
-      const key = await openpgp.readKey({
+      let privateKey = await openpgp.readKey({
         armoredKey: selectedValidityKey.privateKey,
       });
 
+      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+        const currentPassword =
+          await triggerKeyPasswordModal(selectedValidityKey);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+
       const updatedKeyPair = await openpgp.reformatKey({
-        privateKey: key,
+        privateKey: privateKey,
         keyExpirationTime: keyExpirationTime,
         date: new Date(),
         format: "armored",
@@ -854,6 +956,40 @@ export default function App() {
     });
   };
 
+  const revokeKey = async (user) => {
+    try {
+      let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+        const currentPassword = await triggerKeyPasswordModal(user);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+
+      // Revoke the key
+      const revokedKey = await openpgp.revokeKey({
+        key: privateKey,
+        format: "armored",
+        reasonForRevocation: "key compromised",
+        date: new Date(),
+      });
+
+      // Update the key in the database
+      await updateKeyValidity(user.id, {
+        privateKey: revokedKey.privateKey,
+        publicKey: revokedKey.publicKey,
+      });
+
+      toast.success("Key Revoked Successfully", { position: "top-right" });
+      const refreshedKeys = await loadKeysFromIndexedDB();
+      setUsers(refreshedKeys);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to revoke key", { position: "top-right" });
+    }
+  };
+
   const closedeleteModal = () => {
     setSelectedUserId(null);
     setSelectedKeyName("");
@@ -1034,6 +1170,12 @@ export default function App() {
           )}
         </TableHeader>
         <TableBody
+          loadingContent={
+            <div className="flex justify-center items-center mt-12">
+              <Spinner size="lg" color="warning" label="Loading keyrings..." />
+            </div>
+          }
+          isLoading={isLoading}
           emptyContent={
             <>
               <span>No keyrings found</span>
@@ -1072,6 +1214,8 @@ export default function App() {
         onClose={() => {
           setvalidityModal(false);
           setSelectedValidityKey(null);
+          setIsNoExpiryChecked(true);
+          setExpiryDate(null);
         }}
       >
         <ModalContent className="p-5">
@@ -1084,6 +1228,7 @@ export default function App() {
           </Checkbox>
           <br />
           <DatePicker
+            minValue={today(getLocalTimeZone()).add({ days: 1 })}
             color="default"
             isDisabled={isNoExpiryChecked}
             label="Expiry date"
@@ -1230,6 +1375,71 @@ export default function App() {
             <Button
               className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
               onPress={removePasswordFromKey}
+            >
+              Yes
+            </Button>
+          </div>
+        </ModalContent>
+      </Modal>
+      <Modal
+        size="xl"
+        backdrop="blur"
+        isOpen={revokeModal}
+        onClose={() => setrevokeModal(false)}
+      >
+        <ModalContent className="p-5">
+          <h3 className="mb-2 font-semibold">
+            Are You Sure You Want To Revoke {selectedKeyName}&apos;s Key?
+          </h3>
+
+          <div className="mb-4 p-3 bg-gray-800 rounded-lg">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <p className="text-default-400">Creation Date:</p>
+                <p className="font-mono">{selectedUserId?.creationdate}</p>
+              </div>
+              <div className="-ms-12">
+                <p className="text-default-400">Key ID:</p>
+                <p className="font-mono">{selectedUserId?.keyid}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-default-400">Fingerprint:</p>
+                <p className="font-mono">{selectedUserId?.fingerprint}</p>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-sm text-red-500 font-semibold mb-2">
+            This action is permanent and will take effect immediately.
+          </p>
+
+          <ul className="list-disc list-inside text-sm mb-4 text-default-500">
+            <li>
+              You can still decrypt anything previously encrypted to this key.
+            </li>
+            <li>
+              You will no longer be able to sign messages or data with it.
+            </li>
+            <li>The key will no longer be usable for encryption.</li>
+            <li>
+              This revocation only takes effect locally unless you share the
+              revoked key.
+            </li>
+          </ul>
+
+          <div className="flex gap-2">
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+              onPress={() => setrevokeModal(false)}
+            >
+              No
+            </Button>
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
+              onPress={() => {
+                revokeKey(selectedUserId);
+                setrevokeModal(false);
+              }}
             >
               Yes
             </Button>

@@ -28,11 +28,6 @@ import {
   SearchIcon,
   ChevronDownIcon,
 } from "@/components/icons";
-import NProgress from "nprogress";
-import { NProgressLink } from "@/components/nprogress";
-import { useRouter } from "next/navigation";
-import Keyring from "@/assets/Keyring.png";
-import Public from "@/assets/Public.png";
 import {
   openDB,
   getEncryptionKey,
@@ -41,9 +36,14 @@ import {
   dbPgpKeys,
 } from "@/lib/indexeddb";
 import { toast, ToastContainer } from "react-toastify";
+import { NProgressLink } from "@/components/nprogress";
+import { useRouter } from "next/navigation";
+import ConnectivityCheck from "@/components/connectivity-check";
+import NProgress from "nprogress";
+import Keyring from "@/assets/Keyring.png";
+import Public from "@/assets/Public.png";
 import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
-import ConnectivityCheck from "@/components/connectivity-check";
 
 const statusColorMap = {
   Imported: "success",
@@ -77,9 +77,9 @@ const formatDate = (isoDate) => {
     "Dec",
   ];
 
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = monthNames[date.getMonth()];
-  const year = date.getFullYear();
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = monthNames[date.getUTCMonth()];
+  const year = date.getUTCFullYear();
 
   return `${day}-${month}-${year}`;
 };
@@ -175,7 +175,7 @@ async function decrypt(encryptedBase64, password) {
     {
       name: "PBKDF2",
       salt,
-      iterations: 100000,
+      iterations: 1000000,
       hash: "SHA-256",
     },
     keyMaterial,
@@ -208,6 +208,7 @@ export default function App() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
   const [locking, setLocking] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
@@ -226,17 +227,6 @@ export default function App() {
     } catch (error) {
       return false;
     }
-  };
-
-  // Add this new function alongside your other utility functions
-  const decryptVaultPassword = async (encryptedData, key, iv) => {
-    const decrypted = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: iv },
-      key,
-      encryptedData
-    );
-    // Simply return the decoded string without JSON parsing
-    return new TextDecoder().decode(decrypted);
   };
 
   const { getVaultPassword, lockVault } = useVault();
@@ -572,22 +562,33 @@ export default function App() {
 
   useEffect(() => {
     const fetchKeys = async () => {
-      const keys = await loadKeysFromCloud();
-      setUsers(keys);
+      setIsLoading(true);
+      try {
+        const pgpKeys = await loadKeysFromCloud();
+        setUsers(pgpKeys);
+      } catch (error) {
+        console.error("Error loading keys:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     fetchKeys();
 
     const handleStorageChange = async () => {
-      const updatedKeys = await loadKeysFromCloud();
-      setUsers(updatedKeys);
+      setIsLoading(true);
+      try {
+        const updatedKeys = await loadKeysFromCloud();
+        setUsers(updatedKeys);
+      } catch (error) {
+        console.error("Error loading keys:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     window.addEventListener("storage", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-    };
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const filteredItems = useMemo(() => {
@@ -960,6 +961,12 @@ export default function App() {
           )}
         </TableHeader>
         <TableBody
+          loadingContent={
+            <div className="flex justify-center items-center mt-12">
+              <Spinner size="lg" color="warning" label="Loading keyrings..." />
+            </div>
+          }
+          isLoading={isLoading}
           emptyContent={
             <>
               <span>No keyrings found</span>

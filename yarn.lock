@@ -3193,6 +3193,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@internationalized/date@npm:3.8.0":
+  version: 3.8.0
+  resolution: "@internationalized/date@npm:3.8.0"
+  dependencies:
+    "@swc/helpers": "npm:^0.5.0"
+  checksum: 10c0/7ac0cae2f1832fe2f2950e22208812ed8bf2845dd903ec93bd3aa024ca020124e137638b11bb5817b92abde1daa3f881cc81d62db0b20f5db2d9e07ab0cd9e01
+  languageName: node
+  linkType: hard
+
 "@internationalized/date@npm:^3.7.0":
   version: 3.7.0
   resolution: "@internationalized/date@npm:3.7.0"
@@ -9479,7 +9488,7 @@ __metadata:
     "@brendon1555/authjs-mongoose-adapter": "npm:^1.1.0"
     "@ducanh2912/next-pwa": "npm:^10.2.9"
     "@heroui/react": "npm:^2.6.14"
-    "@internationalized/date": "npm:^3.6.0"
+    "@internationalized/date": "npm:3.8.0"
     "@next/eslint-plugin-next": "npm:15.0.4"
     "@next/third-parties": "npm:^15.1.0"
     "@react-aria/ssr": "npm:3.9.7"

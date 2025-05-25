@@ -27,22 +27,22 @@ import {
   SearchIcon,
   ChevronDownIcon,
 } from "@/components/icons";
-import NProgress from "nprogress";
-import { NProgressLink } from "@/components/nprogress";
-import { useRouter } from "next/navigation";
-import Keyring from "@/assets/Keyring.png";
-import Public from "@/assets/Public.png";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import {
   openDB,
   getEncryptionKey,
   decryptData,
   dbPgpKeys,
 } from "@/lib/indexeddb";
-import * as openpgp from "openpgp";
-import ConnectivityCheck from "@/components/connectivity-check";
+import { toast, ToastContainer } from "react-toastify";
+import { NProgressLink } from "@/components/nprogress";
+import { useRouter } from "next/navigation";
 import { useVault } from "@/context/VaultContext";
+import ConnectivityCheck from "@/components/connectivity-check";
+import NProgress from "nprogress";
+import Keyring from "@/assets/Keyring.png";
+import Public from "@/assets/Public.png";
+import "react-toastify/dist/ReactToastify.css";
+import * as openpgp from "openpgp";
 
 function bufferToHex(buffer) {
   return Array.from(new Uint8Array(buffer))
@@ -75,7 +75,7 @@ async function encrypt(text, password) {
     {
       name: "PBKDF2",
       salt,
-      iterations: 100000,
+      iterations: 1000000,
       hash: "SHA-256",
     },
     keyMaterial,
@@ -137,7 +137,7 @@ async function decrypt(encryptedBase64, password) {
     {
       name: "PBKDF2",
       salt,
-      iterations: 100000,
+      iterations: 1000000,
       hash: "SHA-256",
     },
     keyMaterial,
@@ -241,8 +241,8 @@ export default function App() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
   const [locking, setLocking] = useState(false);
-  const [backingUp, setBackingUp] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
   );
@@ -282,7 +282,6 @@ export default function App() {
       vaultPassword = await getVaultPassword();
       if (!vaultPassword) {
         throw new Error("Vault password not available");
-        return [];
       }
       const response = await fetch("/api/manage-keys/fetch-keys", {
         method: "POST",
@@ -337,9 +336,9 @@ export default function App() {
                 "Dec",
               ];
 
-              const day = String(date.getDate()).padStart(2, "0");
-              const month = monthNames[date.getMonth()];
-              const year = date.getFullYear();
+              const day = String(date.getUTCDate()).padStart(2, "0");
+              const month = monthNames[date.getUTCMonth()];
+              const year = date.getUTCFullYear();
 
               return `${day}-${month}-${year}`;
             };
@@ -525,15 +524,29 @@ export default function App() {
 
   useEffect(() => {
     const fetchKeys = async () => {
-      const pgpKeys = await loadKeysFromIndexedDB();
-      setUsers(pgpKeys);
+      setIsLoading(true);
+      try {
+        const pgpKeys = await loadKeysFromIndexedDB();
+        setUsers(pgpKeys);
+      } catch (error) {
+        console.error("Error loading keys:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     fetchKeys();
 
     const handleStorageChange = async () => {
-      const updatedKeys = await loadKeysFromIndexedDB();
-      setUsers(updatedKeys);
+      setIsLoading(true);
+      try {
+        const updatedKeys = await loadKeysFromIndexedDB();
+        setUsers(updatedKeys);
+      } catch (error) {
+        console.error("Error loading keys:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -579,70 +592,66 @@ export default function App() {
     );
   }, [visibleColumns]);
 
-  const renderCell = useCallback(
-    (user, columnKey) => {
-      const cellValue = user[columnKey];
+  const renderCell = useCallback((user, columnKey) => {
+    const cellValue = user[columnKey];
 
-      switch (columnKey) {
-        case "name":
-          return (
-            <User
-              avatarProps={{ radius: "lg", src: user.avatar }}
-              name={cellValue}
-            ></User>
-          );
-        case "keystatus":
-          return (
-            <Chip
-              className="-ms-5 capitalize"
-              color={keyStatusColorMap[user.keystatus]}
-              variant="flat"
-            >
-              {cellValue}
-            </Chip>
-          );
-        case "status":
-          return (
-            <Chip
-              className="capitalize -ms-4"
-              color={statusColorMap[user.status]}
-              variant="flat"
-            >
-              {cellValue}
-            </Chip>
-          );
-        case "passwordprotected":
-          return (
-            <Chip
-              className="-ms-6 capitalize"
-              color={passwordprotectedColorMap[user.passwordprotected]}
-              variant="flat"
-            >
-              {cellValue}
-            </Chip>
-          );
-        case "backup":
-          return (
-            <Button
-              className="ms-2"
-              color="secondary"
-              variant="flat"
-              onPress={() => {
-                backupKey(user);
-              }}
-            >
-              {backingUp ? <Spinner color="white" size="sm" /> : "Backup"}
-            </Button>
-          );
-        default:
-          return cellValue;
-      }
-    },
-    [backingUp]
-  );
+    switch (columnKey) {
+      case "name":
+        return (
+          <User
+            avatarProps={{ radius: "lg", src: user.avatar }}
+            name={cellValue}
+          ></User>
+        );
+      case "keystatus":
+        return (
+          <Chip
+            className="-ms-5 capitalize"
+            color={keyStatusColorMap[user.keystatus]}
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
+        );
+      case "status":
+        return (
+          <Chip
+            className="capitalize -ms-4"
+            color={statusColorMap[user.status]}
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
+        );
+      case "passwordprotected":
+        return (
+          <Chip
+            className="-ms-6 capitalize"
+            color={passwordprotectedColorMap[user.passwordprotected]}
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
+        );
+      case "backup":
+        return (
+          <Button
+            className="ms-2"
+            color="secondary"
+            variant="flat"
+            onPress={() => {
+              backupKey(user);
+            }}
+          >
+            Backup
+          </Button>
+        );
+      default:
+        return cellValue;
+    }
+  }, []);
 
   const backupKey = async (user, password = null) => {
-    setBackingUp(true);
     try {
       let key = null;
       let privateKeyRaw = null;
@@ -736,13 +745,11 @@ export default function App() {
 
       if (response.ok) {
         if (responseData.message === "Key already backed up.") {
-          setBackingUp(false);
           toast.info(
             `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} is already backed up`,
             { position: "top-right" }
           );
         } else {
-          setBackingUp(false);
           toast.success(
             `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} successfully backed up to the cloud!`,
             { position: "top-right" }
@@ -766,8 +773,6 @@ export default function App() {
       toast.error(`Failed to process ${user.name}'s key.`, {
         position: "top-right",
       });
-    } finally {
-      setBackingUp(false);
     }
   };
 
@@ -1005,6 +1010,12 @@ export default function App() {
           )}
         </TableHeader>
         <TableBody
+          loadingContent={
+            <div className="flex justify-center items-center mt-12">
+              <Spinner size="lg" color="warning" label="Loading keyrings..." />
+            </div>
+          }
+          isLoading={isLoading}
           emptyContent={
             <>
               <span>No keyrings found</span>

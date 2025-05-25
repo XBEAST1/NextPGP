@@ -10,15 +10,15 @@ import {
   InputOtp,
 } from "@heroui/react";
 import { logout } from "@/actions/auth";
+import { openDB } from "@/lib/indexeddb";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
-import { toast, ToastContainer } from "react-toastify";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast, ToastContainer } from "react-toastify";
+import { useVault } from "@/context/VaultContext";
 import NProgress from "nprogress";
 import UserDetails from "@/components/userdetails";
-import "react-toastify/dist/ReactToastify.css";
-import { openDB } from "@/lib/indexeddb";
 import ConnectivityCheck from "@/components/connectivity-check";
-import { useVault } from "@/context/VaultContext";
+import "react-toastify/dist/ReactToastify.css";
 
 const Page = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -40,99 +40,85 @@ const Page = () => {
     openDB();
   }, []);
 
-  const onKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleLogin();
-    }
-  };
-
   const handleLogin = async () => {
     if (!password.trim()) {
-      toast.error("Please enter a password", {
-        position: "top-right",
-      });
+      toast.error("Please enter a password", { position: "top-right" });
       return;
     }
-
     setLoading(true);
 
-    // Fetch the encryptionSalt (base64 encoded)
-    const saltRes = await fetch("/api/vault", { method: "GET" });
-    if (!saltRes.ok) {
-      toast.error("Vault not found");
-      setLoading(false);
-      return;
-    }
-    const { encryptionSalt } = await saltRes.json();
-    if (!encryptionSalt) {
-      toast.error("Encryption salt not available");
-      setLoading(false);
-      return;
-    }
-
-    // Decode base64 salt to Uint8Array
-    const saltBytes = Uint8Array.from(atob(encryptionSalt), (c) =>
-      c.charCodeAt(0)
-    );
-
-    try {
-      // Client Side PBKDF2 key derivation
+    // AES-GCM decryption (client-side)
+    async function decrypt(encryptedBase64, password) {
       const enc = new TextEncoder();
+      const dec = new TextDecoder();
+
+      const encryptedBytes = Uint8Array.from(atob(encryptedBase64), (c) =>
+        c.charCodeAt(0)
+      );
+      const salt = encryptedBytes.slice(0, 16);
+      const iv = encryptedBytes.slice(16, 28);
+      const data = encryptedBytes.slice(28);
+
       const keyMaterial = await crypto.subtle.importKey(
         "raw",
         enc.encode(password),
         { name: "PBKDF2" },
         false,
-        ["deriveBits"]
+        ["deriveKey"]
       );
 
-      const derivedBits = await crypto.subtle.deriveBits(
+      const key = await crypto.subtle.deriveKey(
         {
           name: "PBKDF2",
-          salt: saltBytes,
-          iterations: 100000,
+          salt,
+          iterations: 1000000,
           hash: "SHA-256",
         },
         keyMaterial,
-        256
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["decrypt"]
       );
 
-      const derivedKey = new Uint8Array(derivedBits);
-      const derivedKeyBase64 = btoa(String.fromCharCode(...derivedKey));
+      const decryptedBuffer = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        key,
+        data
+      );
 
-      // Send derived key to server for Argon2 verification
-      const res = await fetch("/api/vault", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ SHA256PasswordHash: derivedKeyBase64 }),
-      });
+      return dec.decode(decryptedBuffer);
+    }
 
-      if (res.ok) {
-        // Add the password to VaultContext
-        unlockVault(password);
+    try {
+      const res = await fetch("/api/vault", { method: "GET" });
+      const { verificationCipher } = await res.json();
 
-        await fetch("/api/vault/unlock", {
-          method: "POST",
-        });
-
+      if (!verificationCipher) {
+        toast.error("Vault data incomplete");
         setLoading(false);
-        const redirectUrl = searchParams.get("redirect") ?? "/cloud-backup";
-        NProgress.start();
-        router.push(redirectUrl);
-      } else {
-        toast.error("Incorrect password", {
-          position: "top-right",
-        });
-        setLoading(false);
+        return;
       }
+
+      const decrypted = await decrypt(verificationCipher, password);
+
+      // Check if the decrypted text starts with "VERIFY:"
+      if (!decrypted.startsWith("VERIFY:")) {
+        toast.error("Incorrect password", { position: "top-right" });
+        setLoading(false);
+        return;
+      }
+
+      // Vault unlocked successfully
+      unlockVault(password);
+      await fetch("/api/vault/unlock", { method: "POST" });
+
+      setLoading(false);
+      const redirectUrl = searchParams.get("redirect") ?? "/cloud-backup";
+      NProgress.start();
+      router.push(redirectUrl);
     } catch (e) {
-      console.error("Error during hashing:", e);
-      toast.error(
-        "Encryption failed. Your device may be low on memory or CPU power",
-        {
-          position: "top-right",
-        }
-      );
+      console.error("Error during decryption:", e);
+      toast.error("Incorrect password", { position: "top-right" });
       setLoading(false);
     }
   };
@@ -215,7 +201,11 @@ const Page = () => {
             name="password"
             placeholder="Enter vault password"
             type={isVisible ? "text" : "password"}
-            onKeyDown={onKeyPress}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleLogin();
+              }
+            }}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             endContent={

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectToDatabase } from "@/lib/mongoose";
 import Vault from "@/models/Vault";
-import argon2 from "argon2";
 
 await connectToDatabase();
 
@@ -35,22 +34,13 @@ export async function POST(req: Request) {
     );
   }
 
-  const { SHA256PasswordHash, encryptionSalt } = await req.json();
+  const { verificationCipher } = await req.json();
 
   try {
-    // Rehash the SHA256 hash using argon2
-    const hashedPassword = await argon2.hash(SHA256PasswordHash, {
-      type: argon2.argon2id,
-      timeCost: 5,
-      memoryCost: 2 ** 17,
-      parallelism: 1,
-    });
-
     const vaultDoc = new Vault({
       name: session.user.name ? `${session.user.name}'s Vault` : "Vault",
-      passwordHash: hashedPassword,
+      verificationCipher,
       userId: session.user.id,
-      encryptionSalt, // PBKDF2 salt for future login derivation
     });
 
     await vaultDoc.save();

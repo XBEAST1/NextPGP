@@ -4,10 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { Modal, ModalContent, Input, Button, Textarea } from "@heroui/react";
-import "react-toastify/dist/ReactToastify.css";
 import { openDB, getStoredKeys } from "@/lib/indexeddb";
-import * as openpgp from "openpgp";
 import { saveAs } from "file-saver";
+import "react-toastify/dist/ReactToastify.css";
+import * as openpgp from "openpgp";
 
 export default function App() {
   let message;
