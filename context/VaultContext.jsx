@@ -69,13 +69,11 @@ export const VaultProvider = ({ children }) => {
 
   // Automatically lock the vault when the tab is closed
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const key = "vault_session_started";
+    if (!sessionStorage.getItem(key)) {
       lockVault();
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
+      sessionStorage.setItem(key, "1");
+    }
   }, []);
 
   return (

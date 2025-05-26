@@ -77,9 +77,9 @@ const formatDate = (isoDate) => {
     "Dec",
   ];
 
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  const month = monthNames[date.getUTCMonth()];
-  const year = date.getUTCFullYear();
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = monthNames[date.getMonth()];
+  const year = date.getFullYear();
 
   return `${day}-${month}-${year}`;
 };

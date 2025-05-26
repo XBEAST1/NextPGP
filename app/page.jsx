@@ -22,6 +22,9 @@ import {
   DatePicker,
   Checkbox,
   Spinner,
+  Textarea,
+  Radio,
+  RadioGroup,
 } from "@heroui/react";
 import {
   EyeFilledIcon,
@@ -131,6 +134,10 @@ export default function App() {
   const [newPasswordChangeModal, setnewPasswordChangeModal] = useState(false);
   const [removePasswordModal, setremovePasswordModal] = useState(false);
   const [revokeModal, setrevokeModal] = useState(false);
+  const [revocationReason, setRevocationReason] = useState("0");
+  const [revocationReasonText, setRevocationReasonText] = useState("");
+  const [revocationReasonModal, setrevocationReasonModal] = useState(false);
+  const [revocationInfo, setRevocationInfo] = useState(null);
   const [deleteModal, setdeleteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [visibleColumns, setVisibleColumns] = useState(
@@ -183,6 +190,33 @@ export default function App() {
             </Button>
           </DropdownTrigger>
           <DropdownMenu>
+            {user.status !== "revoked" ? null : (
+              <DropdownItem
+                key="revocation-reason"
+                onPress={async () => {
+                  setSelectedUserId(user);
+                  setSelectedKeyName(user.name);
+
+                  const info = await getRevocationReason(user);
+
+                  if (info) {
+                    const reasonsMap = {
+                      0: "Key is Compromised",
+                      1: "Key is Superseded",
+                      2: "Key is No Longer Used",
+                    };
+
+                    info.reason = reasonsMap[info.code] || "Unknown reason";
+                  }
+
+                  setRevocationInfo(info);
+                  setrevocationReasonModal(true);
+                }}
+              >
+                Revocation Reason
+              </DropdownItem>
+            )}
+
             <DropdownItem
               key="export-public-key"
               onPress={() => exportPublicKey(user)}
@@ -346,9 +380,9 @@ export default function App() {
                 "Dec",
               ];
 
-              const day = String(date.getUTCDate()).padStart(2, "0");
-              const month = monthNames[date.getUTCMonth()];
-              const year = date.getUTCFullYear();
+              const day = String(date.getDate()).padStart(2, "0");
+              const month = monthNames[date.getMonth()];
+              const year = date.getFullYear();
 
               return `${day}-${month}-${year}`;
             };
@@ -712,15 +746,13 @@ export default function App() {
       } else {
         const selected = new Date(expiryDate);
         const expiry = new Date(
-          Date.UTC(
-            selected.getFullYear(),
-            selected.getMonth(),
-            selected.getDate() + 1,
-            0,
-            0,
-            0,
-            0
-          )
+          selected.getFullYear(),
+          selected.getMonth(),
+          selected.getDate() + 1,
+          0,
+          0,
+          0,
+          0
         );
         keyExpirationTime = Math.floor((expiry - now) / 1000);
       }
@@ -738,14 +770,21 @@ export default function App() {
         });
       }
 
+      const userID = { name: selectedValidityKey.name };
+      if (
+        selectedValidityKey.email &&
+        selectedValidityKey.email.trim() !== "" &&
+        selectedValidityKey.email !== "N/A"
+      ) {
+        userID.email = selectedValidityKey.email.trim();
+      }
+
       const updatedKeyPair = await openpgp.reformatKey({
         privateKey: privateKey,
         keyExpirationTime: keyExpirationTime,
         date: new Date(),
         format: "armored",
-        userIDs: [
-          { name: selectedValidityKey.name, email: selectedValidityKey.email },
-        ],
+        userIDs: [userID],
       });
 
       await updateKeyValidity(selectedValidityKey.id, {
@@ -957,6 +996,7 @@ export default function App() {
   };
 
   const revokeKey = async (user) => {
+    setRevocationReasonText("");
     try {
       let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
       if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
@@ -967,19 +1007,27 @@ export default function App() {
         });
       }
 
-      // Revoke the key
       const revokedKey = await openpgp.revokeKey({
         key: privateKey,
         format: "armored",
-        reasonForRevocation: "key compromised",
+        reasonForRevocation: {
+          flag: parseInt(revocationReason),
+          string: revocationReasonText || undefined,
+        },
         date: new Date(),
       });
 
-      // Update the key in the database
       await updateKeyValidity(user.id, {
         privateKey: revokedKey.privateKey,
         publicKey: revokedKey.publicKey,
       });
+
+      const keyid = user.keyid.replace(/\s/g, "");
+      const blob = new Blob([revokedKey.publicKey], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${user.name}_0x${keyid}_PUBLIC_REVOKED.asc`;
+      link.click();
 
       toast.success("Key Revoked Successfully", { position: "top-right" });
       const refreshedKeys = await loadKeysFromIndexedDB();
@@ -988,6 +1036,26 @@ export default function App() {
       console.error(error);
       toast.error("Failed to revoke key", { position: "top-right" });
     }
+  };
+
+  const getRevocationReason = async (user) => {
+    const key = await openpgp.readKey({
+      armoredKey: user.publicKey || user.privateKey,
+    });
+
+    if (!key.revocationSignatures || key.revocationSignatures.length === 0)
+      return null;
+
+    for (const sig of key.revocationSignatures) {
+      if (typeof sig.reasonForRevocationFlag !== "undefined") {
+        return {
+          code: sig.reasonForRevocationFlag,
+          text: sig.reasonForRevocationString || null,
+        };
+      }
+    }
+
+    return null;
   };
 
   const closedeleteModal = () => {
@@ -1427,12 +1495,33 @@ export default function App() {
             </li>
           </ul>
 
+          <RadioGroup
+            className="mb-4"
+            size="sm"
+            color="primary"
+            value={revocationReason}
+            onValueChange={setRevocationReason}
+          >
+            <Radio value="0">Key is Compromised</Radio>
+            <Radio value="1">Key is Superseded</Radio>
+            <Radio value="2">Key is No Longer Used</Radio>
+          </RadioGroup>
+
+          <Textarea
+            classNames={{
+              input: "min-h-[80px]",
+            }}
+            label="Description (Optional)"
+            value={revocationReasonText}
+            onChange={(e) => setRevocationReasonText(e.target.value)}
+          />
+
           <div className="flex gap-2">
             <Button
               className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
               onPress={() => setrevokeModal(false)}
             >
-              No
+              Cancel
             </Button>
             <Button
               className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
@@ -1441,7 +1530,67 @@ export default function App() {
                 setrevokeModal(false);
               }}
             >
-              Yes
+              Revoke
+            </Button>
+          </div>
+        </ModalContent>
+      </Modal>
+      <Modal
+        size="lg"
+        backdrop="blur"
+        isOpen={revocationReasonModal}
+        onClose={() => setrevocationReasonModal(false)}
+      >
+        <ModalContent className="p-5">
+          <h3 className="mb-2">
+            Revocation Reason for {selectedKeyName}&apos;s Key
+          </h3>
+
+          <div className="mb-4 p-3 bg-gray-800 rounded-lg">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <p className="text-default-400">Creation Date:</p>
+                <p className="font-mono">{selectedUserId?.creationdate}</p>
+              </div>
+              <div className="-ms-5">
+                <p className="text-default-400">Key ID:</p>
+                <p className="font-mono">{selectedUserId?.keyid}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-default-400">Fingerprint:</p>
+                <p className="font-mono">{selectedUserId?.fingerprint}</p>
+              </div>
+            </div>
+          </div>
+
+          {revocationInfo ? (
+            <div className="mb-4 p-3 bg-gray-800 rounded-lg text-sm">
+              <p>
+                <strong>Revocation Reason:</strong>{" "}
+                {revocationInfo.reason ?? "Unknown"}
+              </p>
+              {revocationInfo.text ? (
+                <p>
+                  <strong>Revocation Description:</strong> {revocationInfo.text}
+                </p>
+              ) : (
+                <p>
+                  <em>No description provided.</em>
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-default-400">
+              No revocation information found.
+            </p>
+          )}
+
+          <div className="flex justify-end">
+            <Button
+              className="px-4 py-2 bg-default-300 text-white rounded-full"
+              onPress={() => setrevocationReasonModal(false)}
+            >
+              Close
             </Button>
           </div>
         </ModalContent>

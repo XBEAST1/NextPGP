@@ -115,15 +115,13 @@ export default function App() {
         const now = new Date();
         const selected = new Date(expiryDate);
         const expiry = new Date(
-          Date.UTC(
-            selected.getFullYear(),
-            selected.getMonth(),
-            selected.getDate() + 1,
-            0,
-            0,
-            0,
-            0
-          )
+          selected.getFullYear(),
+          selected.getMonth(),
+          selected.getDate() + 1,
+          0,
+          0,
+          0,
+          0
         );
         keyExpirationTime = Math.floor((expiry - now) / 1000);
       }
