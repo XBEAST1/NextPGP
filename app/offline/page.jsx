@@ -2,11 +2,14 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { Button } from "@heroui/react";
 import Link from "next/link";
 import Logo from "@/assets/Logo2.jpg";
+import LogoLight from "@/assets/Logo-Light.png";
 
 const OfflinePage = () => {
+  const { theme } = useTheme();
   const router = useRouter();
 
   useEffect(() => {
@@ -31,7 +34,7 @@ const OfflinePage = () => {
         <img
           width={200}
           height={200}
-          src={Logo.src}
+          src={theme === "light" ? LogoLight.src : Logo.src}
           alt="NextPGP Logo"
         />
       </div>

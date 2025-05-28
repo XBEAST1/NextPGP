@@ -53,23 +53,32 @@ export default function App() {
       try {
         const keysFromStorage = await getStoredKeys();
 
-        // Check for revoked keys and filter them out
         const validKeys = await Promise.all(
           keysFromStorage.map(async (key) => {
             try {
               const publicKeyObj = await openpgp.readKey({
                 armoredKey: key.publicKey,
               });
+
+              // Check revocation and expiration
               const isRevoked = await publicKeyObj.isRevoked();
-              return isRevoked ? null : key;
+              const expirationTime = await publicKeyObj.getExpirationTime();
+              const isExpired =
+                expirationTime instanceof Date && expirationTime < new Date();
+
+              // Skip keys that are revoked or expired
+              if (isRevoked || isExpired) {
+                return null;
+              }
+
+              return key;
             } catch (error) {
-              console.error("Error checking key revocation:", error);
+              console.error("Error checking key status:", error);
               return null;
             }
           })
         );
 
-        // Remove null entries (revoked keys)
         const filteredKeys = validKeys.filter((key) => key !== null);
 
         const filteredSignerKeys = filteredKeys.filter(

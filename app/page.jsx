@@ -10,6 +10,7 @@ import {
   TableCell,
   Input,
   Button,
+  Tooltip,
   DropdownTrigger,
   Dropdown,
   DropdownMenu,
@@ -110,6 +111,25 @@ const columns = [
   { name: "ACTIONS", uid: "actions", align: "center" },
 ];
 
+const columnsModal = [
+  { name: "NAME", uid: "name", width: "15%", sortable: true },
+  {
+    name: "EMAIL",
+    uid: "email",
+    width: "50%",
+    align: "center",
+    sortable: true,
+  },
+  {
+    name: "STATUS",
+    uid: "status",
+    align: "center",
+    sortable: true,
+  },
+  { name: "PRIMARY", uid: "primary", align: "center" },
+  { name: "DELETE", uid: "delete", align: "center" },
+];
+
 const capitalize = (s) => {
   if (!s) return "";
   if (s.toLowerCase() === "key id") return "Key ID";
@@ -122,17 +142,30 @@ export default function App() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
+  const [filterValueModal, setFilterValueModal] = useState("");
+  const [rowsPerPageModal, setRowsPerPageModal] = useState(5);
+  const [sortDescriptorModal, setSortDescriptorModal] = useState({});
+  const [pageModal, setPageModal] = useState(1);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedKeyName, setSelectedKeyName] = useState("");
   const [isNoExpiryChecked, setIsNoExpiryChecked] = useState(true);
   const [validityModal, setvalidityModal] = useState(false);
   const [selectedValidityKey, setSelectedValidityKey] = useState(null);
   const [expiryDate, setExpiryDate] = useState(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [nameInvalid, setNameInvalid] = useState(false);
+  const [emailInvalid, setEmailInvalid] = useState(false);
   const [password, setPassword] = useState("");
   const [newKeyPassword, setnewKeyPassword] = useState(null);
   const [passwordModal, setPasswordModal] = useState(false);
   const [newPasswordChangeModal, setnewPasswordChangeModal] = useState(false);
   const [removePasswordModal, setremovePasswordModal] = useState(false);
+  const [addUserIDModal, setaddUserIDModal] = useState(false);
+  const [manageUserIDsModal, setmanageUserIDsModal] = useState(false);
+  const [modalUserIDs, setModalUserIDs] = useState([]);
+  const [userIDToDelete, setUserIDToDelete] = useState(null);
+  const [deleteUserIDModal, setdeleteUserIDModal] = useState(false);
   const [revokeModal, setrevokeModal] = useState(false);
   const [revocationReason, setRevocationReason] = useState("0");
   const [revocationReasonText, setRevocationReasonText] = useState("");
@@ -217,6 +250,21 @@ export default function App() {
               </DropdownItem>
             )}
 
+            {user.userIdCount > 1 &&
+              user.status !== "revoked" &&
+              user.status !== "expired" &&
+              !user.privateKey?.trim() && (
+                <DropdownItem
+                  key="view-userids"
+                  onPress={() => {
+                    setSelectedUserId(user);
+                    setmanageUserIDsModal(true);
+                  }}
+                >
+                  View User IDs
+                </DropdownItem>
+              )}
+
             <DropdownItem
               key="export-public-key"
               onPress={() => exportPublicKey(user)}
@@ -232,35 +280,6 @@ export default function App() {
                 >
                   Backup Keyring
                 </DropdownItem>
-
-                {user.status !== "revoked" &&
-                  (isProtected ? (
-                    <>
-                      <DropdownItem
-                        key="change-password"
-                        onPress={() => addOrChangeKeyPassword(user)}
-                      >
-                        Change Password
-                      </DropdownItem>
-                      <DropdownItem
-                        key="remove-password"
-                        onPress={() =>
-                          triggerRemovePasswordModal(user, user.name)
-                        }
-                      >
-                        Remove Password
-                      </DropdownItem>
-                    </>
-                  ) : (
-                    <>
-                      <DropdownItem
-                        key="add-password"
-                        onPress={() => addOrChangeKeyPassword(user)}
-                      >
-                        Add Password
-                      </DropdownItem>
-                    </>
-                  ))}
 
                 <>
                   {user.status === "revoked" ? null : (
@@ -307,6 +326,61 @@ export default function App() {
                       Change Validity
                     </DropdownItem>
                   )}
+
+                  {user.status !== "revoked" &&
+                    (isProtected ? (
+                      <>
+                        <DropdownItem
+                          key="change-password"
+                          onPress={() => addOrChangeKeyPassword(user)}
+                        >
+                          Change Password
+                        </DropdownItem>
+                        <DropdownItem
+                          key="remove-password"
+                          onPress={() =>
+                            triggerRemovePasswordModal(user, user.name)
+                          }
+                        >
+                          Remove Password
+                        </DropdownItem>
+                      </>
+                    ) : (
+                      <>
+                        <DropdownItem
+                          key="add-password"
+                          onPress={() => addOrChangeKeyPassword(user)}
+                        >
+                          Add Password
+                        </DropdownItem>
+                      </>
+                    ))}
+
+                  {user.status !== "revoked" && user.status !== "expired" && (
+                    <DropdownItem
+                      key="add-userid"
+                      onPress={() => {
+                        setSelectedUserId(user);
+                        setaddUserIDModal(true);
+                      }}
+                    >
+                      Add User ID
+                    </DropdownItem>
+                  )}
+
+                  {user.userIdCount > 1 &&
+                    user.status !== "revoked" &&
+                    user.status !== "expired" && (
+                      <DropdownItem
+                        key="manage-userids"
+                        onPress={() => {
+                          setSelectedUserId(user);
+                          setmanageUserIDsModal(true);
+                        }}
+                      >
+                        Manage User IDs
+                      </DropdownItem>
+                    )}
 
                   {user.status === "revoked" ? null : (
                     <DropdownItem
@@ -420,6 +494,21 @@ export default function App() {
                   armoredKey: key.publicKey,
                 });
 
+                const userIDs = openpgpKey.getUserIDs();
+                const userIdCount = userIDs.length;
+
+                const firstUserID = userIDs[0];
+                let name, email;
+
+                const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
+                if (match) {
+                  name = match[1].trim();
+                  email = match[2].trim();
+                } else {
+                  name = firstUserID.trim();
+                  email = "N/A";
+                }
+
                 const creationdate = formatDate(openpgpKey.getCreationTime());
 
                 const { expirydate, status } =
@@ -492,15 +581,15 @@ export default function App() {
 
                 return {
                   id: key.id,
-                  name: key.name,
-                  email: key.email,
-                  creationdate: creationdate,
-                  expirydate: expirydate,
-                  status: status,
+                  name,
+                  email,
+                  creationdate,
+                  expirydate,
+                  status,
                   passwordprotected: passwordProtected ? "Yes" : "No",
-                  keyid: keyid,
-                  fingerprint: fingerprint,
-                  algorithm: algorithm,
+                  keyid,
+                  fingerprint,
+                  algorithm,
                   avatar: (() => {
                     const hasPrivateKey =
                       key.privateKey && key.privateKey.trim() !== "";
@@ -514,6 +603,7 @@ export default function App() {
                   })(),
                   publicKey: key.publicKey,
                   privateKey: key.privateKey,
+                  userIdCount,
                 };
               })
             );
@@ -995,6 +1085,223 @@ export default function App() {
     });
   };
 
+  const addUserID = async (user) => {
+    setNameInvalid(false);
+    setEmailInvalid(false);
+    if (!name.trim()) {
+      setNameInvalid(true);
+      return;
+    }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailInvalid(true);
+      return;
+    }
+    const validEmail = email.trim();
+    setaddUserIDModal(false);
+    try {
+      let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+        const currentPassword = await triggerKeyPasswordModal(user);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+      const fullPublicKey = await openpgp.readKey({
+        armoredKey: user.publicKey,
+      });
+      const currentUserIDs = fullPublicKey.getUserIDs();
+
+      // Parse a user ID string into an object.
+      const parseUserId = (uid) => {
+        const match = uid.match(/^(.*?)\s*<(.+?)>$/);
+        return match
+          ? { name: match[1].trim(), email: match[2].trim() }
+          : { name: uid.trim() };
+      };
+
+      // Convert existing IDs to object format.
+      const formattedUserIDs = currentUserIDs.map(parseUserId);
+
+      // Build the new user id object.
+      const newUserID = validEmail
+        ? { name: name.trim(), email: validEmail }
+        : { name: name.trim() };
+
+      const updatedUserIDs = [...formattedUserIDs, newUserID];
+
+      const updatedKeyPair = await openpgp.reformatKey({
+        privateKey,
+        userIDs: updatedUserIDs,
+        date: new Date(),
+        format: "armored",
+      });
+
+      await updateKeyValidity(user.id, {
+        privateKey: updatedKeyPair.privateKey,
+        publicKey: updatedKeyPair.publicKey,
+      });
+      toast.success("User ID added successfully", { position: "top-right" });
+      const refreshedKeys = await loadKeysFromIndexedDB();
+      setUsers(refreshedKeys);
+      setName("");
+      setEmail("");
+    } catch (error) {
+      toast.error("Failed to add User ID", { position: "top-right" });
+      console.error(error);
+    }
+  };
+
+  const setPrimaryUserID = async (user, targetUserIDObj) => {
+    try {
+      const refreshedStart = await loadKeysFromIndexedDB();
+      const currentUserObj = refreshedStart.find((u) => u.id === user.id);
+      if (!currentUserObj) throw new Error("User not found in IndexedDB");
+
+      // Check if the clicked User ID is already primary
+      const freshPublicKey = await openpgp.readKey({
+        armoredKey: currentUserObj.publicKey,
+      });
+      const freshUserIDs = freshPublicKey.getUserIDs().map(parseUserId);
+      if (freshUserIDs[0]?.id === targetUserIDObj.id) {
+        toast.info("Primary User ID already selected", {
+          position: "top-right",
+        });
+        setUsers(refreshedStart);
+        const updatedModalUserIDs =
+          await getUserIDsFromKeyForModal(currentUserObj);
+        setModalUserIDs(updatedModalUserIDs);
+        return;
+      }
+
+      let privateKey = await openpgp.readKey({
+        armoredKey: currentUserObj.privateKey,
+      });
+      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+        const currentPassword = await triggerKeyPasswordModal(user);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+
+      const fullPublicKey = await openpgp.readKey({
+        armoredKey: currentUserObj.publicKey,
+      });
+      const currentUserIDs = fullPublicKey.getUserIDs().map(parseUserId);
+      const targetUser = currentUserIDs.find(
+        (u) => u.id === targetUserIDObj.id
+      );
+      if (!targetUser) throw new Error("Target user ID not found on key");
+
+      const reorderedUserIDs = [
+        targetUser,
+        ...currentUserIDs.filter((u) => u.id !== targetUserIDObj.id),
+      ].map((u) =>
+        u.email && u.email !== "N/A"
+          ? { name: u.name, email: u.email }
+          : { name: u.name }
+      );
+
+      const updatedKeyPair = await openpgp.reformatKey({
+        privateKey,
+        userIDs: reorderedUserIDs,
+        date: new Date(),
+        format: "armored",
+      });
+
+      await updateKeyValidity(user.id, {
+        privateKey: updatedKeyPair.privateKey,
+        publicKey: updatedKeyPair.publicKey,
+      });
+
+      toast.success("Primary User ID updated successfully", {
+        position: "top-right",
+      });
+
+      const refreshed = await loadKeysFromIndexedDB();
+      setUsers(refreshed);
+
+      const updatedUser = refreshed.find((u) => u.id === user.id);
+      if (updatedUser) {
+        const updatedModalUserIDs =
+          await getUserIDsFromKeyForModal(updatedUser);
+        setModalUserIDs(updatedModalUserIDs);
+      }
+    } catch (error) {
+      console.error("setPrimaryUserID error:", error);
+      toast.error("Failed to update Primary User ID", {
+        position: "top-right",
+      });
+    }
+  };
+
+  const deleteUserID = async (user, targetUserIDObj) => {
+    try {
+      let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+        const currentPassword = await triggerKeyPasswordModal(user);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+
+      const fullPublicKey = await openpgp.readKey({
+        armoredKey: user.publicKey,
+      });
+      const currentUserIDs = fullPublicKey.getUserIDs().map(parseUserId);
+
+      const updatedUserIDs = currentUserIDs.filter(
+        (u) => u.id !== targetUserIDObj.id
+      );
+
+      const userIDsForKey = updatedUserIDs.map((u) =>
+        u.email && u.email !== "N/A"
+          ? { name: u.name, email: u.email }
+          : { name: u.name }
+      );
+
+      const { privateKey: newArmoredPrivate, publicKey: newArmoredPublic } =
+        await openpgp.reformatKey({
+          privateKey,
+          userIDs: userIDsForKey,
+          date: new Date(),
+          format: "armored",
+        });
+
+      await updateKeyValidity(user.id, {
+        privateKey: newArmoredPrivate,
+        publicKey: newArmoredPublic,
+      });
+      toast.success("User ID deleted successfully", {
+        position: "top-right",
+      });
+
+      const refreshed = await loadKeysFromIndexedDB();
+      setUsers(refreshed);
+
+      const updatedUser = refreshed.find((u) => u.id === user.id);
+      if (updatedUser) {
+        const updatedModalUserIDs =
+          await getUserIDsFromKeyForModal(updatedUser);
+        setModalUserIDs(updatedModalUserIDs);
+      }
+    } catch (error) {
+      console.error("deleteUserID error:", error);
+      toast.error("Failed to delete User ID", {
+        position: "top-right",
+      });
+    }
+  };
+
+  const triggerDeleteUserIDModal = (user, targetUserIDObj) => {
+    setSelectedUserId(user);
+    setSelectedKeyName(user.name);
+    setUserIDToDelete(targetUserIDObj);
+    setdeleteUserIDModal(true);
+  };
+
   const revokeKey = async (user) => {
     setRevocationReasonText("");
     try {
@@ -1199,6 +1506,263 @@ export default function App() {
       </div>
     );
   }, [page, pages, hasSearchFilter]);
+
+  // Manage User IDs Modal Table
+
+  const hasSearchFilterModal = Boolean(filterValueModal);
+
+  const headerColumnsModal = columnsModal;
+
+  const parseUserId = (uid) => {
+    const match = uid.match(/^(.*?)\s*<(.+?)>$/);
+    return match
+      ? {
+          id: uid,
+          name: match[1].trim(),
+          email: match[2].trim() || "N/A",
+          status: "active",
+        }
+      : { id: uid, name: uid.trim(), email: "N/A", status: "active" };
+  };
+
+  const getUserIDsFromKeyForModal = async (user) => {
+    if (!user || !user.publicKey) return [];
+    try {
+      const key = await openpgp.readKey({ armoredKey: user.publicKey });
+      const uids = key.getUserIDs();
+      const users = key.users;
+      const parsedUsers = [];
+
+      for (let i = 0; i < users.length; i++) {
+        const uidStr = uids[i];
+        const parsedUser = parseUserId(uidStr);
+        const isRevoked = await users[i].isRevoked();
+        if (isRevoked) {
+          parsedUser.status = "revoked";
+        }
+        parsedUsers.push(parsedUser);
+      }
+
+      return parsedUsers;
+    } catch (error) {
+      console.error("Error fetching user IDs:", error);
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    if (manageUserIDsModal && selectedUserId) {
+      getUserIDsFromKeyForModal(selectedUserId).then((result) => {
+        setModalUserIDs(result);
+      });
+    }
+  }, [manageUserIDsModal, selectedUserId]);
+
+  const filteredItemsModal = useMemo(() => {
+    let filtered = [...modalUserIDs];
+    if (Boolean(filterValueModal)) {
+      filtered = filtered.filter((user) =>
+        user.name.toLowerCase().includes(filterValueModal.toLowerCase())
+      );
+    }
+    return filtered;
+  }, [modalUserIDs, filterValueModal]);
+
+  const pagesModal =
+    Math.ceil(filteredItemsModal.length / rowsPerPageModal) || 1;
+
+  const itemsModal = useMemo(() => {
+    const start = (pageModal - 1) * rowsPerPageModal;
+    const end = start + rowsPerPageModal;
+    return filteredItemsModal.slice(start, end);
+  }, [pageModal, filteredItemsModal, rowsPerPageModal]);
+
+  const sortedItemsModal = useMemo(() => {
+    return [...itemsModal].sort((a, b) => {
+      const first = a[sortDescriptorModal.column];
+      const second = b[sortDescriptorModal.column];
+      const cmp = first < second ? -1 : first > second ? 1 : 0;
+      return sortDescriptorModal.direction === "descending" ? -cmp : cmp;
+    });
+  }, [sortDescriptorModal, itemsModal]);
+
+  const renderCellModal = useCallback(
+    (row, columnKey) => {
+      const cellValue = row[columnKey];
+      switch (columnKey) {
+        case "name": {
+          const isFirstRow = pageModal === 1 && itemsModal[0]?.id === row.id;
+          return (
+            <div className="flex flex-row">
+              <span className="pe-1">{cellValue}</span>
+              {isFirstRow && <Tooltip content="Primary">👑</Tooltip>}
+            </div>
+          );
+        }
+        case "status":
+          return (
+            <Chip
+              className="capitalize -ms-4"
+              color={statusColorMap[row.status]}
+              size="sm"
+              variant="flat"
+            >
+              {cellValue}
+            </Chip>
+          );
+        case "primary":
+          return !selectedUserId.privateKey ? (
+            <Button
+              isDisabled={true}
+              className="ms-2"
+              color="secondary"
+              variant="flat"
+            >
+              Set as Primary
+            </Button>
+          ) : (
+            <Button
+              isDisabled={row.status === "revoked"}
+              className="ms-2"
+              color="secondary"
+              variant="flat"
+              onPress={() => setPrimaryUserID(selectedUserId, row)}
+            >
+              Set as Primary
+            </Button>
+          );
+        case "delete":
+          return !selectedUserId.privateKey ? (
+            <Button
+              isDisabled={true}
+              className="ms-2"
+              color="danger"
+              variant="flat"
+            >
+              Delete
+            </Button>
+          ) : (
+            <Button
+              isDisabled={modalUserIDs.length === 1}
+              className="ms-2"
+              color="danger"
+              variant="flat"
+              onPress={() => triggerDeleteUserIDModal(selectedUserId, row)}
+            >
+              Delete
+            </Button>
+          );
+        default:
+          return cellValue;
+      }
+    },
+    [pageModal, itemsModal, selectedUserId, modalUserIDs]
+  );
+
+  const onNextPageModal = useCallback(() => {
+    if (pageModal < pagesModal) {
+      setPageModal(pageModal + 1);
+    }
+  }, [pageModal, pagesModal]);
+
+  const onPreviousPageModal = useCallback(() => {
+    if (pageModal > 1) {
+      setPageModal(pageModal - 1);
+    }
+  }, [pageModal]);
+
+  const onRowsPerPageChangeModal = useCallback((e) => {
+    setRowsPerPageModal(Number(e.target.value));
+    setPageModal(1);
+  }, []);
+
+  const onSearchChangeModal = useCallback((value) => {
+    if (value) {
+      setFilterValueModal(value);
+      setPageModal(1);
+    } else {
+      setFilterValueModal("");
+    }
+  }, []);
+
+  const onClearModal = useCallback(() => {
+    setFilterValueModal("");
+    setPageModal(1);
+  }, []);
+
+  const topContentModal = useMemo(() => {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between gap-3 items-end">
+          <Input
+            isClearable
+            className="w-full"
+            placeholder="Search by name..."
+            startContent={<SearchIcon />}
+            value={filterValueModal}
+            onClear={() => onClearModal()}
+            onValueChange={onSearchChangeModal}
+          />
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-default-400 text-small">
+            Total {modalUserIDs.length} User IDs
+          </span>
+          <label className="flex items-center text-default-400 text-small">
+            Rows per page:
+            <select
+              className="bg-transparent outline-none text-default-400 text-small"
+              onChange={onRowsPerPageChangeModal}
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="15">20</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    );
+  }, [
+    filterValueModal,
+    onRowsPerPageChangeModal,
+    modalUserIDs.length,
+    onSearchChangeModal,
+    hasSearchFilterModal,
+  ]);
+
+  const bottomContentModal = useMemo(() => {
+    return (
+      <div className="py-2 px-2 flex justify-between items-center">
+        <Pagination
+          isCompact
+          showControls
+          showShadow
+          color="default"
+          page={pageModal}
+          total={pagesModal}
+          onChange={setPageModal}
+        />
+        <div className="hidden sm:flex w-[30%] justify-end gap-2">
+          <Button
+            isDisabled={pagesModal === 1}
+            size="sm"
+            variant="flat"
+            onPress={onPreviousPageModal}
+          >
+            Previous
+          </Button>
+          <Button
+            isDisabled={pagesModal === 1}
+            size="sm"
+            variant="flat"
+            onPress={onNextPageModal}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    );
+  }, [itemsModal.length, pageModal, pagesModal, hasSearchFilterModal]);
 
   return (
     <>
@@ -1443,6 +2007,170 @@ export default function App() {
             <Button
               className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
               onPress={removePasswordFromKey}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  removePasswordFromKey();
+                }
+              }}
+            >
+              Yes
+            </Button>
+          </div>
+        </ModalContent>
+      </Modal>
+      <Modal
+        backdrop="blur"
+        isOpen={addUserIDModal}
+        onClose={() => setaddUserIDModal(false)}
+      >
+        <ModalContent className="p-5">
+          <Input
+            isRequired
+            label="Name"
+            labelPlacement="outside"
+            placeholder="Enter your name"
+            isInvalid={nameInvalid}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                addUserID(selectedUserId);
+              }
+            }}
+          />
+
+          <br />
+
+          <Input
+            label="Email"
+            labelPlacement="outside"
+            placeholder="Enter your email"
+            isInvalid={emailInvalid}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                addUserID(selectedUserId);
+              }
+            }}
+          />
+
+          <br />
+
+          <p className="text-sm text-gray-400 mb-2">
+            This is how the new user ID will be stored in the key
+          </p>
+
+          {name || email ? (
+            <p className="text-sm text-center font-bold">
+              {name}
+              {email ? ` <${email}>` : ""}
+            </p>
+          ) : null}
+
+          <div className="flex gap-2">
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+              onPress={() => setaddUserIDModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
+              onPress={() => addUserID(selectedUserId)}
+            >
+              Add
+            </Button>
+          </div>
+        </ModalContent>
+      </Modal>
+      <Modal
+        size="4xl"
+        backdrop="blur"
+        isOpen={manageUserIDsModal}
+        onClose={() => setmanageUserIDsModal(false)}
+      >
+        <ModalContent className="p-7">
+          <Table
+            isHeaderSticky
+            bottomContent={bottomContentModal}
+            bottomContentPlacement="outside"
+            classNames={{
+              wrapper: "max-h-[382px]",
+            }}
+            sortDescriptor={sortDescriptorModal}
+            topContent={topContentModal}
+            topContentPlacement="outside"
+            onSortChange={setSortDescriptorModal}
+          >
+            <TableHeader columns={headerColumnsModal}>
+              {(column) => (
+                <TableColumn
+                  key={column.uid}
+                  align={
+                    ["email", "status", "primary", "delete"].includes(
+                      column.uid
+                    )
+                      ? "center"
+                      : "start"
+                  }
+                  allowsSorting={column.sortable}
+                  style={{ width: column.width }}
+                >
+                  {column.name}
+                </TableColumn>
+              )}
+            </TableHeader>
+            <TableBody items={sortedItemsModal}>
+              {(item) => (
+                <TableRow key={item.id}>
+                  {(columnKey) => (
+                    <TableCell>{renderCellModal(item, columnKey)}</TableCell>
+                  )}
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </ModalContent>
+      </Modal>
+      <Modal
+        size="lg"
+        backdrop="blur"
+        isOpen={deleteUserIDModal}
+        onClose={() => setdeleteUserIDModal(false)}
+      >
+        <ModalContent className="p-5">
+          <h3 className="mb-2 font-semibold text-lg">
+            Are You Sure You Want To Delete {userIDToDelete?.name}&apos;s User
+            ID?
+          </h3>
+          <p className="text-sm text-red-500 mb-4">
+            ⚠️ This will permanently remove the selected User ID from your local
+            copy of the key. Deleting a User ID does <strong>not</strong> revoke
+            it. There will be no record that this identity was invalidated, and
+            anyone who previously trusted it may still do so. This action is
+            irreversible.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+              onPress={() => setdeleteUserIDModal(false)}
+            >
+              No
+            </Button>
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
+              onPress={async () => {
+                await deleteUserID(selectedUserId, userIDToDelete);
+                setdeleteUserIDModal(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  deleteUserID(selectedUserId, userIDToDelete);
+                  setdeleteUserIDModal(false);
+                }
+              }}
             >
               Yes
             </Button>
@@ -1466,7 +2194,7 @@ export default function App() {
                 <p className="text-default-400">Creation Date:</p>
                 <p className="font-mono">{selectedUserId?.creationdate}</p>
               </div>
-              <div className="-ms-12">
+              <div className="sm:-ms-12 -ms-6">
                 <p className="text-default-400">Key ID:</p>
                 <p className="font-mono">{selectedUserId?.keyid}</p>
               </div>
@@ -1552,7 +2280,7 @@ export default function App() {
                 <p className="text-default-400">Creation Date:</p>
                 <p className="font-mono">{selectedUserId?.creationdate}</p>
               </div>
-              <div className="-ms-5">
+              <div className="sm:-ms-5 -ms-6">
                 <p className="text-default-400">Key ID:</p>
                 <p className="font-mono">{selectedUserId?.keyid}</p>
               </div>
@@ -1589,6 +2317,11 @@ export default function App() {
             <Button
               className="px-4 py-2 bg-default-300 text-white rounded-full"
               onPress={() => setrevocationReasonModal(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setrevocationReasonModal(false);
+                }
+              }}
             >
               Close
             </Button>
@@ -1612,6 +2345,12 @@ export default function App() {
               onPress={() => {
                 deleteKey(selectedUserId);
                 closedeleteModal();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  deleteKey(selectedUserId);
+                  closedeleteModal();
+                }
               }}
             >
               Yes
