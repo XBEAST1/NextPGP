@@ -71,7 +71,8 @@ export default function App() {
                 return null;
               }
 
-              return key;
+              const userIDs = publicKeyObj.getUserIDs();
+              return { ...key, userIDs };
             } catch (error) {
               console.error("Error checking key status:", error);
               return null;
@@ -107,15 +108,15 @@ export default function App() {
         "readonly"
       );
       const storeSigners = tx.objectStore(selectedSigners);
-      const storeRecipients = tx.objectStore(selectedRecipients);
-
-      const signerKeyRequest = storeSigners.get("selectedSignerKey");
+      const signerKeyRequest = storeSigners.getAll();
       signerKeyRequest.onsuccess = () => {
-        if (signerKeyRequest.result) {
-          setSignerKey(signerKeyRequest.result.value);
+        const results = signerKeyRequest.result;
+        if (results && results.length > 0) {
+          setSignerKey(results[0]);
         }
       };
 
+      const storeRecipients = tx.objectStore(selectedRecipients);
       const recipientsRequest = storeRecipients.getAll();
       recipientsRequest.onsuccess = () => {
         const results = recipientsRequest.result;
@@ -135,7 +136,14 @@ export default function App() {
     const validKeyIds = new Set(pgpKeys.map((key) => key.id.toString()));
 
     // Remove the selected signer that is not in the pgpKeys
-    if (signerKey && !validKeyIds.has(signerKey)) {
+    if (
+      signerKey &&
+      !validKeyIds.has(
+        typeof signerKey === "object" && signerKey.id
+          ? signerKey.id.toString()
+          : signerKey
+      )
+    ) {
       setSignerKey(null);
       (async () => {
         const db = await openDB();
@@ -149,10 +157,14 @@ export default function App() {
     }
 
     // Remove the selected recipients that are not in the pgpKeys
-    const newRecipients = recipients.filter(
-      (r) => r === "" || validKeyIds.has(r)
-    );
-    // Ensure there's always one empty option for a new entry
+    const newRecipients = recipients.filter((r) => {
+      if (r === "") return true;
+      if (typeof r === "object" && r.keyId) {
+        return validKeyIds.has(r.keyId);
+      }
+      return validKeyIds.has(r);
+    });
+
     if (
       !newRecipients.length ||
       newRecipients[newRecipients.length - 1] !== ""
@@ -169,7 +181,7 @@ export default function App() {
         const store = tx.objectStore(selectedRecipients);
         store.clear();
         newRecipients.forEach((key, idx) => {
-          if (key) {
+          if (key !== "") {
             store.put({ id: `recipient-${idx}`, value: key });
           }
         });
@@ -177,7 +189,34 @@ export default function App() {
     }
   }, [pgpKeys]);
 
-  const handleSignerSelection = async (selectedKey) => {
+  const handleSignerSelection = async (selectedItem) => {
+    if (!selectedItem) {
+      setSignerKey(null);
+      const db = await openDB();
+      const transaction = db.transaction(
+        [dbPgpKeys, selectedSigners],
+        "readwrite"
+      );
+      const store = transaction.objectStore(selectedSigners);
+      store.clear();
+      return;
+    }
+
+    let itemObj = selectedItem;
+    if (typeof selectedItem === "string") {
+      const defaultItems = signerKeys.flatMap((key) =>
+        key.userIDs.map((uid) => ({ ...key, selectedUserId: uid }))
+      );
+      itemObj = defaultItems.find(
+        (item) => `${item.id}-${item.selectedUserId}` === selectedItem
+      );
+    }
+
+    if (!itemObj || !itemObj.id) {
+      toast.error("Invalid signer selection", { position: "top-right" });
+      return;
+    }
+
     const db = await openDB();
     const transaction = db.transaction(
       [dbPgpKeys, selectedSigners],
@@ -185,23 +224,23 @@ export default function App() {
     );
     const store = transaction.objectStore(selectedSigners);
 
-    store.put({ id: "selectedSignerKey", value: selectedKey });
+    const newSigner = {
+      id: itemObj.id.toString(),
+      selectedUserId: itemObj.selectedUserId,
+    };
+
+    store.put(newSigner);
 
     transaction.oncomplete = () => {
-      setSignerKey(selectedKey);
+      setSignerKey(newSigner);
     };
   };
 
-  const handleSelection = async (index, selectedKey) => {
-    const updatedRecipients = [...recipients];
-
-    if (selectedKey) {
-      updatedRecipients[index] = selectedKey;
-      if (updatedRecipients[updatedRecipients.length - 1] !== "") {
-        updatedRecipients.push("");
-      }
-    } else {
+  const handleSelection = async (index, selectedItem) => {
+    if (!selectedItem) {
+      let updatedRecipients = [...recipients];
       updatedRecipients[index] = "";
+
       while (
         updatedRecipients.length > 1 &&
         updatedRecipients[updatedRecipients.length - 2] === "" &&
@@ -209,27 +248,69 @@ export default function App() {
       ) {
         updatedRecipients.pop();
       }
+      if (updatedRecipients[updatedRecipients.length - 1] !== "") {
+        updatedRecipients.push("");
+      }
+      setRecipients(updatedRecipients);
+
+      const db = await openDB();
+      const tx = db.transaction([dbPgpKeys, selectedRecipients], "readwrite");
+      const store = tx.objectStore(selectedRecipients);
+      store.clear();
+      updatedRecipients.forEach((r, idx) => {
+        if (r !== "") {
+          store.put({ id: `recipient-${idx}`, value: r });
+        }
+      });
+      return;
     }
 
+    let itemObj = selectedItem;
+    if (typeof selectedItem === "string") {
+      const defaultItems = recipientKeys.flatMap((key) =>
+        key.userIDs.map((uid) => ({ ...key, selectedUserId: uid }))
+      );
+      itemObj = defaultItems.find(
+        (item) => `${item.id}-${item.selectedUserId}` === selectedItem
+      );
+    }
+
+    if (!itemObj || !itemObj.id) {
+      console.error("[handleSelection] Invalid recipient selection:", itemObj);
+      toast.error("Invalid recipient selection", { position: "top-right" });
+      return;
+    }
+
+    const updatedRecipients = [...recipients];
+    updatedRecipients[index] = {
+      keyId: itemObj.id.toString(),
+      userId: itemObj.selectedUserId,
+    };
+
+    if (updatedRecipients[updatedRecipients.length - 1] !== "") {
+      updatedRecipients.push("");
+    }
     setRecipients(updatedRecipients);
 
     const db = await openDB();
     const tx = db.transaction([dbPgpKeys, selectedRecipients], "readwrite");
     const store = tx.objectStore(selectedRecipients);
-
-    // clear out the old entries
     store.clear();
-
-    updatedRecipients.forEach((key, idx) => {
-      if (key) {
-        store.put({ id: `recipient-${idx}`, value: key });
+    updatedRecipients.forEach((r, idx) => {
+      if (r !== "") {
+        store.put({ id: `recipient-${idx}`, value: r });
       }
     });
   };
 
   const getDecryptedPrivateKey = async () => {
-    const signer = signerKeys.find((key) => key.id.toString() === signerKey);
-    if (!signer) return null;
+    if (!signerKey) return null;
+    // Use the numeric id from the selected signer object
+    const signer = signerKeys.find((key) => key.id.toString() === signerKey.id);
+    if (!signer) {
+      toast.error("Selected signer key not found", { position: "top-right" });
+      return null;
+    }
     const privateKeyObject = await openpgp.readPrivateKey({
       armoredKey: signer.privateKey,
     });
@@ -245,17 +326,13 @@ export default function App() {
       try {
         decryptedKey = await openpgp.decryptKey({
           privateKey: privateKeyObject,
-          passphrase: passphrase,
+          passphrase,
         });
         if (!decryptedKey || !decryptedKey.isDecrypted()) {
-          toast.error("Incorrect password", {
-            position: "top-right",
-          });
+          toast.error("Incorrect password", { position: "top-right" });
         }
-      } catch (error) {
-        toast.error("Incorrect password", {
-          position: "top-right",
-        });
+      } catch {
+        toast.error("Incorrect password", { position: "top-right" });
       }
     }
     setIsPasswordModalOpen(false);
@@ -268,7 +345,11 @@ export default function App() {
         return;
       }
       const recipientKeysPublic = recipientKeys
-        .filter((key) => recipients.includes(key.id.toString()))
+        .filter((key) =>
+          recipients.some(
+            (r) => typeof r === "object" && r.keyId === key.id.toString()
+          )
+        )
         .map((key) => key.publicKey);
 
       // Validate that at least one recipient or a password is available.
@@ -300,7 +381,7 @@ export default function App() {
 
       const encryptedMessage = await openpgp.encrypt(encryptionOptions);
       setOutput(encryptedMessage);
-    } catch (error) {
+    } catch {
       toast.error("Please Enter a Password", { position: "top-right" });
     }
   };
@@ -363,7 +444,11 @@ export default function App() {
 
       // Find the recipient keys (public keys of the selected recipients)
       const recipientKeysPublic = recipientKeys
-        .filter((key) => recipients.includes(key.id.toString()))
+        .filter((key) =>
+          recipients.some(
+            (r) => typeof r === "object" && r.keyId === key.id.toString()
+          )
+        )
         .map((key) => key.publicKey);
 
       // Validate that at least one recipient or a password is provided.
@@ -408,7 +493,7 @@ export default function App() {
         type: "application/octet-stream",
       });
       saveAs(encryptedBlob, `${outputFileName}.gpg`);
-    } catch (error) {
+    } catch {
       toast.error("Please Enter a Password", { position: "top-right" });
     }
   };
@@ -469,45 +554,68 @@ export default function App() {
               className="max-w-full"
               label="Select the signer"
               allowsCustomValue={false}
-              selectedKey={signerKey}
-              defaultItems={signerKeys}
+              selectedKey={
+                signerKey ? `${signerKey.id}-${signerKey.selectedUserId}` : ""
+              }
+              defaultItems={signerKeys.flatMap((key) =>
+                key.userIDs.map((uid) => ({ ...key, selectedUserId: uid }))
+              )}
               onSelectionChange={handleSignerSelection}
             >
               {(item) => (
                 <AutocompleteItem
-                  key={item.id}
-                  textValue={`${item.name} (${item.email})`}
+                  key={`${item.id}-${item.selectedUserId}`}
+                  textValue={`${item.selectedUserId}`}
                 >
-                  {item.name} ({item.email})
+                  {item.selectedUserId}
                 </AutocompleteItem>
               )}
             </Autocomplete>
           </div>
           <div className="flex flex-col gap-4">
             <h5 className="mt-4 ms-1">Encrypt for:</h5>
-            {recipients.map((selectedKey, index) => (
-              <Autocomplete
-                key={index}
-                className="max-w-full"
-                label={`Select recipient ${index + 1}`}
-                selectedKey={selectedKey}
-                onSelectionChange={(key) => handleSelection(index, key)}
-                defaultItems={recipientKeys.filter(
-                  (key) =>
-                    !recipients.includes(String(key.id)) ||
-                    String(key.id) === selectedKey
-                )}
-              >
-                {(item) => (
-                  <AutocompleteItem
-                    key={item.id}
-                    textValue={`${item.name} (${item.email})`}
-                  >
-                    {item.name} ({item.email})
-                  </AutocompleteItem>
-                )}
-              </Autocomplete>
-            ))}
+            {recipients.map((selectedKey, index) => {
+              // Build a list of composite keys already selected in other inputs.
+              const alreadySelected = recipients
+                .filter(
+                  (r, i) =>
+                    i !== index && typeof r === "object" && r.keyId && r.userId
+                )
+                .map((r) => `${r.keyId}-${r.userId}`);
+              return (
+                <Autocomplete
+                  key={index}
+                  className="max-w-full"
+                  label={`Select recipient ${index + 1}`}
+                  selectedKey={
+                    typeof selectedKey === "object" && selectedKey
+                      ? `${selectedKey.keyId}-${selectedKey.userId}`
+                      : ""
+                  }
+                  onSelectionChange={(key) => handleSelection(index, key)}
+                  defaultItems={recipientKeys
+                    .flatMap((key) =>
+                      key.userIDs.map((uid) => ({
+                        ...key,
+                        selectedUserId: uid,
+                      }))
+                    )
+                    .filter((item) => {
+                      const combo = `${item.id}-${item.selectedUserId}`;
+                      return !alreadySelected.includes(combo);
+                    })}
+                >
+                  {(item) => (
+                    <AutocompleteItem
+                      key={`${item.id}-${item.selectedUserId}`}
+                      textValue={`${item.selectedUserId}`}
+                    >
+                      {item.selectedUserId}
+                    </AutocompleteItem>
+                  )}
+                </Autocomplete>
+              );
+            })}
           </div>
           <br />
           <Checkbox

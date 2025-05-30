@@ -152,8 +152,6 @@ export default function App() {
 
       const keyData = {
         id: Date.now(),
-        name,
-        email: validEmail || "N/A",
         publicKey,
         privateKey,
       };

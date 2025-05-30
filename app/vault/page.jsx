@@ -15,6 +15,7 @@ import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast, ToastContainer } from "react-toastify";
 import { useVault } from "@/context/VaultContext";
+import { decrypt } from "@/lib/cryptoUtils";
 import NProgress from "nprogress";
 import UserDetails from "@/components/userdetails";
 import ConnectivityCheck from "@/components/connectivity-check";
@@ -46,48 +47,6 @@ const Page = () => {
       return;
     }
     setLoading(true);
-
-    // AES-GCM decryption (client-side)
-    async function decrypt(encryptedBase64, password) {
-      const enc = new TextEncoder();
-      const dec = new TextDecoder();
-
-      const encryptedBytes = Uint8Array.from(atob(encryptedBase64), (c) =>
-        c.charCodeAt(0)
-      );
-      const salt = encryptedBytes.slice(0, 16);
-      const iv = encryptedBytes.slice(16, 28);
-      const data = encryptedBytes.slice(28);
-
-      const keyMaterial = await crypto.subtle.importKey(
-        "raw",
-        enc.encode(password),
-        { name: "PBKDF2" },
-        false,
-        ["deriveKey"]
-      );
-
-      const key = await crypto.subtle.deriveKey(
-        {
-          name: "PBKDF2",
-          salt,
-          iterations: 1000000,
-          hash: "SHA-256",
-        },
-        keyMaterial,
-        { name: "AES-GCM", length: 256 },
-        false,
-        ["decrypt"]
-      );
-
-      const decryptedBuffer = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv },
-        key,
-        data
-      );
-
-      return dec.decode(decryptedBuffer);
-    }
 
     try {
       const res = await fetch("/api/vault", { method: "GET" });

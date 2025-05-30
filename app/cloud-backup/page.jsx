@@ -33,6 +33,11 @@ import {
   decryptData,
   dbPgpKeys,
 } from "@/lib/indexeddb";
+import {
+  decrypt,
+  encrypt,
+  hashKey,
+} from "@/lib/cryptoUtils";
 import { toast, ToastContainer } from "react-toastify";
 import { NProgressLink } from "@/components/nprogress";
 import { useRouter } from "next/navigation";
@@ -43,117 +48,6 @@ import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
 import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
-
-function bufferToHex(buffer) {
-  return Array.from(new Uint8Array(buffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function hashKey(text) {
-  const enc = new TextEncoder();
-  const buffer = enc.encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
-  return bufferToHex(digest);
-}
-
-// AES-GCM encryption (client-side)
-async function encrypt(text, password) {
-  const enc = new TextEncoder();
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    { name: "PBKDF2" },
-    false,
-    ["deriveKey"]
-  );
-
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt,
-      iterations: 1000000,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt"]
-  );
-
-  const encryptedBuffer = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    enc.encode(text)
-  );
-
-  // Combine salt, iv, and the encrypted content
-  const combined = new Uint8Array(
-    salt.byteLength + iv.byteLength + encryptedBuffer.byteLength
-  );
-  combined.set(salt, 0);
-  combined.set(iv, salt.byteLength);
-  combined.set(
-    new Uint8Array(encryptedBuffer),
-    salt.byteLength + iv.byteLength
-  );
-
-  // Binary-safe base64 encoding
-  function toBase64(uint8array) {
-    let binary = "";
-    for (let i = 0; i < uint8array.length; i++) {
-      binary += String.fromCharCode(uint8array[i]);
-    }
-    return btoa(binary);
-  }
-
-  return toBase64(combined);
-}
-
-// AES-GCM decryption (client-side)
-async function decrypt(encryptedBase64, password) {
-  const enc = new TextEncoder();
-  const dec = new TextDecoder();
-
-  const encryptedBytes = Uint8Array.from(atob(encryptedBase64), (c) =>
-    c.charCodeAt(0)
-  );
-  const salt = encryptedBytes.slice(0, 16);
-  const iv = encryptedBytes.slice(16, 28);
-  const data = encryptedBytes.slice(28);
-
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    { name: "PBKDF2" },
-    false,
-    ["deriveKey"]
-  );
-
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt,
-      iterations: 1000000,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["decrypt"]
-  );
-
-  const decryptedBuffer = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    key,
-    data
-  );
-
-  return dec.decode(decryptedBuffer);
-}
 
 const statusColorMap = {
   "Backed Up": "success",
@@ -360,7 +254,7 @@ export default function App() {
                     keystatus: "active",
                   };
                 }
-              } catch (error) {
+              } catch {
                 return { expirydate: "Error", keystatus: "unknown" };
               }
             };
@@ -409,6 +303,20 @@ export default function App() {
                   );
                   return statuses.some((status) => status);
                 })();
+
+                const userIDs = openpgpKey.getUserIDs();
+
+                const firstUserID = userIDs[0];
+                let name, email;
+
+                const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
+                if (match) {
+                  name = match[1].trim();
+                  email = match[2].trim();
+                } else {
+                  name = firstUserID.trim();
+                  email = "N/A";
+                }
 
                 const status = isBackedUp ? "Backed Up" : "Not Backed Up";
 
@@ -484,16 +392,16 @@ export default function App() {
 
                 return {
                   id: key.id,
-                  name: key.name,
-                  email: key.email,
-                  creationdate: creationdate,
-                  expirydate: expirydate,
-                  keystatus: keystatus,
+                  name,
+                  email,
+                  creationdate,
+                  expirydate,
+                  keystatus,
                   passwordprotected: passwordProtected ? "Yes" : "No",
-                  status: status,
-                  keyid: keyid,
-                  fingerprint: fingerprint,
-                  algorithm: algorithm,
+                  status,
+                  keyid,
+                  fingerprint,
+                  algorithm,
                   avatar: (() => {
                     const hasPrivateKey =
                       key.privateKey && key.privateKey.trim() !== "";
@@ -678,7 +586,7 @@ export default function App() {
             }
           }
           privateKeyRaw = user.privateKey;
-        } catch (e) {
+        } catch {
           console.warn(
             "Failed to read or decrypt private key. Falling back to public key."
           );
@@ -797,7 +705,7 @@ export default function App() {
           });
           setIsOpen(false);
           resolve(enteredPassword);
-        } catch (error) {
+        } catch {
           toast.error(
             `Incorrect Password for ${user.name}'s Keyring. Please try again.`,
             {

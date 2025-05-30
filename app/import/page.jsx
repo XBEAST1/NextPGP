@@ -77,29 +77,11 @@ export default function ImportKeyPage() {
 
       let keyData = {
         id: Date.now(),
-        name: "N/A",
-        email: "N/A",
         publicKey: publicKey,
         privateKey: privateKey,
       };
 
-      // Extract User IDs
-      const userIds = key.users.map((user) => {
-        const userId = user.userID;
-
-        const name = userId?.userID.split(" <")[0] || "N/A";
-        const email = userId?.email || "N/A";
-
-        return {
-          name: name,
-          email: email,
-        };
-      });
-
-      if (userIds.length > 0) {
-        keyData.name = userIds[0]?.name;
-        keyData.email = userIds[0]?.email;
-      }
+      let keyname = key.getUserIDs()[0]?.split("<")[0].trim() || "Unknown User";
 
       if (isPrivateKey) {
         keyData.privateKey = privateKey;
@@ -114,7 +96,7 @@ export default function ImportKeyPage() {
       }
 
       if (await checkIfKeyExists(keyData)) {
-        toast.info(`${keyData.name}'s Key already exists`, {
+        toast.info(`${keyname}'s Key already exists`, {
           position: "top-right",
         });
         return;
@@ -124,8 +106,8 @@ export default function ImportKeyPage() {
 
       toast.success(
         isPrivateKey
-          ? `${keyData.name}'s Keyring Imported`
-          : `${keyData.name}'s Public key imported`,
+          ? `${keyname}'s Keyring Imported`
+          : `${keyname}'s Public key imported`,
         {
           position: "top-right",
         }

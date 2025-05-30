@@ -190,7 +190,7 @@ export default function App() {
         armoredKey: privateKeyArmored,
       });
       return privateKey.isPrivate() && !privateKey.isDecrypted();
-    } catch (error) {
+    } catch {
       return false;
     }
   };
@@ -483,7 +483,7 @@ export default function App() {
                     status: "active",
                   };
                 }
-              } catch (error) {
+              } catch {
                 return { expirydate: "Error", status: "unknown" };
               }
             };
@@ -753,7 +753,7 @@ export default function App() {
             privateKey: privateKey,
             passphrase: password,
           });
-        } catch (error) {
+        } catch {
           toast.error("Incorrect Password", {
             position: "top-right",
           });
@@ -767,7 +767,7 @@ export default function App() {
       link.href = URL.createObjectURL(blob);
       link.download = `${user.name}_0x${keyid}_SECRET.asc`;
       link.click();
-    } catch (error) {
+    } catch {
       toast.error(
         "Failed to read or decrypt. The key is not valid or there was an error processing it",
         {
@@ -850,7 +850,6 @@ export default function App() {
       let privateKey = await openpgp.readKey({
         armoredKey: selectedValidityKey.privateKey,
       });
-
       if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
         const currentPassword =
           await triggerKeyPasswordModal(selectedValidityKey);
@@ -860,21 +859,24 @@ export default function App() {
         });
       }
 
-      const userID = { name: selectedValidityKey.name };
-      if (
-        selectedValidityKey.email &&
-        selectedValidityKey.email.trim() !== "" &&
-        selectedValidityKey.email !== "N/A"
-      ) {
-        userID.email = selectedValidityKey.email.trim();
-      }
+      const fullPublicKey = await openpgp.readKey({
+        armoredKey: selectedValidityKey.publicKey,
+      });
+      const existingUserIDs = fullPublicKey
+        .getUserIDs()
+        .map(parseUserId)
+        .map((u) =>
+          u.email && u.email !== "N/A"
+            ? { name: u.name, email: u.email.trim() }
+            : { name: u.name }
+        );
 
       const updatedKeyPair = await openpgp.reformatKey({
-        privateKey: privateKey,
-        keyExpirationTime: keyExpirationTime,
+        privateKey,
+        keyExpirationTime,
         date: new Date(),
         format: "armored",
-        userIDs: [userID],
+        userIDs: existingUserIDs,
       });
 
       await updateKeyValidity(selectedValidityKey.id, {
@@ -912,7 +914,7 @@ export default function App() {
           });
           setPasswordModal(false);
           resolve(enteredPassword);
-        } catch (error) {
+        } catch {
           toast.error("Incorrect Password", {
             position: "top-right",
           });
@@ -1015,7 +1017,7 @@ export default function App() {
 
       setUsers(updatedKeys);
       toast.success("Password Changed Successfully", { position: "top-right" });
-    } catch (error) {
+    } catch {
       toast.error("Failed to change password", { position: "top-right" });
     }
   };
@@ -1045,7 +1047,7 @@ export default function App() {
       toast.success("Password removed successfully", { position: "top-right" });
       const refreshedKeys = await loadKeysFromIndexedDB();
       setUsers(refreshedKeys);
-    } catch (error) {
+    } catch {
       toast.error("Failed to remove password", { position: "top-right" });
     }
     closeremovePasswordModal();
@@ -1236,7 +1238,7 @@ export default function App() {
     }
   };
 
-  const deleteUserID = async (user, targetUserIDObj) => {
+  const deleteUserID = async (user, targetUserIDObj, showToast = true) => {
     try {
       let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
       if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
@@ -1274,9 +1276,12 @@ export default function App() {
         privateKey: newArmoredPrivate,
         publicKey: newArmoredPublic,
       });
-      toast.success("User ID deleted successfully", {
-        position: "top-right",
-      });
+
+      if (showToast) {
+        toast.success("User ID deleted successfully", {
+          position: "top-right",
+        });
+      }
 
       const refreshed = await loadKeysFromIndexedDB();
       setUsers(refreshed);
@@ -1552,9 +1557,18 @@ export default function App() {
 
   useEffect(() => {
     if (manageUserIDsModal && selectedUserId) {
-      getUserIDsFromKeyForModal(selectedUserId).then((result) => {
-        setModalUserIDs(result);
-      });
+      (async () => {
+        const result = await getUserIDsFromKeyForModal(selectedUserId);
+        // Delete revoked user IDs automatically as openpgp does not support them yet
+        for (const uid of result) {
+          if (uid.status === "revoked") {
+            await deleteUserID(selectedUserId, uid, false);
+          }
+        }
+        const refreshedUserIDs =
+          await getUserIDsFromKeyForModal(selectedUserId);
+        setModalUserIDs(refreshedUserIDs);
+      })();
     }
   }, [manageUserIDsModal, selectedUserId]);
 

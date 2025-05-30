@@ -21,7 +21,7 @@ export async function GET() {
   });
 }
 
-export async function POST(req: Request) {
+export async function POST() {
   const session = await auth();
 
   if (!session || !session.user?.id) {
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   );
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE() {
   const session = await auth();
 
   if (!session || !session.user?.id) {

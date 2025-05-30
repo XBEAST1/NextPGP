@@ -6,10 +6,11 @@ import { logout } from "@/actions/auth";
 import { useRouter } from "next/navigation";
 import { toast, ToastContainer } from "react-toastify";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
+import { encrypt } from "@/lib/cryptoUtils";
 import UserDetails from "@/components/userdetails";
 import NProgress from "nprogress";
-import "react-toastify/dist/ReactToastify.css";
 import ConnectivityCheck from "@/components/connectivity-check";
+import "react-toastify/dist/ReactToastify.css";
 
 const Page = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -63,62 +64,6 @@ const Page = () => {
       return Array.from(new Uint8Array(buffer))
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
-    }
-
-    // AES-GCM encryption (client-side)
-    async function encrypt(text, password) {
-      const enc = new TextEncoder();
-      const salt = crypto.getRandomValues(new Uint8Array(16));
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-
-      const keyMaterial = await crypto.subtle.importKey(
-        "raw",
-        enc.encode(password),
-        { name: "PBKDF2" },
-        false,
-        ["deriveKey"]
-      );
-
-      const key = await crypto.subtle.deriveKey(
-        {
-          name: "PBKDF2",
-          salt,
-          iterations: 1000000,
-          hash: "SHA-256",
-        },
-        keyMaterial,
-        { name: "AES-GCM", length: 256 },
-        false,
-        ["encrypt"]
-      );
-
-      const encryptedBuffer = await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv },
-        key,
-        enc.encode(text)
-      );
-
-      // Combine salt, iv, and the encrypted content
-      const combined = new Uint8Array(
-        salt.byteLength + iv.byteLength + encryptedBuffer.byteLength
-      );
-      combined.set(salt, 0);
-      combined.set(iv, salt.byteLength);
-      combined.set(
-        new Uint8Array(encryptedBuffer),
-        salt.byteLength + iv.byteLength
-      );
-
-      // Binary-safe base64 encoding
-      function toBase64(uint8array) {
-        let binary = "";
-        for (let i = 0; i < uint8array.length; i++) {
-          binary += String.fromCharCode(uint8array[i]);
-        }
-        return btoa(binary);
-      }
-
-      return toBase64(combined);
     }
 
     try {

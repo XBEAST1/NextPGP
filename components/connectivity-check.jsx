@@ -1,11 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 export default function ConnectivityCheck() {
   const router = useRouter();
-  const isRedirecting = useRef(false);
 
   useEffect(() => {
     function check() {

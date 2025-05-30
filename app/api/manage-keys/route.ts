@@ -6,14 +6,6 @@ import PGPKey from "@/models/PGPKey";
 
 await connectToDatabase();
 
-// Utility: Rehashing for duplicate check or for verifying key integrity using SHA-256
-async function serverHashKey(text: string): Promise<string> {
-  const enc = new TextEncoder();
-  const buffer = enc.encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
-  return Buffer.from(digest).toString("hex");
-}
-
 // POST: Store new key
 export async function POST(req: Request) {
   const session = await auth();
@@ -24,7 +16,7 @@ export async function POST(req: Request) {
   let payload;
   try {
     payload = await req.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 

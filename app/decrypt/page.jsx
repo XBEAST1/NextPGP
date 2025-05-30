@@ -66,7 +66,7 @@ export default function App() {
       }
 
       message = await openpgp.readMessage({ armoredMessage: inputMessage });
-    } catch (error) {
+    } catch {
       toast.error("The message is not in a valid PGP format", {
         position: "top-right",
       });
@@ -99,7 +99,7 @@ export default function App() {
           });
 
           // Skip if the private key cannot decrypt the message
-          const matchingKeys = await message.getEncryptionKeyIDs();
+          const matchingKeys = message.getEncryptionKeyIDs();
           const privateKeyIDs = [
             privateKey.getKeyID(),
             ...privateKey.getSubkeys().map((subkey) => subkey.getKeyID()),
@@ -143,9 +143,26 @@ export default function App() {
           setDecryptedMessage(decrypted);
           successfulDecryption = true;
 
-          // Extract encryption key IDs for recipient matching
-          const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+          // Determine the decryption key name from the private key used to decrypt the message
+          let decryptionKeyName;
+          try {
+            const privateKeyID = privateKey.getKeyID().toHex();
+            const matchedKey = publicKeys.find(
+              (key) =>
+                key.getKeyID().toHex() === privateKeyID ||
+                key
+                  .getSubkeys()
+                  .some((sub) => sub.getKeyID().toHex() === privateKeyID)
+            );
+            if (matchedKey) {
+              decryptionKeyName =
+                matchedKey.getUserIDs()[0] ||
+                decryptionKeyName;
+            }
+          } catch {}
 
+          // Extract encryption key IDs for recipient matching
+          const encryptionKeyIDs = message.getEncryptionKeyIDs();
           const recipients = encryptionKeyIDs.map((keyID) => {
             const matchedKey = publicKeys.find((key) => {
               return (
@@ -210,7 +227,6 @@ export default function App() {
                 createdTimeStr = "Not Available";
               }
 
-              // Match the public key and format signer info
               const signingKeyID = sig.keyID?.toHex();
               let userID = "Unknown Key";
               let formattedKeyID = signingKeyID
@@ -231,20 +247,14 @@ export default function App() {
                 }
               }
 
-              functionDetails += `Message successfully decrypted using key: ${
-                keyData.name || "Unnamed Key"
-              }\n`;
-
+              functionDetails += `Message successfully decrypted using key: ${decryptionKeyName}\n`;
               functionDetails += `Signature by: ${userID}`;
               if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
               functionDetails += `\n`;
-
               functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
             }
           } else {
-            functionDetails += `Message successfully decrypted using key: ${
-              keyData.name || "Unnamed Key"
-            }\n`;
+            functionDetails += `Message successfully decrypted using key: ${decryptionKeyName}\n`;
             functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
           }
 
@@ -272,7 +282,7 @@ export default function App() {
           position: "top-right",
         });
       }
-    } catch (error) {
+    } catch {
       toast.error("Decryption failed due to an unexpected error", {
         position: "top-right",
       });
@@ -318,7 +328,7 @@ export default function App() {
         );
 
         // Extract encryption key IDs for recipient matching
-        const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+        const encryptionKeyIDs = message.getEncryptionKeyIDs();
 
         // Match recipients
         const recipients = encryptionKeyIDs.map((keyID) => {
@@ -460,11 +470,25 @@ export default function App() {
       setDecryptedMessage(decrypted);
       setIsPasswordModalOpen(false);
 
-      const keyData = pgpKeys.find(
-        (key) => key.privateKey === currentPrivateKey
-      );
+      // Determine the decryption key name from the private key used to decrypt the message
+      let decryptionKeyName;
+      try {
+        const privateKeyID = privateKey.getKeyID().toHex();
+        const matchedKey = publicKeys.find(
+          (key) =>
+            key.getKeyID().toHex() === privateKeyID ||
+            key
+              .getSubkeys()
+              .some((sub) => sub.getKeyID().toHex() === privateKeyID)
+        );
+        if (matchedKey) {
+          decryptionKeyName =
+            matchedKey.getUserIDs()[0] ||
+            decryptionKeyName;
+        }
+      } catch {}
 
-      const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+      const encryptionKeyIDs = message.getEncryptionKeyIDs();
 
       const recipients = encryptionKeyIDs.map((keyID) => {
         const matchedKey = publicKeys.find((key) => {
@@ -549,9 +573,7 @@ export default function App() {
             }
           }
 
-          functionDetails += `Message successfully decrypted using key: ${
-            keyData.name || "Unnamed Key"
-          }\n`;
+          functionDetails += `Message successfully decrypted using key: ${decryptionKeyName}\n`;
 
           functionDetails += `Signature by: ${userID}`;
           if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
@@ -560,9 +582,7 @@ export default function App() {
           functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
         }
       } else {
-        functionDetails += `Message successfully decrypted using key: ${
-          keyData.name || "Unnamed Key"
-        }\n`;
+        functionDetails += `Message successfully decrypted using key: ${decryptionKeyName}\n`;
         functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
       }
 
@@ -571,7 +591,7 @@ export default function App() {
       toast.success("Message Successfully Decrypted!", {
         position: "top-right",
       });
-    } catch (error) {
+    } catch {
       toast.error("Incorrect password", {
         position: "top-right",
       });
@@ -611,7 +631,7 @@ export default function App() {
             let privateKey = await openpgp.readPrivateKey({
               armoredKey: keyData.privateKey,
             });
-            const matchingKeys = await message.getEncryptionKeyIDs();
+            const matchingKeys = message.getEncryptionKeyIDs();
             const privateKeyIDs = [
               privateKey.getKeyID(),
               ...privateKey.getSubkeys().map((subkey) => subkey.getKeyID()),
@@ -652,8 +672,26 @@ export default function App() {
 
             successfulDecryption = true;
 
+            // Determine the decryption key name from the private key used to decrypt the message
+            let decryptionKeyName;
+            try {
+              const privateKeyID = privateKey.getKeyID().toHex();
+              const matchedKey = publicKeys.find(
+                (key) =>
+                  key.getKeyID().toHex() === privateKeyID ||
+                  key
+                    .getSubkeys()
+                    .some((sub) => sub.getKeyID().toHex() === privateKeyID)
+              );
+              if (matchedKey) {
+                decryptionKeyName =
+                  matchedKey.getUserIDs()[0] ||
+                  decryptionKeyName;
+              }
+            } catch {}
+
             // Extract recipients information
-            const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+            const encryptionKeyIDs = message.getEncryptionKeyIDs();
             const recipients = encryptionKeyIDs.map((keyID) => {
               const matchedKey = publicKeys.find((key) => {
                 return (
@@ -734,9 +772,7 @@ export default function App() {
                   }
                 }
 
-                functionDetails += `File successfully decrypted using key: ${
-                  keyData.name || "Unnamed Key"
-                }\n`;
+                functionDetails += `File successfully decrypted using key: ${decryptionKeyName}\n`;
 
                 functionDetails += `Signature by: ${userID}`;
                 if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
@@ -744,9 +780,7 @@ export default function App() {
                 functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
               }
             } else {
-              functionDetails += `File successfully decrypted using key: ${
-                keyData.name || "Unnamed Key"
-              }\n`;
+              functionDetails += `File successfully decrypted using key: ${decryptionKeyName}\n`;
               functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
             }
 
@@ -788,7 +822,7 @@ export default function App() {
             }
           );
         }
-      } catch (error) {
+      } catch {
         toast.error("Incorrect Password for file " + file.name, {
           position: "top-right",
         });
@@ -829,7 +863,7 @@ export default function App() {
           );
 
           // Extract encryption key IDs for recipient matching
-          const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+          const encryptionKeyIDs = message.getEncryptionKeyIDs();
           const recipients = encryptionKeyIDs.map((keyID) => {
             const matchedKey = publicKeys.find((key) => {
               return (
@@ -974,11 +1008,25 @@ export default function App() {
 
         setIsPasswordModalOpen(false);
 
-        const keyData = pgpKeys.find(
-          (key) => key.privateKey === currentPrivateKey
-        );
+        // Determine the decryption key name from the private key used to decrypt the message
+        let decryptionKeyName;
+        try {
+          const privateKeyID = privateKey.getKeyID().toHex();
+          const matchedKey = publicKeys.find(
+            (key) =>
+              key.getKeyID().toHex() === privateKeyID ||
+              key
+                .getSubkeys()
+                .some((sub) => sub.getKeyID().toHex() === privateKeyID)
+          );
+          if (matchedKey) {
+            decryptionKeyName =
+              matchedKey.getUserIDs()[0] ||
+              decryptionKeyName;
+          }
+        } catch {}
 
-        const encryptionKeyIDs = await message.getEncryptionKeyIDs();
+        const encryptionKeyIDs = message.getEncryptionKeyIDs();
         const recipients = encryptionKeyIDs.map((keyID) => {
           const matchedKey = publicKeys.find((key) => {
             return (
@@ -1057,9 +1105,7 @@ export default function App() {
               }
             }
 
-            functionDetails += `File successfully decrypted using key: ${
-              keyData.name || "Unnamed Key"
-            }\n`;
+            functionDetails += `File successfully decrypted using key: ${decryptionKeyName}\n`;
 
             functionDetails += `Signature by: ${userID}`;
             if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
@@ -1067,9 +1113,7 @@ export default function App() {
             functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
           }
         } else {
-          functionDetails += `File successfully decrypted using key: ${
-            keyData.name || "Unnamed Key"
-          }\n`;
+          functionDetails += `File successfully decrypted using key: ${decryptionKeyName}\n`;
           functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
         }
 
@@ -1084,7 +1128,7 @@ export default function App() {
         toast.success(`File ${file.name} decrypted successfully!`, {
           position: "top-right",
         });
-      } catch (error) {
+      } catch {
         toast.error("Incorrect Password for file " + file.name, {
           position: "top-right",
         });

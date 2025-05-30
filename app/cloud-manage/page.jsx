@@ -35,6 +35,10 @@ import {
   getStoredKeys,
   dbPgpKeys,
 } from "@/lib/indexeddb";
+import {
+  computeKeyHash,
+  decrypt,
+} from "@/lib/cryptoUtils";
 import { toast, ToastContainer } from "react-toastify";
 import { NProgressLink } from "@/components/nprogress";
 import { useRouter } from "next/navigation";
@@ -151,57 +155,6 @@ const capitalize = (s) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
-// AES-GCM decryption
-async function decrypt(encryptedBase64, password) {
-  const enc = new TextEncoder();
-  const dec = new TextDecoder();
-
-  const encryptedBytes = Uint8Array.from(atob(encryptedBase64), (c) =>
-    c.charCodeAt(0)
-  );
-  const salt = encryptedBytes.slice(0, 16);
-  const iv = encryptedBytes.slice(16, 28);
-  const data = encryptedBytes.slice(28);
-
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    { name: "PBKDF2" },
-    false,
-    ["deriveKey"]
-  );
-
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt,
-      iterations: 1000000,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["decrypt"]
-  );
-
-  const decryptedBuffer = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    key,
-    data
-  );
-
-  return dec.decode(decryptedBuffer);
-}
-
-async function computeKeyHash(keyString) {
-  const enc = new TextEncoder();
-  const buffer = enc.encode(keyString);
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 export default function App() {
   const [filterValue, setFilterValue] = useState("");
   const [users, setUsers] = useState([]);
@@ -224,7 +177,7 @@ export default function App() {
         armoredKey: privateKeyArmored,
       });
       return privateKey.isPrivate() && !privateKey.isDecrypted();
-    } catch (error) {
+    } catch {
       return false;
     }
   };
@@ -296,6 +249,20 @@ export default function App() {
               armoredKey: decryptedCloudPrivateKey || decryptedCloudPublicKey,
             });
 
+            const userIDs = openpgpKey.getUserIDs();
+
+            const firstUserID = userIDs[0];
+            let name, email;
+
+            const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
+            if (match) {
+              name = match[1].trim();
+              email = match[2].trim();
+            } else {
+              name = firstUserID.trim();
+              email = "N/A";
+            }
+
             const creationdate = formatDate(openpgpKey.getCreationTime());
 
             const getKeyExpiryInfo = async (key) => {
@@ -315,7 +282,7 @@ export default function App() {
                     keystatus: "active",
                   };
                 }
-              } catch (error) {
+              } catch {
                 return { expirydate: "Error", keystatus: "unknown" };
               }
             };
@@ -325,14 +292,6 @@ export default function App() {
             const passwordProtected = key.privateKey
               ? await isPasswordProtected(key.privateKey)
               : false;
-
-            // Extract User IDs
-            const userIds = openpgpKey.users.map((user) => {
-              const userId = user.userID;
-              const name = userId?.userID.split(" <")[0] || "N/A";
-              const email = userId?.email || "N/A";
-              return { name, email };
-            });
 
             const formatFingerprint = (fingerprint) => {
               const parts = fingerprint.match(/.{1,4}/g);
@@ -406,16 +365,16 @@ export default function App() {
 
             return {
               id: key.id || Date.now(),
-              name: userIds[0]?.name || "N/A",
-              email: userIds[0]?.email || "N/A",
-              creationdate: creationdate,
-              expirydate: expirydate,
-              keystatus: keystatus,
+              name,
+              email,
+              creationdate,
+              expirydate,
+              keystatus,
               passwordprotected: passwordProtected ? "Yes" : "No",
               status: isImported ? "Imported" : "Not Imported",
-              keyid: keyid,
-              fingerprint: fingerprint,
-              algorithm: algorithm,
+              keyid,
+              fingerprint,
+              algorithm,
               avatar: (() => {
                 const hasPrivateKey =
                   key.privateKey &&
@@ -491,72 +450,76 @@ export default function App() {
         throw new Error("Vault password not available");
       }
 
-      try {
-        let publicKey = selectedUser.decryptedPublicKey;
-        const privateKey = selectedUser.decryptedPrivateKey;
+      let keyname;
+      let publicKey = selectedUser.decryptedPublicKey;
+      const privateKey = selectedUser.decryptedPrivateKey;
 
-        // If there's only a private key, generate the public key
-        if (privateKey && (!publicKey || publicKey.trim() === "")) {
-          try {
-            const privateKeyObj = await openpgp.readKey({
-              armoredKey: privateKey,
-            });
-            const publicKeyObj = privateKeyObj.toPublic();
-            publicKey = publicKeyObj.armor();
-          } catch (err) {
-            console.error("Error generating public key:", err);
-            throw new Error("Failed to generate public key from private key");
-          }
-        }
-
-        const keyData = {
-          id: Date.now(),
-          name: selectedUser.name,
-          email: selectedUser.email,
-          publicKey: publicKey,
-          privateKey:
-            privateKey &&
-            privateKey.trim().toLowerCase() !== "null" &&
-            privateKey.trim() !== ""
-              ? privateKey
-              : null,
-        };
-
-        // Check if key already exists
-        const exists = await checkIfKeyExists(keyData);
-        if (!exists) {
-          await saveKeyToIndexedDB(keyData);
-
-          // Determine if it's a public key or keyring based on privateKey being null
-          const keyType =
-            keyData.privateKey === null ? "Public Key" : "Keyring";
-          toast.success(`Imported ${keyData.name}'s ${keyType}`, {
-            position: "top-right",
+      // If there's only a private key, generate the public key
+      if (privateKey && (!publicKey || publicKey.trim() === "")) {
+        try {
+          const privateKeyObj = await openpgp.readKey({
+            armoredKey: privateKey,
           });
-
-          // Refresh the keys list immediately after successful import
-          const refreshedKeys = await loadKeysFromCloud();
-          setUsers(refreshedKeys);
-        } else {
-          // Update the "already exists" message too
-          const keyType =
-            keyData.privateKey === null ? "Public Key" : "Keyring";
-          toast.info(`${keyData.name}'s ${keyType} already exists`, {
-            position: "top-right",
-          });
+          const publicKeyObj = privateKeyObj.toPublic();
+          publicKey = publicKeyObj.armor();
+          keyname =
+            privateKeyObj.getUserIDs()[0]?.split("<")[0].trim() ||
+            "Unknown User";
+        } catch (err) {
+          console.error("Error generating public key:", err);
+          throw new Error("Failed to generate public key from private key");
         }
-      } catch (error) {
-        console.error("Error processing key:", error);
-        toast.error(`Failed to import key: ${error.message}`, {
+      }
+
+      if (!keyname && publicKey && publicKey.trim() !== "") {
+        try {
+          const publicKeyObj = await openpgp.readKey({ armoredKey: publicKey });
+          keyname =
+            publicKeyObj.getUserIDs()[0]?.split("<")[0].trim() ||
+            "Unknown User";
+        } catch (err) {
+          console.error("Error reading public key for user name:", err);
+          keyname = "Unknown User";
+        }
+      }
+
+      const keyData = {
+        id: Date.now(),
+        publicKey: publicKey,
+        privateKey:
+          privateKey &&
+          privateKey.trim().toLowerCase() !== "null" &&
+          privateKey.trim() !== ""
+            ? privateKey
+            : null,
+      };
+
+      // Check if key already exists
+      const exists = await checkIfKeyExists(keyData);
+      if (!exists) {
+        await saveKeyToIndexedDB(keyData);
+
+        // Determine if it's a public key or keyring based on privateKey being null
+        const keyType = keyData.privateKey === null ? "Public Key" : "Keyring";
+        toast.success(`Imported ${keyname}'s ${keyType}`, {
+          position: "top-right",
+        });
+
+        // Refresh the keys list immediately after successful import
+        const refreshedKeys = await loadKeysFromCloud();
+        setUsers(refreshedKeys);
+      } else {
+        // Update the "already exists" message too
+        const keyType = keyData.privateKey === null ? "Public Key" : "Keyring";
+        toast.info(`${keyname}'s ${keyType} already exists`, {
           position: "top-right",
         });
       }
     } catch (error) {
-      console.error(error);
-      toast.error(
-        "Failed to import key from cloud. Please check your connection and try again.",
-        { position: "top-right" }
-      );
+      console.error("Error processing key:", error);
+      toast.error(`Failed to import key: ${error.message}`, {
+        position: "top-right",
+      });
     }
   };
 
@@ -729,7 +692,9 @@ export default function App() {
         throw new Error(errorData.error || "Failed to delete key");
       }
 
-      toast.success("Key deleted successfully", { position: "top-right" });
+      toast.success(`${user.name}'s Key successfully deleted from the cloud`, {
+        position: "top-right",
+      });
       const refreshedKeys = await loadKeysFromCloud();
       setUsers(refreshedKeys);
       setPage(1);
