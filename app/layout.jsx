@@ -9,7 +9,8 @@ import { auth } from "@/auth";
 import { SessionProvider } from "next-auth/react";
 import { NavigationProgress } from "@/components/nprogress";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { VaultProvider } from "@/context/VaultContext"; // import the Vault Context
+import { VaultProvider } from "@/context/VaultContext";
+import { ToastProvider } from "@heroui/toast";
 
 const twittercardimg = `https://nextpgp.vercel.app${Logo.src}`;
 
@@ -83,6 +84,18 @@ export default async function RootLayout({ children }) {
               <div className="relative flex flex-col h-screen">
                 <Navbar />
                 <main className="container mx-auto max-w-7xl pt-6 px-6 flex-grow">
+                  <ToastProvider
+                    toastProps={{
+                      timeout: 4000,
+                      shouldShowTimeoutProgress: true,
+                      classNames: {
+                        closeButton:
+                          "opacity-100 absolute right-4 top-1/2 -translate-y-1/2",
+                      },
+                    }}
+                    toastOffset={30}
+                    placement={"top-right"}
+                  />
                   {children}
                   <GoogleAnalytics gaId="G-EJ067X6M97" />
                 </main>

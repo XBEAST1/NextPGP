@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Button,
-  Card,
-  CardHeader,
-  CardBody,
-  Image,
-} from "@heroui/react";
+import { Button, Card, CardHeader, CardBody, Image } from "@heroui/react";
 import { login } from "@/actions/auth";
 import ConnectivityCheck from "@/components/connectivity-check";
 import Logo from "@/assets/Logo2.jpg";

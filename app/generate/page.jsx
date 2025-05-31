@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   Button,
+  addToast,
   DatePicker,
   Input,
   Checkbox,
@@ -17,8 +18,6 @@ import {
 } from "@/lib/indexeddb";
 import { today, getLocalTimeZone } from "@internationalized/date";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
 
 export default function App() {
@@ -159,12 +158,14 @@ export default function App() {
       // Save the encrypted key data
       await saveKeyToIndexedDB(keyData.id, keyData);
 
-      toast.success("PGP Keyring Generated", {
-        position: "top-right",
+      addToast({
+        title: "PGP Keyring Generated",
+        color: "success",
       });
     } catch (error) {
-      toast.error("Failed to generate PGP Keyring", {
-        position: "top-right",
+      addToast({
+        title: "Failed to generate PGP Keyring",
+        color: "danger",
       });
       console.log(error);
     }
@@ -175,7 +176,6 @@ export default function App() {
 
   return (
     <>
-      <ToastContainer theme="dark" />
       <h1 className="text-center text-4xl dm-serif-text-regular">
         Generate Keyring
       </h1>

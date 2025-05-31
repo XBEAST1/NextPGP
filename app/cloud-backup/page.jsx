@@ -10,6 +10,7 @@ import {
   TableCell,
   Input,
   Button,
+  addToast,
   DropdownTrigger,
   Dropdown,
   DropdownMenu,
@@ -33,12 +34,7 @@ import {
   decryptData,
   dbPgpKeys,
 } from "@/lib/indexeddb";
-import {
-  decrypt,
-  encrypt,
-  hashKey,
-} from "@/lib/cryptoUtils";
-import { toast, ToastContainer } from "react-toastify";
+import { decrypt, encrypt, hashKey } from "@/lib/cryptoUtils";
 import { NProgressLink } from "@/components/nprogress";
 import { useRouter } from "next/navigation";
 import { useVault } from "@/context/VaultContext";
@@ -46,7 +42,6 @@ import ConnectivityCheck from "@/components/connectivity-check";
 import NProgress from "nprogress";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
-import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
 
 const statusColorMap = {
@@ -579,8 +574,9 @@ export default function App() {
                 passphrase: password,
               });
             } catch {
-              toast.error(`Incorrect Password for ${user.name}'s Keyring`, {
-                position: "top-right",
+              addToast({
+                title: `Incorrect Password for ${user.name}'s Keyring`,
+                color: "danger",
               });
               return;
             }
@@ -612,8 +608,9 @@ export default function App() {
 
       const vaultPassword = await getVaultPassword();
       if (!vaultPassword) {
-        toast.error("No vault password found. Please lock and reopen vault.", {
-          position: "top-right",
+        addToast({
+          title: "No vault password found. Please lock and reopen vault.",
+          color: "danger",
         });
         return;
       }
@@ -653,15 +650,15 @@ export default function App() {
 
       if (response.ok) {
         if (responseData.message === "Key already backed up.") {
-          toast.info(
-            `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} is already backed up`,
-            { position: "top-right" }
-          );
+          addToast({
+            title: `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} is already backed up`,
+            color: "primary",
+          });
         } else {
-          toast.success(
-            `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} successfully backed up to the cloud!`,
-            { position: "top-right" }
-          );
+          addToast({
+            title: `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} successfully backed up to the cloud!`,
+            color: "success",
+          });
           setUsers((prevUsers) =>
             prevUsers.map((prevUser) => {
               if (prevUser.id === user.id)
@@ -674,12 +671,16 @@ export default function App() {
         const errorMessage =
           responseData?.error ||
           `Failed to back up ${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"}`;
-        toast.error(errorMessage, { position: "top-right" });
+        addToast({
+          title: errorMessage,
+          color: "danger",
+        });
       }
     } catch (error) {
       console.error(error);
-      toast.error(`Failed to process ${user.name}'s key.`, {
-        position: "top-right",
+      addToast({
+        title: `Failed to process ${user.name}'s key.`,
+        color: "danger",
       });
     }
   };
@@ -706,12 +707,10 @@ export default function App() {
           setIsOpen(false);
           resolve(enteredPassword);
         } catch {
-          toast.error(
-            `Incorrect Password for ${user.name}'s Keyring. Please try again.`,
-            {
-              position: "top-right",
-            }
-          );
+          addToast({
+            title: `Incorrect Password for ${user.name}'s Keyring. Please try again.`,
+            color: "danger",
+          });
           tryPassword();
         }
       };
@@ -878,7 +877,6 @@ export default function App() {
   return (
     <>
       <ConnectivityCheck />
-      <ToastContainer theme="dark" />
       <Table
         isHeaderSticky
         aria-label="Example table with custom cells, pagination and sorting"
@@ -964,8 +962,9 @@ export default function App() {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 if (password.trim() === "") {
-                  toast.error("Please Enter a Password", {
-                    position: "top-right",
+                  addToast({
+                    title: "Please Enter a Password",
+                    color: "danger",
                   });
                 } else if (passwordResolve) {
                   passwordResolve(password);
@@ -991,8 +990,9 @@ export default function App() {
             className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
             onPress={() => {
               if (password.trim() === "") {
-                toast.error("Please Enter a Password", {
-                  position: "top-right",
+                addToast({
+                  title: "Please Enter a Password",
+                  color: "danger",
                 });
               } else if (passwordResolve) {
                 passwordResolve(password);

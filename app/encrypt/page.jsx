@@ -4,6 +4,7 @@ import { React, useState, useEffect, useRef } from "react";
 import {
   Textarea,
   Checkbox,
+  addToast,
   Input,
   Autocomplete,
   AutocompleteItem,
@@ -19,10 +20,8 @@ import {
   selectedSigners,
   selectedRecipients,
 } from "@/lib/indexeddb";
-import { toast, ToastContainer } from "react-toastify";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { saveAs } from "file-saver";
-import "react-toastify/dist/ReactToastify.css";
 import JSZip from "jszip";
 import * as openpgp from "openpgp";
 
@@ -213,7 +212,10 @@ export default function App() {
     }
 
     if (!itemObj || !itemObj.id) {
-      toast.error("Invalid signer selection", { position: "top-right" });
+      addToast({
+        title: "Invalid signer selection",
+        color: "danger",
+      });
       return;
     }
 
@@ -276,8 +278,10 @@ export default function App() {
     }
 
     if (!itemObj || !itemObj.id) {
-      console.error("[handleSelection] Invalid recipient selection:", itemObj);
-      toast.error("Invalid recipient selection", { position: "top-right" });
+      addToast({
+        title: "Invalid recipient selection",
+        color: "danger",
+      });
       return;
     }
 
@@ -308,7 +312,10 @@ export default function App() {
     // Use the numeric id from the selected signer object
     const signer = signerKeys.find((key) => key.id.toString() === signerKey.id);
     if (!signer) {
-      toast.error("Selected signer key not found", { position: "top-right" });
+      addToast({
+        title: "Selected signer key not found",
+        color: "danger",
+      });
       return null;
     }
     const privateKeyObject = await openpgp.readPrivateKey({
@@ -329,10 +336,16 @@ export default function App() {
           passphrase,
         });
         if (!decryptedKey || !decryptedKey.isDecrypted()) {
-          toast.error("Incorrect password", { position: "top-right" });
+          addToast({
+            title: "Incorrect password",
+            color: "danger",
+          });
         }
       } catch {
-        toast.error("Incorrect password", { position: "top-right" });
+        addToast({
+          title: "Incorrect password",
+          color: "danger",
+        });
       }
     }
     setIsPasswordModalOpen(false);
@@ -354,10 +367,10 @@ export default function App() {
 
       // Validate that at least one recipient or a password is available.
       if (!isChecked && recipientKeysPublic.length === 0) {
-        toast.error(
-          "Please select at least one recipient or provide a password",
-          { position: "top-right" }
-        );
+        addToast({
+          title: "Please select at least one recipient or provide a password",
+          color: "danger",
+        });
         return;
       }
 
@@ -382,7 +395,10 @@ export default function App() {
       const encryptedMessage = await openpgp.encrypt(encryptionOptions);
       setOutput(encryptedMessage);
     } catch {
-      toast.error("Please Enter a Password", { position: "top-right" });
+      addToast({
+        title: "Please Enter a Password",
+        color: "danger",
+      });
     }
   };
 
@@ -453,9 +469,10 @@ export default function App() {
 
       // Validate that at least one recipient or a password is provided.
       if (recipientKeysPublic.length === 0 && !isChecked) {
-        toast.error(
-          "Please select at least one recipient or provide a password"
-        );
+        addToast({
+          title: "Please select at least one recipient or provide a password",
+          color: "danger",
+        });
         return;
       }
 
@@ -494,7 +511,10 @@ export default function App() {
       });
       saveAs(encryptedBlob, `${outputFileName}.gpg`);
     } catch {
-      toast.error("Please Enter a Password", { position: "top-right" });
+      addToast({
+        title: "Please Enter a Password",
+        color: "danger",
+      });
     }
   };
 
@@ -517,8 +537,9 @@ export default function App() {
     }
 
     if (!message && !files && !directoryFiles) {
-      toast.error("Please enter a message or Select a File", {
-        position: "top-right",
+      addToast({
+        title: "Please enter a message or Select a File",
+        color: "danger",
       });
       return;
     }
@@ -526,7 +547,6 @@ export default function App() {
 
   return (
     <>
-      <ToastContainer theme="dark" />
       <h1 className="text-center text-4xl dm-serif-text-regular">Encrypt</h1>
       <br />
       <br />
@@ -734,7 +754,10 @@ export default function App() {
                     onSubmitPassword.current(keyPassphrase);
                   }
                 } else {
-                  toast.error("Please enter a password");
+                  addToast({
+                    title: "Please enter a password",
+                    color: "danger",
+                  });
                 }
               }
             }}
@@ -747,7 +770,10 @@ export default function App() {
                   onSubmitPassword.current(keyPassphrase);
                 }
               } else {
-                toast.error("Please enter a password");
+                addToast({
+                  title: "Please enter a password",
+                  color: "danger",
+                });
               }
             }}
           >

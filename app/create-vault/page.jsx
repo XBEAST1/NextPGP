@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button, Input, Spinner } from "@heroui/react";
+import { Button, Input, Spinner, addToast } from "@heroui/react";
 import { logout } from "@/actions/auth";
 import { useRouter } from "next/navigation";
-import { toast, ToastContainer } from "react-toastify";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { encrypt } from "@/lib/cryptoUtils";
 import UserDetails from "@/components/userdetails";
 import NProgress from "nprogress";
 import ConnectivityCheck from "@/components/connectivity-check";
-import "react-toastify/dist/ReactToastify.css";
 
 const Page = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -54,7 +52,10 @@ const Page = () => {
 
   const handleCreateVault = async () => {
     if (!password.trim()) {
-      toast.error("Please enter a password", { position: "top-right" });
+      addToast({
+        title: "Please enter a password",
+        color: "danger",
+      });
       return;
     }
     setLoading(true);
@@ -89,20 +90,22 @@ const Page = () => {
         router.push("/vault");
       } else {
         const { error } = await res.json();
-        toast.error(
-          error === "Vault already exists"
-            ? "Vault already exists"
-            : "There was an error creating the vault",
-          { position: "top-right" }
-        );
+        addToast({
+          title:
+            error === "Vault already exists"
+              ? "Vault already exists"
+              : "There was an error creating the vault",
+          color: "danger",
+        });
         setLoading(false);
       }
     } catch (e) {
       console.error("Vault creation failed:", e);
-      toast.error(
-        "Encryption failed. Your device may be low on memory or CPU power",
-        { position: "top-right" }
-      );
+      addToast({
+        title:
+          "Encryption failed. Your device may be low on memory or CPU power",
+        color: "danger",
+      });
       setLoading(false);
     }
   };
@@ -110,7 +113,6 @@ const Page = () => {
   return (
     <div>
       <ConnectivityCheck />
-      <ToastContainer theme="dark" />
       <div className="sm:mt-10 sm:me-32 text-center dm-serif-text-regular">
         <h1 className="text-4xl mb-6">Create Vault</h1>
         <span className="text-xl text-gray-400 flex justify-center items-center gap-2">

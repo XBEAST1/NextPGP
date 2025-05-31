@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { toast, ToastContainer } from "react-toastify";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
-import { Modal, ModalContent, Input, Button, Textarea } from "@heroui/react";
+import {
+  Modal,
+  ModalContent,
+  Input,
+  Button,
+  addToast,
+  Textarea,
+} from "@heroui/react";
 import { openDB, getStoredKeys } from "@/lib/indexeddb";
 import { saveAs } from "file-saver";
-import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
 
 export default function App() {
@@ -67,8 +72,9 @@ export default function App() {
 
       message = await openpgp.readMessage({ armoredMessage: inputMessage });
     } catch {
-      toast.error("The message is not in a valid PGP format", {
-        position: "top-right",
+      addToast({
+        title: "The message is not in a valid PGP format",
+        color: "danger",
       });
       return;
     }
@@ -123,12 +129,10 @@ export default function App() {
               // Mark as needing a password but defer the prompt
               setCurrentPrivateKey(keyData.privateKey);
               setIsPasswordModalOpen(true);
-              toast.info(
-                "The message is encrypted with a password protected key",
-                {
-                  position: "top-right",
-                }
-              );
+              addToast({
+                title: "The message is encrypted with a password protected key",
+                color: "primary",
+              });
               return;
             }
           }
@@ -156,8 +160,7 @@ export default function App() {
             );
             if (matchedKey) {
               decryptionKeyName =
-                matchedKey.getUserIDs()[0] ||
-                decryptionKeyName;
+                matchedKey.getUserIDs()[0] || decryptionKeyName;
             }
           } catch {}
 
@@ -259,9 +262,9 @@ export default function App() {
           }
 
           setDetails((prev) => prev + functionDetails);
-
-          toast.success("Message Successfully Decrypted!", {
-            position: "top-right",
+          addToast({
+            title: "Message Successfully Decrypted!",
+            color: "success",
           });
           return;
         } catch (error) {
@@ -274,17 +277,20 @@ export default function App() {
         // Open password prompt only if no valid private key could decrypt
         setCurrentPrivateKey(null);
         setIsPasswordModalOpen(true);
-        toast.info("The message is password encrypted", {
-          position: "top-right",
+        addToast({
+          title: "The message is password encrypted",
+          color: "primary",
         });
       } else if (!successfulDecryption) {
-        toast.error("No valid private key available to decrypt the message", {
-          position: "top-right",
+        addToast({
+          title: "No valid private key available to decrypt the message",
+          color: "danger",
         });
       }
     } catch {
-      toast.error("Decryption failed due to an unexpected error", {
-        position: "top-right",
+      addToast({
+        title: "Decryption failed due to an unexpected error",
+        color: "danger",
       });
     }
   };
@@ -433,8 +439,9 @@ export default function App() {
         setIsPasswordModalOpen(false);
         setPassword("");
 
-        toast.success("Message decrypted successfully!", {
-          position: "top-right",
+        addToast({
+          title: "Message decrypted successfully!",
+          color: "success",
         });
         return;
       } catch (error) {
@@ -482,9 +489,7 @@ export default function App() {
               .some((sub) => sub.getKeyID().toHex() === privateKeyID)
         );
         if (matchedKey) {
-          decryptionKeyName =
-            matchedKey.getUserIDs()[0] ||
-            decryptionKeyName;
+          decryptionKeyName = matchedKey.getUserIDs()[0] || decryptionKeyName;
         }
       } catch {}
 
@@ -588,12 +593,14 @@ export default function App() {
 
       setDetails((prev) => prev + functionDetails);
 
-      toast.success("Message Successfully Decrypted!", {
-        position: "top-right",
+      addToast({
+        title: "Message Successfully Decrypted!",
+        color: "success",
       });
     } catch {
-      toast.error("Incorrect password", {
-        position: "top-right",
+      addToast({
+        title: "Incorrect password",
+        color: "danger",
       });
     }
   };
@@ -651,14 +658,13 @@ export default function App() {
               } else {
                 setCurrentPrivateKey(keyData.privateKey);
                 setIsPasswordModalOpen(true);
-                toast.info(
-                  files && files.length > 1
-                    ? "The files are encrypted with a password protected key"
-                    : "The file is encrypted with a password protected key",
-                  {
-                    position: "top-right",
-                  }
-                );
+                addToast({
+                  title:
+                    files && files.length > 1
+                      ? "The files are encrypted with a password protected key"
+                      : "The file is encrypted with a password protected key",
+                  color: "primary",
+                });
                 return;
               }
             }
@@ -685,8 +691,7 @@ export default function App() {
               );
               if (matchedKey) {
                 decryptionKeyName =
-                  matchedKey.getUserIDs()[0] ||
-                  decryptionKeyName;
+                  matchedKey.getUserIDs()[0] || decryptionKeyName;
               }
             } catch {}
 
@@ -792,8 +797,9 @@ export default function App() {
               saveAs(blob, file.name.replace(/\.gpg$/, ""));
             }
 
-            toast.success(`File ${file.name} successfully decrypted!`, {
-              position: "top-right",
+            addToast({
+              title: `File ${file.name} successfully decrypted!`,
+              color: "success",
             });
             break; // Stop after a successful decryption for this file.
           } catch (error) {
@@ -805,26 +811,25 @@ export default function App() {
         if (isPasswordEncrypted && !successfulDecryption) {
           setCurrentPrivateKey(null);
           setIsPasswordModalOpen(true);
-          toast.info(
-            files && files.length > 1
-              ? "The files are password encrypted"
-              : "The file is password encrypted",
-            {
-              position: "top-right",
-            }
-          );
+          addToast({
+            title:
+              files && files.length > 1
+                ? "The files are password encrypted"
+                : "The file is password encrypted",
+            color: "primary",
+          });
           return;
         } else if (!successfulDecryption) {
-          toast.error(
-            "No valid private key available to decrypt the file " + file.name,
-            {
-              position: "top-right",
-            }
-          );
+          addToast({
+            title:
+              "No valid private key available to decrypt the file " + file.name,
+            color: "danger",
+          });
         }
       } catch {
-        toast.error("Incorrect Password for file " + file.name, {
-          position: "top-right",
+        addToast({
+          title: "Incorrect Password for file " + file.name,
+          color: "danger",
         });
       }
     }
@@ -971,8 +976,9 @@ export default function App() {
           setIsPasswordModalOpen(false);
           setPassword("");
 
-          toast.success(`File ${file.name} decrypted successfully!`, {
-            position: "top-right",
+          addToast({
+            title: `File ${file.name} decrypted successfully!`,
+            color: "success",
           });
           // Continue with next file
           continue;
@@ -1020,9 +1026,7 @@ export default function App() {
                 .some((sub) => sub.getKeyID().toHex() === privateKeyID)
           );
           if (matchedKey) {
-            decryptionKeyName =
-              matchedKey.getUserIDs()[0] ||
-              decryptionKeyName;
+            decryptionKeyName = matchedKey.getUserIDs()[0] || decryptionKeyName;
           }
         } catch {}
 
@@ -1125,12 +1129,14 @@ export default function App() {
           saveAs(blob, file.name.replace(/\.gpg$/, ""));
         }
 
-        toast.success(`File ${file.name} decrypted successfully!`, {
-          position: "top-right",
+        addToast({
+          title: `File ${file.name} decrypted successfully!`,
+          color: "success",
         });
       } catch {
-        toast.error("Incorrect Password for file " + file.name, {
-          position: "top-right",
+        addToast({
+          title: "Incorrect Password for file " + file.name,
+          color: "danger",
         });
       }
     }
@@ -1154,8 +1160,9 @@ export default function App() {
     }
 
     if (!inputMessage && !files) {
-      toast.error("Please enter a PGP message or Select a File", {
-        position: "top-right",
+      addToast({
+        title: "Please enter a PGP message or Select a File",
+        color: "danger",
       });
       return;
     }
@@ -1163,8 +1170,9 @@ export default function App() {
 
   const handlePasswordDecrypt = async () => {
     if (!password) {
-      toast.error("Please enter a password", {
-        position: "top-right",
+      addToast({
+        title: "Please enter a password",
+        color: "danger",
       });
       return;
     }
@@ -1216,7 +1224,6 @@ export default function App() {
 
   return (
     <>
-      <ToastContainer theme="dark" />
       <h1 className="text-center text-4xl dm-serif-text-regular">Decrypt</h1>
       <br />
       <br />

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import "react-toastify/dist/ReactToastify.css";
 import {
   openDB,
   getEncryptionKey,
@@ -9,8 +8,7 @@ import {
   getStoredKeys,
   dbPgpKeys,
 } from "@/lib/indexeddb";
-import { Textarea, Button, Input } from "@heroui/react";
-import { toast, ToastContainer } from "react-toastify";
+import { Textarea, Button, Input, addToast } from "@heroui/react";
 import * as openpgp from "openpgp";
 
 // Extract only the PGP keys from the content
@@ -63,8 +61,9 @@ export default function ImportKeyPage() {
       const { publicKey, privateKey } = extractPGPKeys(keyArmored);
 
       if (!publicKey && !privateKey) {
-        toast.error("No valid PGP key block found", {
-          position: "top-right",
+        addToast({
+          title: "No valid PGP key block found",
+          color: "danger",
         });
         return;
       }
@@ -96,25 +95,25 @@ export default function ImportKeyPage() {
       }
 
       if (await checkIfKeyExists(keyData)) {
-        toast.info(`${keyname}'s Key already exists`, {
-          position: "top-right",
+        addToast({
+          title: `${keyname}'s Key already exists`,
+          color: "primary",
         });
         return;
       }
 
       saveKeyToIndexedDB(keyData);
 
-      toast.success(
-        isPrivateKey
+      addToast({
+        title: isPrivateKey
           ? `${keyname}'s Keyring Imported`
           : `${keyname}'s Public key imported`,
-        {
-          position: "top-right",
-        }
-      );
+        color: "success",
+      });
     } catch (error) {
-      toast.error(`Failed to import key: ${error.message}`, {
-        position: "top-right",
+      addToast({
+        title: `Failed to import key: ${error.message}`,
+        color: "danger",
       });
     }
   };
@@ -157,15 +156,15 @@ export default function ImportKeyPage() {
         await importKey(content);
       }
     } catch (error) {
-      toast.error(`An error occurred: ${error.message}`, {
-        position: "top-right",
+      addToast({
+        title: `An error occurred: ${error.message}`,
+        color: "danger",
       });
     }
   };
 
   return (
     <>
-      <ToastContainer theme="dark" />
       <h1 className="text-center text-4xl dm-serif-text-regular">Import Key</h1>
       <br />
       <p className="ms-1 mb-3 text-small">Upload PGP Key File</p>

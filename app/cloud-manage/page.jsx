@@ -11,6 +11,7 @@ import {
   TableCell,
   Input,
   Button,
+  addToast,
   DropdownTrigger,
   Dropdown,
   DropdownMenu,
@@ -35,18 +36,13 @@ import {
   getStoredKeys,
   dbPgpKeys,
 } from "@/lib/indexeddb";
-import {
-  computeKeyHash,
-  decrypt,
-} from "@/lib/cryptoUtils";
-import { toast, ToastContainer } from "react-toastify";
+import { computeKeyHash, decrypt } from "@/lib/cryptoUtils";
 import { NProgressLink } from "@/components/nprogress";
 import { useRouter } from "next/navigation";
 import ConnectivityCheck from "@/components/connectivity-check";
 import NProgress from "nprogress";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
-import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
 
 const statusColorMap = {
@@ -402,9 +398,11 @@ export default function App() {
       return processedKeys.filter((key) => key !== null);
     } catch (error) {
       console.error("Error loading keys:", error);
-      toast.error(
-        "Failed to load keys. Please check your connection and try again."
-      );
+      addToast({
+        title:
+          "Failed to load keys. Please check your connection and try again.",
+        color: "danger",
+      });
       return [];
     }
   };
@@ -501,8 +499,9 @@ export default function App() {
 
         // Determine if it's a public key or keyring based on privateKey being null
         const keyType = keyData.privateKey === null ? "Public Key" : "Keyring";
-        toast.success(`Imported ${keyname}'s ${keyType}`, {
-          position: "top-right",
+        addToast({
+          title: `Imported ${keyname}'s ${keyType}`,
+          color: "success",
         });
 
         // Refresh the keys list immediately after successful import
@@ -511,14 +510,16 @@ export default function App() {
       } else {
         // Update the "already exists" message too
         const keyType = keyData.privateKey === null ? "Public Key" : "Keyring";
-        toast.info(`${keyname}'s ${keyType} already exists`, {
-          position: "top-right",
+        addToast({
+          title: `${keyname}'s ${keyType} already exists`,
+          color: "primary",
         });
       }
     } catch (error) {
       console.error("Error processing key:", error);
-      toast.error(`Failed to import key: ${error.message}`, {
-        position: "top-right",
+      addToast({
+        title: `Failed to import key: ${error.message}`,
+        color: "danger",
       });
     }
   };
@@ -692,16 +693,18 @@ export default function App() {
         throw new Error(errorData.error || "Failed to delete key");
       }
 
-      toast.success(`${user.name}'s Key successfully deleted from the cloud`, {
-        position: "top-right",
+      addToast({
+        title: `${user.name}'s Key successfully deleted from the cloud`,
+        color: "success",
       });
       const refreshedKeys = await loadKeysFromCloud();
       setUsers(refreshedKeys);
       setPage(1);
     } catch (error) {
       console.error("Error in deleteKey:", error);
-      toast.error(`Failed to delete key: ${error.message}`, {
-        position: "top-right",
+      addToast({
+        title: `Failed to delete key: ${error.message}`,
+        color: "danger",
       });
     }
   };
@@ -885,7 +888,6 @@ export default function App() {
   return (
     <>
       <ConnectivityCheck />
-      <ToastContainer theme="dark" />
       <Table
         isHeaderSticky
         aria-label="Example table with custom cells, pagination and sorting"
@@ -972,8 +974,9 @@ export default function App() {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 if (password.trim() === "") {
-                  toast.error("Please Enter a Password", {
-                    position: "top-right",
+                  addToast({
+                    title: "Please Enter a Password",
+                    color: "danger",
                   });
                 } else {
                   if (passwordResolve) {
@@ -1006,8 +1009,9 @@ export default function App() {
             className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
             onPress={() => {
               if (password.trim() === "") {
-                toast.error("Please Enter a Password", {
-                  position: "top-right",
+                addToast({
+                  title: "Please Enter a Password",
+                  color: "danger",
                 });
               } else {
                 if (passwordResolve) {

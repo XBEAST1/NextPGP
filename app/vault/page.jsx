@@ -5,6 +5,7 @@ import {
   Button,
   Input,
   Modal,
+  addToast,
   ModalContent,
   Spinner,
   InputOtp,
@@ -13,13 +14,11 @@ import { logout } from "@/actions/auth";
 import { openDB } from "@/lib/indexeddb";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { useRouter, useSearchParams } from "next/navigation";
-import { toast, ToastContainer } from "react-toastify";
 import { useVault } from "@/context/VaultContext";
 import { decrypt } from "@/lib/cryptoUtils";
 import NProgress from "nprogress";
 import UserDetails from "@/components/userdetails";
 import ConnectivityCheck from "@/components/connectivity-check";
-import "react-toastify/dist/ReactToastify.css";
 
 const Page = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -43,7 +42,10 @@ const Page = () => {
 
   const handleLogin = async () => {
     if (!password.trim()) {
-      toast.error("Please enter a password", { position: "top-right" });
+      addToast({
+        title: "Please enter a password",
+        color: "danger",
+      });
       return;
     }
     setLoading(true);
@@ -53,7 +55,10 @@ const Page = () => {
       const { verificationCipher } = await res.json();
 
       if (!verificationCipher) {
-        toast.error("Vault data incomplete");
+        addToast({
+          title: "Vault data incomplete",
+          color: "danger",
+        });
         setLoading(false);
         return;
       }
@@ -62,7 +67,10 @@ const Page = () => {
 
       // Check if the decrypted text starts with "VERIFY:"
       if (!decrypted.startsWith("VERIFY:")) {
-        toast.error("Incorrect password", { position: "top-right" });
+        addToast({
+          title: "Incorrect password",
+          color: "danger",
+        });
         setLoading(false);
         return;
       }
@@ -77,7 +85,10 @@ const Page = () => {
       router.push(redirectUrl);
     } catch (e) {
       console.error("Error during decryption:", e);
-      toast.error("Incorrect password", { position: "top-right" });
+      addToast({
+        title: "Incorrect password",
+        color: "danger",
+      });
       setLoading(false);
     }
   };
@@ -89,14 +100,23 @@ const Page = () => {
       });
       const data = await emailRes.json();
       if (emailRes.ok) {
-        toast.success(`Confirmation email sent to ${data.maskedEmail}`);
+        addToast({
+          title: `Confirmation email sent to ${data.maskedEmail}`,
+          color: "success",
+        });
         setOTPSpinner(false);
       } else {
-        toast.error(data.error || "Failed to send confirmation email");
+        addToast({
+          title: data.error || "Failed to send confirmation email",
+          color: "danger",
+        });
       }
     } catch (error) {
       console.error("Error:", error);
-      toast.error("An error occurred");
+      addToast({
+        title: "An error occurred",
+        color: "danger",
+      });
     }
   };
 
@@ -111,7 +131,10 @@ const Page = () => {
       });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) {
-        toast.error(verifyData.error || "Invalid OTP");
+        addToast({
+          title: verifyData.error || "Invalid OTP",
+          color: "danger",
+        });
         return;
       }
       // If verified, delete the vault
@@ -142,7 +165,6 @@ const Page = () => {
   return (
     <div>
       <ConnectivityCheck />
-      <ToastContainer theme="dark" />
       <div className="sm:mt-10 sm:me-32 text-center dm-serif-text-regular">
         <h1 className="text-4xl mb-6">Open Vault</h1>
         <span className="text-xl text-gray-400 flex justify-center items-center gap-2">

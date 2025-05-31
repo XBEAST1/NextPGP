@@ -10,6 +10,7 @@ import {
   TableCell,
   Input,
   Button,
+  addToast,
   Tooltip,
   DropdownTrigger,
   Dropdown,
@@ -42,11 +43,9 @@ import {
   dbPgpKeys,
 } from "@/lib/indexeddb";
 import { today, getLocalTimeZone, CalendarDate } from "@internationalized/date";
-import { toast, ToastContainer } from "react-toastify";
 import { NProgressLink } from "@/components/nprogress";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
-import "react-toastify/dist/ReactToastify.css";
 import * as openpgp from "openpgp";
 
 const statusColorMap = {
@@ -754,8 +753,9 @@ export default function App() {
             passphrase: password,
           });
         } catch {
-          toast.error("Incorrect Password", {
-            position: "top-right",
+          addToast({
+            title: "Incorrect Password",
+            color: "danger",
           });
           return;
         }
@@ -768,12 +768,11 @@ export default function App() {
       link.download = `${user.name}_0x${keyid}_SECRET.asc`;
       link.click();
     } catch {
-      toast.error(
-        "Failed to read or decrypt. The key is not valid or there was an error processing it",
-        {
-          position: "top-right",
-        }
-      );
+      addToast({
+        title:
+          "Failed to read or decrypt. The key is not valid or there was an error processing it",
+        color: "danger",
+      });
     }
   };
 
@@ -884,14 +883,20 @@ export default function App() {
         publicKey: updatedKeyPair.publicKey,
       });
 
-      toast.success("Validity Updated Successfully", { position: "top-right" });
+      addToast({
+        title: "Validity Updated Successfully",
+        color: "success",
+      });
       const refreshedKeys = await loadKeysFromIndexedDB();
       setUsers(refreshedKeys);
 
       setvalidityModal(false);
       setSelectedValidityKey(null);
     } catch (error) {
-      toast.error("Failed to update validity", { position: "top-right" });
+      addToast({
+        title: "Failed to update validity",
+        color: "danger",
+      });
       console.error(error);
     }
   };
@@ -915,8 +920,9 @@ export default function App() {
           setPasswordModal(false);
           resolve(enteredPassword);
         } catch {
-          toast.error("Incorrect Password", {
-            position: "top-right",
+          addToast({
+            title: "Incorrect Password",
+            color: "danger",
           });
           tryPassword();
         }
@@ -1016,9 +1022,20 @@ export default function App() {
       const updatedKeys = await loadKeysFromIndexedDB();
 
       setUsers(updatedKeys);
-      toast.success("Password Changed Successfully", { position: "top-right" });
+      const toastMessage =
+        user.passwordprotected === "No"
+          ? "Password Added Successfully"
+          : "Password Changed Successfully";
+
+      addToast({
+        title: toastMessage,
+        color: "success",
+      });
     } catch {
-      toast.error("Failed to change password", { position: "top-right" });
+      addToast({
+        title: "Failed to change password",
+        color: "danger",
+      });
     }
   };
 
@@ -1044,11 +1061,17 @@ export default function App() {
 
       await updateKeyPassword(selectedUserId.id, armored);
 
-      toast.success("Password removed successfully", { position: "top-right" });
+      addToast({
+        title: "Password removed successfully",
+        color: "success",
+      });
       const refreshedKeys = await loadKeysFromIndexedDB();
       setUsers(refreshedKeys);
     } catch {
-      toast.error("Failed to remove password", { position: "top-right" });
+      addToast({
+        title: "Failed to remove password",
+        color: "danger",
+      });
     }
     closeremovePasswordModal();
   };
@@ -1143,13 +1166,19 @@ export default function App() {
         privateKey: updatedKeyPair.privateKey,
         publicKey: updatedKeyPair.publicKey,
       });
-      toast.success("User ID added successfully", { position: "top-right" });
+      addToast({
+        title: "User ID added successfully",
+        color: "success",
+      });
       const refreshedKeys = await loadKeysFromIndexedDB();
       setUsers(refreshedKeys);
       setName("");
       setEmail("");
     } catch (error) {
-      toast.error("Failed to add User ID", { position: "top-right" });
+      addToast({
+        title: "Failed to add User ID",
+        color: "danger",
+      });
       console.error(error);
     }
   };
@@ -1166,8 +1195,9 @@ export default function App() {
       });
       const freshUserIDs = freshPublicKey.getUserIDs().map(parseUserId);
       if (freshUserIDs[0]?.id === targetUserIDObj.id) {
-        toast.info("Primary User ID already selected", {
-          position: "top-right",
+        addToast({
+          title: "Primary User ID already selected",
+          color: "primary",
         });
         setUsers(refreshedStart);
         const updatedModalUserIDs =
@@ -1217,8 +1247,9 @@ export default function App() {
         publicKey: updatedKeyPair.publicKey,
       });
 
-      toast.success("Primary User ID updated successfully", {
-        position: "top-right",
+      addToast({
+        title: "Primary User ID updated successfully",
+        color: "success",
       });
 
       const refreshed = await loadKeysFromIndexedDB();
@@ -1232,8 +1263,9 @@ export default function App() {
       }
     } catch (error) {
       console.error("setPrimaryUserID error:", error);
-      toast.error("Failed to update Primary User ID", {
-        position: "top-right",
+      addToast({
+        title: "Failed to update Primary User ID",
+        color: "danger",
       });
     }
   };
@@ -1278,8 +1310,9 @@ export default function App() {
       });
 
       if (showToast) {
-        toast.success("User ID deleted successfully", {
-          position: "top-right",
+        addToast({
+          title: "User ID deleted successfully",
+          color: "success",
         });
       }
 
@@ -1294,8 +1327,9 @@ export default function App() {
       }
     } catch (error) {
       console.error("deleteUserID error:", error);
-      toast.error("Failed to delete User ID", {
-        position: "top-right",
+      addToast({
+        title: "Failed to delete User ID",
+        color: "danger",
       });
     }
   };
@@ -1341,12 +1375,18 @@ export default function App() {
       link.download = `${user.name}_0x${keyid}_PUBLIC_REVOKED.asc`;
       link.click();
 
-      toast.success("Key Revoked Successfully", { position: "top-right" });
+      addToast({
+        title: "Key Revoked Successfully",
+        color: "success",
+      });
       const refreshedKeys = await loadKeysFromIndexedDB();
       setUsers(refreshedKeys);
     } catch (error) {
       console.error(error);
-      toast.error("Failed to revoke key", { position: "top-right" });
+      addToast({
+        title: "Failed to revoke key",
+        color: "danger",
+      });
     }
   };
 
@@ -1780,7 +1820,6 @@ export default function App() {
 
   return (
     <>
-      <ToastContainer theme="dark" />
       <Table
         isHeaderSticky
         aria-label="Example table with custom cells, pagination and sorting"
@@ -1906,8 +1945,9 @@ export default function App() {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 if (password.trim() === "") {
-                  toast.error("Please Enter a Password", {
-                    position: "top-right",
+                  addToast({
+                    title: "Please Enter a Password",
+                    color: "danger",
                   });
                 } else if (newKeyPassword) {
                   newKeyPassword(password);
@@ -1933,8 +1973,9 @@ export default function App() {
             className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
             onPress={() => {
               if (password.trim() === "") {
-                toast.error("Please Enter a Password", {
-                  position: "top-right",
+                addToast({
+                  title: "Please Enter a Password",
+                  color: "danger",
                 });
               } else if (newKeyPassword) {
                 newKeyPassword(password);
@@ -1962,8 +2003,9 @@ export default function App() {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 if (password.trim() === "") {
-                  toast.error("Please Enter a Password", {
-                    position: "top-right",
+                  addToast({
+                    title: "Please Enter a Password",
+                    color: "danger",
                   });
                 } else if (newKeyPassword) {
                   newKeyPassword(password);
@@ -1989,8 +2031,9 @@ export default function App() {
             className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
             onPress={() => {
               if (password.trim() === "") {
-                toast.error("Please Enter a Password", {
-                  position: "top-right",
+                addToast({
+                  title: "Please Enter a Password",
+                  color: "danger",
                 });
               } else if (newKeyPassword) {
                 newKeyPassword(password);
