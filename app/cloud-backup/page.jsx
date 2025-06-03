@@ -31,6 +31,7 @@ import {
 import {
   openDB,
   getEncryptionKey,
+  encryptData,
   decryptData,
   dbPgpKeys,
 } from "@/lib/indexeddb";
@@ -124,6 +125,204 @@ const capitalize = (s) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
+const processKey = async (key, openpgpKey, vaultPassword, backedUpKeys) => {
+  try {
+    const userIDs = openpgpKey.getUserIDs();
+    const firstUserID = userIDs[0];
+    let name, email;
+
+    const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
+    if (match) {
+      name = match[1].trim();
+      email = match[2].trim();
+    } else {
+      name = firstUserID.trim();
+      email = "N/A";
+    }
+
+    const formatDate = (isoDate) => {
+      const date = new Date(isoDate);
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = monthNames[date.getMonth()];
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+
+    const getKeyExpiryInfo = async (key) => {
+      try {
+        const expirationTime = await key.getExpirationTime();
+        const now = new Date();
+        if (expirationTime === null || expirationTime === Infinity) {
+          return { expirydate: "No Expiry", keystatus: "active" };
+        } else if (expirationTime < now) {
+          return {
+            expirydate: formatDate(expirationTime),
+            keystatus: "expired",
+          };
+        } else {
+          return {
+            expirydate: formatDate(expirationTime),
+            keystatus: "active",
+          };
+        }
+      } catch {
+        return { expirydate: "Error", keystatus: "unknown" };
+      }
+    };
+
+    const isBackedUp = await (async () => {
+      const statuses = await Promise.all(
+        backedUpKeys.map(async (backedUpKey) => {
+          let decryptedCloudPublicKey = "";
+          let decryptedCloudPrivateKey = "";
+          if (backedUpKey.publicKey) {
+            decryptedCloudPublicKey = await decrypt(
+              backedUpKey.publicKey,
+              vaultPassword
+            );
+          }
+          if (backedUpKey.privateKey) {
+            decryptedCloudPrivateKey = await decrypt(
+              backedUpKey.privateKey,
+              vaultPassword
+            );
+          }
+          return (
+            decryptedCloudPublicKey === key.publicKey ||
+            (key.privateKey && decryptedCloudPrivateKey === key.privateKey)
+          );
+        })
+      );
+      return statuses.some((status) => status);
+    })();
+
+    const status = isBackedUp ? "Backed Up" : "Not Backed Up";
+
+    const creationdate = formatDate(openpgpKey.getCreationTime());
+
+    const { expirydate, keystatus } = await getKeyExpiryInfo(openpgpKey);
+
+    const isPasswordProtected = async (privateKeyArmored) => {
+      try {
+        const privateKey = await openpgp.readPrivateKey({
+          armoredKey: privateKeyArmored,
+        });
+        return privateKey.isPrivate() && !privateKey.isDecrypted();
+      } catch (error) {
+        console.error("Error reading private key:", error);
+        return false;
+      }
+    };
+
+    const passwordProtected = key.privateKey
+      ? await isPasswordProtected(key.privateKey)
+      : false;
+
+    const formatFingerprint = (fingerprint) => {
+      const parts = fingerprint.match(/.{1,4}/g);
+      const nbsp = "\u00A0";
+      return (
+        parts.slice(0, 5).join(" ") + nbsp.repeat(6) + parts.slice(5).join(" ")
+      );
+    };
+    const fingerprint = formatFingerprint(
+      openpgpKey.getFingerprint().toUpperCase()
+    );
+
+    const formatKeyID = (keyid) => keyid.match(/.{1,4}/g).join(" ");
+    const keyid = formatKeyID(openpgpKey.getKeyID().toHex().toUpperCase());
+
+    const formatAlgorithm = (algoInfo) => {
+      // ECC curve detection
+      const labelMap = {
+        curve25519: "Curve25519 (EdDSA/ECDH)",
+        nistP256: "NIST P-256 (ECDSA/ECDH)",
+        nistP521: "NIST P-521 (ECDSA/ECDH)",
+        brainpoolP256r1: "Brainpool P-256r1 (ECDSA/ECDH)",
+        brainpoolP512r1: "Brainpool P-512r1 (ECDSA/ECDH)",
+      };
+
+      if (["eddsa", "eddsaLegacy", "curve25519"].includes(algoInfo.algorithm)) {
+        return labelMap.curve25519;
+      }
+
+      if (algoInfo.curve && labelMap[algoInfo.curve]) {
+        return labelMap[algoInfo.curve];
+      }
+
+      // RSA detection
+      if (/^rsa/i.test(algoInfo.algorithm)) {
+        switch (algoInfo.bits) {
+          case 2048:
+            return "RSA 2048";
+          case 3072:
+            return "RSA 3072";
+          case 4096:
+            return "RSA 4096";
+          default:
+            return `RSA (${algoInfo.bits || "?"} bits)`;
+        }
+      }
+
+      return algoInfo.algorithm || "Unknown Algorithm";
+    };
+    const algorithm = formatAlgorithm(openpgpKey.getAlgorithmInfo());
+
+    return {
+      id: key.id,
+      name,
+      email,
+      creationdate,
+      expirydate,
+      keystatus,
+      passwordprotected: passwordProtected ? "Yes" : "No",
+      status,
+      keyid,
+      fingerprint,
+      algorithm,
+      avatar: (() => {
+        const hasPrivateKey = key.privateKey && key.privateKey.trim() !== "";
+        const hasPublicKey = key.publicKey && key.publicKey.trim() !== "";
+        if (hasPrivateKey && hasPublicKey) {
+          return Keyring.src;
+        } else if (hasPublicKey) {
+          return Public.src;
+        }
+      })(),
+      publicKey: key.publicKey,
+      privateKey: key.privateKey,
+    };
+  } catch (error) {
+    console.error("Error processing key:", error);
+    return null;
+  }
+};
+
+const getTotalKeysCount = async () => {
+  const db = await openDB();
+  const transaction = db.transaction(dbPgpKeys, "readonly");
+  const store = transaction.objectStore(dbPgpKeys);
+  return new Promise((resolve, reject) => {
+    const countRequest = store.count();
+    countRequest.onsuccess = (e) => resolve(e.target.result);
+    countRequest.onerror = (e) => reject(e.target.error);
+  });
+};
+
 export default function App() {
   const [filterValue, setFilterValue] = useState("");
   const [users, setUsers] = useState([]);
@@ -132,6 +331,8 @@ export default function App() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [locking, setLocking] = useState(false);
+  const [totalKeys, setTotalKeys] = useState(0);
+  const [cache, setCache] = useState({});
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
   );
@@ -159,19 +360,143 @@ export default function App() {
     checkVault();
   }, [router, getVaultPassword]);
 
-  let vaultPassword;
+  const pages = totalKeys > 0 ? Math.ceil(totalKeys / rowsPerPage) : 1;
 
-  const loadKeysFromIndexedDB = async () => {
+  useEffect(() => {
+    if (page > pages) {
+      setPage(pages);
+    }
+  }, [pages, page]);
+
+  useEffect(() => {
+    setUsers([]);
+    setIsLoading(true);
+  }, [page, rowsPerPage]);
+
+  useEffect(() => {
+    const fetchKeys = async () => {
+      const encryptionKey = await getEncryptionKey();
+      setIsLoading(true);
+
+      const cacheKey = `${page}-${rowsPerPage}`;
+      if (cache[cacheKey]) {
+        // Use cached data if available
+        const decryptedKeys = await Promise.all(
+          cache[cacheKey].map((encryptedItem) =>
+            decryptData(
+              encryptedItem.encrypted,
+              encryptionKey,
+              encryptedItem.iv
+            )
+          )
+        );
+        setUsers(decryptedKeys);
+        setIsLoading(false);
+      } else {
+        try {
+          const neededKeys = [];
+          const startIndex = (page - 1) * rowsPerPage;
+          const endIndex = startIndex + rowsPerPage;
+
+          // Try to find keys in existing cache entries
+          for (let i = startIndex; i < endIndex; i++) {
+            let found = false;
+            for (const [cacheKey, cacheData] of Object.entries(cache)) {
+              const [cachePage, cacheRowsPerPage] = cacheKey
+                .split("-")
+                .map(Number);
+              const cacheStartIndex = (cachePage - 1) * cacheRowsPerPage;
+              const cacheEndIndex = cacheStartIndex + cacheData.length;
+
+              if (i >= cacheStartIndex && i < cacheEndIndex) {
+                const cacheIndex = i - cacheStartIndex;
+                if (cacheData[cacheIndex]) {
+                  neededKeys.push(cacheData[cacheIndex]);
+                  found = true;
+                  break;
+                }
+              }
+            }
+            if (!found) {
+              neededKeys.length = 0;
+              break;
+            }
+          }
+
+          if (neededKeys.length === rowsPerPage) {
+            const decryptedKeys = await Promise.all(
+              neededKeys.map((encryptedItem) =>
+                decryptData(
+                  encryptedItem.encrypted,
+                  encryptionKey,
+                  encryptedItem.iv
+                )
+              )
+            );
+            setUsers(decryptedKeys);
+            setCache((prevCache) => ({
+              ...prevCache,
+              [cacheKey]: neededKeys,
+            }));
+          } else {
+            // Fetch from IndexedDB
+            const offset = (page - 1) * rowsPerPage;
+            const keys = await loadKeysFromIndexedDB(offset, rowsPerPage);
+            const encryptedForCache = await Promise.all(
+              keys.map(async (key) => await encryptData(key, encryptionKey))
+            );
+            setCache((prevCache) => ({
+              ...prevCache,
+              [cacheKey]: encryptedForCache,
+            }));
+            setUsers(keys);
+          }
+
+          if (totalKeys === 0) {
+            const total = await getTotalKeysCount();
+            setTotalKeys(total);
+          }
+        } catch (error) {
+          console.error("Error loading keys:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchKeys();
+
+    const handleStorageChange = async () => {
+      try {
+        const offset = (page - 1) * rowsPerPage;
+        const updatedKeys = await loadKeysFromIndexedDB(offset, rowsPerPage);
+        const encryptionKey = await getEncryptionKey();
+        const cacheKey = `${page}-${rowsPerPage}`;
+        const encryptedUpdated = await Promise.all(
+          updatedKeys.map(async (key) => await encryptData(key, encryptionKey))
+        );
+        setCache((prevCache) => ({
+          ...prevCache,
+          [cacheKey]: encryptedUpdated,
+        }));
+        setUsers(updatedKeys);
+        const total = await getTotalKeysCount();
+        setTotalKeys(total);
+      } catch (error) {
+        console.error("Error loading keys:", error);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [page, rowsPerPage]);
+
+  const loadKeysFromIndexedDB = async (offset, limit) => {
     const db = await openDB();
     const encryptionKey = await getEncryptionKey();
-
     let backedUpKeys = [];
+
     try {
-      // Retrieve vault password via VaultContext
-      vaultPassword = await getVaultPassword();
-      if (!vaultPassword) {
-        throw new Error("Vault password not available");
-      }
       const response = await fetch("/api/manage-keys/fetch-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,273 +513,66 @@ export default function App() {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(dbPgpKeys, "readonly");
       const store = transaction.objectStore(dbPgpKeys);
-      const encryptedRecords = [];
+      let results = [];
+      let skipped = 0;
       const request = store.openCursor();
+
+      const processResults = async () => {
+        try {
+          const decryptedKeys = await Promise.all(
+            results.map(async (record) =>
+              decryptData(record.encrypted, encryptionKey, record.iv)
+            )
+          );
+          let vaultPassword = await getVaultPassword();
+          const processedKeys = await Promise.all(
+            decryptedKeys.map(async (key) => {
+              try {
+                const openpgpKey = await openpgp.readKey({
+                  armoredKey: key.publicKey,
+                });
+                return await processKey(
+                  key,
+                  openpgpKey,
+                  vaultPassword,
+                  backedUpKeys
+                );
+              } catch (error) {
+                console.error("Error processing individual key:", error);
+                return null;
+              }
+            })
+          );
+
+          vaultPassword = null;
+          resolve(processedKeys.filter((key) => key !== null));
+        } catch (error) {
+          reject(error);
+        }
+      };
 
       request.onsuccess = async (e) => {
         const cursor = e.target.result;
         if (cursor) {
-          encryptedRecords.push(cursor.value);
-          cursor.continue();
-        } else {
-          try {
-            const decryptedKeys = await Promise.all(
-              encryptedRecords.map(async (record) => {
-                return await decryptData(
-                  record.encrypted,
-                  encryptionKey,
-                  record.iv
-                );
-              })
-            );
-
-            const formatDate = (isoDate) => {
-              const date = new Date(isoDate);
-              const monthNames = [
-                "Jan",
-                "Feb",
-                "Mar",
-                "Apr",
-                "May",
-                "Jun",
-                "Jul",
-                "Aug",
-                "Sep",
-                "Oct",
-                "Nov",
-                "Dec",
-              ];
-
-              const day = String(date.getDate()).padStart(2, "0");
-              const month = monthNames[date.getMonth()];
-              const year = date.getFullYear();
-
-              return `${day}-${month}-${year}`;
-            };
-
-            const getKeyExpiryInfo = async (key) => {
-              try {
-                const expirationTime = await key.getExpirationTime();
-                const now = new Date();
-                if (expirationTime === null || expirationTime === Infinity) {
-                  return { expirydate: "No Expiry", keystatus: "active" };
-                } else if (expirationTime < now) {
-                  return {
-                    expirydate: formatDate(expirationTime),
-                    keystatus: "expired",
-                  };
-                } else {
-                  return {
-                    expirydate: formatDate(expirationTime),
-                    keystatus: "active",
-                  };
-                }
-              } catch {
-                return { expirydate: "Error", keystatus: "unknown" };
-              }
-            };
-
-            const isPasswordProtected = async (privateKeyArmored) => {
-              try {
-                const privateKey = await openpgp.readPrivateKey({
-                  armoredKey: privateKeyArmored,
-                });
-                return privateKey.isPrivate() && !privateKey.isDecrypted();
-              } catch (error) {
-                console.error("Error reading private key:", error);
-                return false;
-              }
-            };
-
-            const processedKeys = await Promise.all(
-              decryptedKeys.map(async (key) => {
-                const openpgpKey = await openpgp.readKey({
-                  armoredKey: key.publicKey,
-                });
-
-                const isBackedUp = await (async () => {
-                  const statuses = await Promise.all(
-                    backedUpKeys.map(async (backedUpKey) => {
-                      let decryptedCloudPublicKey = "";
-                      let decryptedCloudPrivateKey = "";
-                      if (backedUpKey.publicKey) {
-                        decryptedCloudPublicKey = await decrypt(
-                          backedUpKey.publicKey,
-                          vaultPassword
-                        );
-                      }
-                      if (backedUpKey.privateKey) {
-                        decryptedCloudPrivateKey = await decrypt(
-                          backedUpKey.privateKey,
-                          vaultPassword
-                        );
-                      }
-                      return (
-                        decryptedCloudPublicKey === key.publicKey ||
-                        (key.privateKey &&
-                          decryptedCloudPrivateKey === key.privateKey)
-                      );
-                    })
-                  );
-                  return statuses.some((status) => status);
-                })();
-
-                const userIDs = openpgpKey.getUserIDs();
-
-                const firstUserID = userIDs[0];
-                let name, email;
-
-                const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
-                if (match) {
-                  name = match[1].trim();
-                  email = match[2].trim();
-                } else {
-                  name = firstUserID.trim();
-                  email = "N/A";
-                }
-
-                const status = isBackedUp ? "Backed Up" : "Not Backed Up";
-
-                const creationdate = formatDate(openpgpKey.getCreationTime());
-
-                const { expirydate, keystatus } =
-                  await getKeyExpiryInfo(openpgpKey);
-
-                const passwordProtected = key.privateKey
-                  ? await isPasswordProtected(key.privateKey)
-                  : false;
-
-                const formatFingerprint = (fingerprint) => {
-                  const parts = fingerprint.match(/.{1,4}/g);
-                  const nbsp = "\u00A0";
-                  return (
-                    parts.slice(0, 5).join(" ") +
-                    nbsp.repeat(6) +
-                    parts.slice(5).join(" ")
-                  );
-                };
-                const fingerprint = formatFingerprint(
-                  openpgpKey.getFingerprint().toUpperCase()
-                );
-
-                const formatKeyID = (keyid) => keyid.match(/.{1,4}/g).join(" ");
-                const keyid = formatKeyID(
-                  openpgpKey.getKeyID().toHex().toUpperCase()
-                );
-
-                const formatAlgorithm = (algoInfo) => {
-                  // ECC curve detection
-                  const labelMap = {
-                    curve25519: "Curve25519 (EdDSA/ECDH)",
-                    nistP256: "NIST P-256 (ECDSA/ECDH)",
-                    nistP521: "NIST P-521 (ECDSA/ECDH)",
-                    brainpoolP256r1: "Brainpool P-256r1 (ECDSA/ECDH)",
-                    brainpoolP512r1: "Brainpool P-512r1 (ECDSA/ECDH)",
-                  };
-
-                  if (
-                    ["eddsa", "eddsaLegacy", "curve25519"].includes(
-                      algoInfo.algorithm
-                    )
-                  ) {
-                    return labelMap.curve25519;
-                  }
-
-                  if (algoInfo.curve && labelMap[algoInfo.curve]) {
-                    return labelMap[algoInfo.curve];
-                  }
-
-                  // RSA detection
-                  if (/^rsa/i.test(algoInfo.algorithm)) {
-                    switch (algoInfo.bits) {
-                      case 2048:
-                        return "RSA 2048";
-                      case 3072:
-                        return "RSA 3072";
-                      case 4096:
-                        return "RSA 4096";
-                      default:
-                        return `RSA (${algoInfo.bits || "?"} bits)`;
-                    }
-                  }
-
-                  return algoInfo.algorithm || "Unknown Algorithm";
-                };
-
-                const algorithm = formatAlgorithm(
-                  openpgpKey.getAlgorithmInfo()
-                );
-
-                return {
-                  id: key.id,
-                  name,
-                  email,
-                  creationdate,
-                  expirydate,
-                  keystatus,
-                  passwordprotected: passwordProtected ? "Yes" : "No",
-                  status,
-                  keyid,
-                  fingerprint,
-                  algorithm,
-                  avatar: (() => {
-                    const hasPrivateKey =
-                      key.privateKey && key.privateKey.trim() !== "";
-                    const hasPublicKey =
-                      key.publicKey && key.publicKey.trim() !== "";
-                    if (hasPrivateKey && hasPublicKey) {
-                      return Keyring.src;
-                    } else if (hasPublicKey) {
-                      return Public.src;
-                    }
-                  })(),
-                  publicKey: key.publicKey,
-                  privateKey: key.privateKey,
-                };
-              })
-            );
-
-            resolve(processedKeys);
-          } catch (error) {
-            reject(error);
+          if (skipped < offset) {
+            skipped++;
+            cursor.continue();
+            return;
           }
+          results.push(cursor.value);
+          if (results.length < limit) {
+            cursor.continue();
+          } else {
+            await processResults();
+          }
+        } else {
+          await processResults();
         }
       };
 
       request.onerror = (e) => reject(e.target.error);
     });
   };
-
-  useEffect(() => {
-    const fetchKeys = async () => {
-      setIsLoading(true);
-      try {
-        const pgpKeys = await loadKeysFromIndexedDB();
-        setUsers(pgpKeys);
-      } catch (error) {
-        console.error("Error loading keys:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchKeys();
-
-    const handleStorageChange = async () => {
-      setIsLoading(true);
-      try {
-        const updatedKeys = await loadKeysFromIndexedDB();
-        setUsers(updatedKeys);
-      } catch (error) {
-        console.error("Error loading keys:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
 
   const filteredItems = useMemo(() => {
     let filteredUsers = [...users];
@@ -468,22 +586,14 @@ export default function App() {
     return filteredUsers;
   }, [users, filterValue]);
 
-  const pages = Math.ceil(filteredItems.length / rowsPerPage);
-
   const sortedItems = useMemo(() => {
-    const start = (page - 1) * rowsPerPage;
-    const end = start + rowsPerPage;
-
-    return [...filteredItems]
-      .sort((a, b) => {
-        const first = a[sortDescriptor.column];
-        const second = b[sortDescriptor.column];
-        const cmp = first < second ? -1 : first > second ? 1 : 0;
-
-        return sortDescriptor.direction === "descending" ? -cmp : cmp;
-      })
-      .slice(start, end);
-  }, [sortDescriptor, filteredItems, page, rowsPerPage]);
+    return [...filteredItems].sort((a, b) => {
+      const first = a[sortDescriptor.column];
+      const second = b[sortDescriptor.column];
+      const cmp = first < second ? -1 : first > second ? 1 : 0;
+      return sortDescriptor.direction === "descending" ? -cmp : cmp;
+    });
+  }, [sortDescriptor, filteredItems]);
 
   const hasSearchFilter = Boolean(filterValue);
 
@@ -718,20 +828,13 @@ export default function App() {
     });
   };
 
-  const onNextPage = useCallback(() => {
-    if (page < pages) {
-      setPage(page + 1);
-    }
-  }, [page, pages]);
-
-  const onPreviousPage = useCallback(() => {
-    if (page > 1) {
-      setPage(page - 1);
-    }
-  }, [page]);
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+  };
 
   const onRowsPerPageChange = useCallback((e) => {
-    setRowsPerPage(Number(e.target.value));
+    const newRowsPerPage = Number(e.target.value);
+    setRowsPerPage(newRowsPerPage);
     setPage(1);
   }, []);
 
@@ -795,7 +898,7 @@ export default function App() {
         </div>
         <div className="flex justify-between items-center">
           <span className="text-default-400 text-small">
-            Total {users.length} keys
+            Total {totalKeys} keys
           </span>
           <label className="flex items-center text-default-400 text-small">
             Rows per page:
@@ -814,7 +917,7 @@ export default function App() {
   }, [
     filterValue,
     onRowsPerPageChange,
-    users.length,
+    totalKeys,
     visibleColumns,
     onSearchChange,
     hasSearchFilter,
@@ -830,7 +933,7 @@ export default function App() {
           color="default"
           page={page}
           total={pages}
-          onChange={setPage}
+          onChange={handlePageChange}
         />
         <div className="sm:absolute sm:left-1/2 sm:transform sm:-translate-x-1/2">
           <Button
@@ -857,7 +960,7 @@ export default function App() {
             isDisabled={pages === 1}
             size="sm"
             variant="flat"
-            onPress={onPreviousPage}
+            onPress={() => handlePageChange(page - 1)}
           >
             Previous
           </Button>
@@ -865,14 +968,14 @@ export default function App() {
             isDisabled={pages === 1}
             size="sm"
             variant="flat"
-            onPress={onNextPage}
+            onPress={() => handlePageChange(page + 1)}
           >
             Next
           </Button>
         </div>
       </div>
     );
-  }, [page, pages, locking, onPreviousPage, onNextPage]);
+  }, [page, pages, locking]);
 
   return (
     <>
@@ -918,7 +1021,20 @@ export default function App() {
         <TableBody
           loadingContent={
             <div className="flex justify-center items-center mt-12">
-              <Spinner size="lg" color="warning" label="Loading keyrings..." />
+              <Spinner
+                size="lg"
+                color="warning"
+                label={
+                  <div className="text-center">
+                    Loading keyrings...
+                    <br />
+                    <span className="text-gray-300 text-sm">
+                      This may take some time depending on your device&apos;s
+                      performance.
+                    </span>
+                  </div>
+                }
+              />
             </div>
           }
           isLoading={isLoading}

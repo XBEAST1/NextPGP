@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useVault } from "@/context/VaultContext";
 import {
   Table,
@@ -33,6 +33,7 @@ import {
   openDB,
   getEncryptionKey,
   encryptData,
+  decryptData,
   getStoredKeys,
   dbPgpKeys,
 } from "@/lib/indexeddb";
@@ -151,6 +152,172 @@ const capitalize = (s) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
+const processKey = async (key, vaultPassword, storedKeys) => {
+  try {
+    let decryptedCloudPrivateKey = "";
+    let decryptedCloudPublicKey = "";
+
+    if (key.privateKey) {
+      decryptedCloudPrivateKey = await decrypt(key.privateKey, vaultPassword);
+    }
+    if (key.publicKey) {
+      decryptedCloudPublicKey = await decrypt(key.publicKey, vaultPassword);
+    }
+
+    const openpgpKey = await openpgp.readKey({
+      armoredKey: decryptedCloudPrivateKey || decryptedCloudPublicKey,
+    });
+
+    const userIDs = openpgpKey.getUserIDs();
+
+    const firstUserID = userIDs[0];
+    let name, email;
+
+    const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
+    if (match) {
+      name = match[1].trim();
+      email = match[2].trim();
+    } else {
+      name = firstUserID.trim();
+      email = "N/A";
+    }
+
+    const creationdate = formatDate(openpgpKey.getCreationTime());
+
+    const getKeyExpiryInfo = async (key) => {
+      try {
+        const expirationTime = await key.getExpirationTime();
+        const now = new Date();
+        if (expirationTime === null || expirationTime === Infinity) {
+          return { expirydate: "No Expiry", keystatus: "active" };
+        } else if (expirationTime < now) {
+          return {
+            expirydate: formatDate(expirationTime),
+            keystatus: "expired",
+          };
+        } else {
+          return {
+            expirydate: formatDate(expirationTime),
+            keystatus: "active",
+          };
+        }
+      } catch {
+        return { expirydate: "Error", keystatus: "unknown" };
+      }
+    };
+    const { expirydate, keystatus } = await getKeyExpiryInfo(openpgpKey);
+
+    const isPasswordProtected = async (privateKeyArmored) => {
+      try {
+        const privateKey = await openpgp.readPrivateKey({
+          armoredKey: privateKeyArmored,
+        });
+        return privateKey.isPrivate() && !privateKey.isDecrypted();
+      } catch {
+        return false;
+      }
+    };
+
+    const passwordProtected = key.privateKey
+      ? await isPasswordProtected(key.privateKey)
+      : false;
+
+    const formatFingerprint = (fingerprint) => {
+      const parts = fingerprint.match(/.{1,4}/g);
+      const nbsp = "\u00A0";
+      return (
+        parts.slice(0, 5).join(" ") + nbsp.repeat(6) + parts.slice(5).join(" ")
+      );
+    };
+    const fingerprint = formatFingerprint(
+      openpgpKey.getFingerprint().toUpperCase()
+    );
+
+    const formatKeyID = (keyid) => keyid.match(/.{1,4}/g).join(" ");
+    const keyid = formatKeyID(openpgpKey.getKeyID().toHex().toUpperCase());
+
+    const formatAlgorithm = (algoInfo) => {
+      // ECC curve detection
+      const labelMap = {
+        curve25519: "Curve25519 (EdDSA/ECDH)",
+        nistP256: "NIST P-256 (ECDSA/ECDH)",
+        nistP521: "NIST P-521 (ECDSA/ECDH)",
+        brainpoolP256r1: "Brainpool P-256r1 (ECDSA/ECDH)",
+        brainpoolP512r1: "Brainpool P-512r1 (ECDSA/ECDH)",
+      };
+
+      if (["eddsa", "eddsaLegacy", "curve25519"].includes(algoInfo.algorithm)) {
+        return labelMap.curve25519;
+      }
+
+      if (algoInfo.curve && labelMap[algoInfo.curve]) {
+        return labelMap[algoInfo.curve];
+      }
+
+      // RSA detection
+      if (/^rsa/i.test(algoInfo.algorithm)) {
+        switch (algoInfo.bits) {
+          case 2048:
+            return "RSA 2048";
+          case 3072:
+            return "RSA 3072";
+          case 4096:
+            return "RSA 4096";
+          default:
+            return `RSA (${algoInfo.bits || "?"} bits)`;
+        }
+      }
+
+      return algoInfo.algorithm || "Unknown Algorithm";
+    };
+
+    const algorithm = formatAlgorithm(openpgpKey.getAlgorithmInfo());
+
+    // Check if this key is already imported
+    const isImported = storedKeys.some((storedKey) => {
+      if (decryptedCloudPublicKey && storedKey.publicKey) {
+        return storedKey.publicKey === decryptedCloudPublicKey;
+      }
+      if (decryptedCloudPrivateKey && storedKey.privateKey) {
+        return storedKey.privateKey === decryptedCloudPrivateKey;
+      }
+      return false;
+    });
+
+    return {
+      id: key.id || Date.now(),
+      name,
+      email,
+      creationdate,
+      expirydate,
+      keystatus,
+      passwordprotected: passwordProtected ? "Yes" : "No",
+      status: isImported ? "Imported" : "Not Imported",
+      keyid,
+      fingerprint,
+      algorithm,
+      avatar: (() => {
+        const hasPrivateKey =
+          key.privateKey &&
+          key.privateKey !== "null" &&
+          key.privateKey.trim() !== "";
+        const hasPublicKey = key.publicKey && key.publicKey.trim() !== "";
+        if (hasPrivateKey) {
+          return Keyring.src;
+        } else if (hasPublicKey) {
+          return Public.src;
+        }
+        return null;
+      })(),
+      decryptedPrivateKey: decryptedCloudPrivateKey,
+      decryptedPublicKey: decryptedCloudPublicKey,
+    };
+  } catch (error) {
+    console.error("Error processing key:", error);
+    return null;
+  }
+};
+
 export default function App() {
   const [filterValue, setFilterValue] = useState("");
   const [users, setUsers] = useState([]);
@@ -162,23 +329,16 @@ export default function App() {
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
   );
+  const [totalKeys, setTotalKeys] = useState(0);
   const router = useRouter();
 
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
 
-  const isPasswordProtected = async (privateKeyArmored) => {
-    try {
-      const privateKey = await openpgp.readPrivateKey({
-        armoredKey: privateKeyArmored,
-      });
-      return privateKey.isPrivate() && !privateKey.isDecrypted();
-    } catch {
-      return false;
-    }
-  };
-
   const { getVaultPassword, lockVault } = useVault();
+
+  const decryptedCacheRef = useRef({});
+  const apiCacheRef = useRef({});
 
   useEffect(() => {
     const checkVault = async () => {
@@ -190,7 +350,7 @@ export default function App() {
           console.error("Failed to lock vault:", err);
         } finally {
           NProgress.start();
-          router.push("/vault");
+          router.push("/vault?redirect=%2Fcloud-manage");
         }
       }
     };
@@ -199,203 +359,102 @@ export default function App() {
 
   const loadKeysFromCloud = async () => {
     try {
-      // Get vault password from context
       const vaultPassword = await getVaultPassword();
-      if (!vaultPassword) {
-        throw new Error("Vault password not available");
+      const offset = (page - 1) * rowsPerPage;
+      const limit = rowsPerPage;
+      const cacheKey = `${page}-${rowsPerPage}`;
+      const storedKeys = await getStoredKeys();
+      const encryptionKey = await getEncryptionKey();
+
+      // If have cached data, decrypt it and process keys
+      if (apiCacheRef.current[cacheKey]) {
+        const encryptedCache = apiCacheRef.current[cacheKey];
+        const plainKeys = await Promise.all(
+          encryptedCache.map(async (encryptedItem) => {
+            return await decryptData(
+              encryptedItem.encrypted,
+              encryptionKey,
+              encryptedItem.iv
+            );
+          })
+        );
+
+        const processPromises = plainKeys.map(async (key) => {
+          if (decryptedCacheRef.current[key.id]) {
+            return decryptedCacheRef.current[key.id];
+          }
+          const decrypted = await processKey(
+            key,
+            vaultPassword,
+            storedKeys
+          ).catch((err) => {
+            console.error("Error processing key:", err);
+            return null;
+          });
+          if (decrypted) {
+            decryptedCacheRef.current[key.id] = decrypted;
+          }
+          return decrypted;
+        });
+        const results = await Promise.all(processPromises);
+        return results.filter((k) => k !== null);
       }
 
-      // Fetch keys from API
+      // Otherwise, fetch from the API.
       const response = await fetch("/api/manage-keys/fetch-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ offset, limit }),
       });
       if (!response.ok) {
         throw new Error("Failed to fetch keys from API");
       }
 
       const data = await response.json();
-      const keys = data.keys || [];
+      const total = data.total || data.keys?.length || 0;
+      setTotalKeys(total);
 
-      // Get locally stored keys first
-      const storedKeys = await getStoredKeys();
+      const allKeys = data.keys || [];
+      const paginatedKeys = allKeys.slice(offset, offset + limit);
 
-      // Process and decrypt each key from cloud
-      const processedKeys = await Promise.all(
-        keys.map(async (key) => {
-          try {
-            // Decrypt Cloud privateKey and publicKey using the vault password.
-            let decryptedCloudPrivateKey = "";
-            let decryptedCloudPublicKey = "";
-            if (key.privateKey) {
-              decryptedCloudPrivateKey = await decrypt(
-                key.privateKey,
-                vaultPassword
-              );
-            }
-            if (key.publicKey) {
-              decryptedCloudPublicKey = await decrypt(
-                key.publicKey,
-                vaultPassword
-              );
-            }
+      // Encrypt cache
+      const encryptedCache = await Promise.all(
+        paginatedKeys.map(async (key) => {
+          return await encryptData(key, encryptionKey);
+        })
+      );
+      apiCacheRef.current[cacheKey] = encryptedCache;
 
-            const openpgpKey = await openpgp.readKey({
-              armoredKey: decryptedCloudPrivateKey || decryptedCloudPublicKey,
-            });
-
-            const userIDs = openpgpKey.getUserIDs();
-
-            const firstUserID = userIDs[0];
-            let name, email;
-
-            const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
-            if (match) {
-              name = match[1].trim();
-              email = match[2].trim();
-            } else {
-              name = firstUserID.trim();
-              email = "N/A";
-            }
-
-            const creationdate = formatDate(openpgpKey.getCreationTime());
-
-            const getKeyExpiryInfo = async (key) => {
-              try {
-                const expirationTime = await key.getExpirationTime();
-                const now = new Date();
-                if (expirationTime === null || expirationTime === Infinity) {
-                  return { expirydate: "No Expiry", keystatus: "active" };
-                } else if (expirationTime < now) {
-                  return {
-                    expirydate: formatDate(expirationTime),
-                    keystatus: "expired",
-                  };
-                } else {
-                  return {
-                    expirydate: formatDate(expirationTime),
-                    keystatus: "active",
-                  };
-                }
-              } catch {
-                return { expirydate: "Error", keystatus: "unknown" };
-              }
-            };
-            const { expirydate, keystatus } =
-              await getKeyExpiryInfo(openpgpKey);
-
-            const passwordProtected = key.privateKey
-              ? await isPasswordProtected(key.privateKey)
-              : false;
-
-            const formatFingerprint = (fingerprint) => {
-              const parts = fingerprint.match(/.{1,4}/g);
-              const nbsp = "\u00A0";
-              return (
-                parts.slice(0, 5).join(" ") +
-                nbsp.repeat(6) +
-                parts.slice(5).join(" ")
-              );
-            };
-            const fingerprint = formatFingerprint(
-              openpgpKey.getFingerprint().toUpperCase()
-            );
-
-            const formatKeyID = (keyid) => keyid.match(/.{1,4}/g).join(" ");
-            const keyid = formatKeyID(
-              openpgpKey.getKeyID().toHex().toUpperCase()
-            );
-
-            const formatAlgorithm = (algoInfo) => {
-              // ECC curve detection
-              const labelMap = {
-                curve25519: "Curve25519 (EdDSA/ECDH)",
-                nistP256: "NIST P-256 (ECDSA/ECDH)",
-                nistP521: "NIST P-521 (ECDSA/ECDH)",
-                brainpoolP256r1: "Brainpool P-256r1 (ECDSA/ECDH)",
-                brainpoolP512r1: "Brainpool P-512r1 (ECDSA/ECDH)",
-              };
-
-              if (
-                ["eddsa", "eddsaLegacy", "curve25519"].includes(
-                  algoInfo.algorithm
-                )
-              ) {
-                return labelMap.curve25519;
-              }
-
-              if (algoInfo.curve && labelMap[algoInfo.curve]) {
-                return labelMap[algoInfo.curve];
-              }
-
-              // RSA detection
-              if (/^rsa/i.test(algoInfo.algorithm)) {
-                switch (algoInfo.bits) {
-                  case 2048:
-                    return "RSA 2048";
-                  case 3072:
-                    return "RSA 3072";
-                  case 4096:
-                    return "RSA 4096";
-                  default:
-                    return `RSA (${algoInfo.bits || "?"} bits)`;
-                }
-              }
-
-              return algoInfo.algorithm || "Unknown Algorithm";
-            };
-
-            const algorithm = formatAlgorithm(openpgpKey.getAlgorithmInfo());
-
-            // Check if this key is already imported
-            const isImported = storedKeys.some((storedKey) => {
-              if (decryptedCloudPublicKey && storedKey.publicKey) {
-                return storedKey.publicKey === decryptedCloudPublicKey;
-              }
-              if (decryptedCloudPrivateKey && storedKey.privateKey) {
-                return storedKey.privateKey === decryptedCloudPrivateKey;
-              }
-              return false;
-            });
-
-            return {
-              id: key.id || Date.now(),
-              name,
-              email,
-              creationdate,
-              expirydate,
-              keystatus,
-              passwordprotected: passwordProtected ? "Yes" : "No",
-              status: isImported ? "Imported" : "Not Imported",
-              keyid,
-              fingerprint,
-              algorithm,
-              avatar: (() => {
-                const hasPrivateKey =
-                  key.privateKey &&
-                  key.privateKey !== "null" &&
-                  key.privateKey.trim() !== "";
-                const hasPublicKey =
-                  key.publicKey && key.publicKey.trim() !== "";
-                if (hasPrivateKey) {
-                  return Keyring.src;
-                } else if (hasPublicKey) {
-                  return Public.src;
-                }
-                return null;
-              })(),
-              decryptedPrivateKey: decryptedCloudPrivateKey,
-              decryptedPublicKey: decryptedCloudPublicKey,
-            };
-          } catch (error) {
-            console.error("Error processing key:", error);
-            return null;
-          }
+      // Decrypt cache
+      const plainKeys = await Promise.all(
+        encryptedCache.map(async (encryptedItem) => {
+          return await decryptData(
+            encryptedItem.encrypted,
+            encryptionKey,
+            encryptedItem.iv
+          );
         })
       );
 
-      return processedKeys.filter((key) => key !== null);
+      const processPromises = plainKeys.map(async (key) => {
+        if (decryptedCacheRef.current[key.id]) {
+          return decryptedCacheRef.current[key.id];
+        }
+        const decrypted = await processKey(
+          key,
+          vaultPassword,
+          storedKeys
+        ).catch((err) => {
+          console.error("Error processing key:", err);
+          return null;
+        });
+        if (decrypted) {
+          decryptedCacheRef.current[key.id] = decrypted;
+        }
+        return decrypted;
+      });
+      const results = await Promise.all(processPromises);
+      return results.filter((k) => k !== null);
     } catch (error) {
       console.error("Error loading keys:", error);
       addToast({
@@ -452,7 +511,6 @@ export default function App() {
       let publicKey = selectedUser.decryptedPublicKey;
       const privateKey = selectedUser.decryptedPrivateKey;
 
-      // If there's only a private key, generate the public key
       if (privateKey && (!publicKey || publicKey.trim() === "")) {
         try {
           const privateKeyObj = await openpgp.readKey({
@@ -492,23 +550,26 @@ export default function App() {
             : null,
       };
 
-      // Check if key already exists
       const exists = await checkIfKeyExists(keyData);
       if (!exists) {
         await saveKeyToIndexedDB(keyData);
 
-        // Determine if it's a public key or keyring based on privateKey being null
+        apiCacheRef.current = {};
+        decryptedCacheRef.current = {};
+
         const keyType = keyData.privateKey === null ? "Public Key" : "Keyring";
         addToast({
           title: `Imported ${keyname}'s ${keyType}`,
           color: "success",
         });
 
-        // Refresh the keys list immediately after successful import
-        const refreshedKeys = await loadKeysFromCloud();
-        setUsers(refreshedKeys);
+        setUsers((prevUsers) =>
+          prevUsers.map((u) =>
+            u.id === selectedUser.id ? { ...u, status: "Imported" } : u
+          )
+        );
+
       } else {
-        // Update the "already exists" message too
         const keyType = keyData.privateKey === null ? "Public Key" : "Keyring";
         addToast({
           title: `${keyname}'s ${keyType} already exists`,
@@ -553,7 +614,7 @@ export default function App() {
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  }, [page, rowsPerPage]);
 
   const filteredItems = useMemo(() => {
     let filteredUsers = [...users];
@@ -567,22 +628,16 @@ export default function App() {
     return filteredUsers;
   }, [users, filterValue]);
 
-  const pages = Math.ceil(filteredItems.length / rowsPerPage);
+  const pages = Math.ceil(totalKeys / rowsPerPage);
 
   const sortedItems = useMemo(() => {
-    const start = (page - 1) * rowsPerPage;
-    const end = start + rowsPerPage;
-
-    return [...filteredItems]
-      .sort((a, b) => {
-        const first = a[sortDescriptor.column];
-        const second = b[sortDescriptor.column];
-        const cmp = first < second ? -1 : first > second ? 1 : 0;
-
-        return sortDescriptor.direction === "descending" ? -cmp : cmp;
-      })
-      .slice(start, end);
-  }, [sortDescriptor, filteredItems, page, rowsPerPage]);
+    return [...filteredItems].sort((a, b) => {
+      const first = a[sortDescriptor.column];
+      const second = b[sortDescriptor.column];
+      const cmp = first < second ? -1 : first > second ? 1 : 0;
+      return sortDescriptor.direction === "descending" ? -cmp : cmp;
+    });
+  }, [sortDescriptor, filteredItems]);
 
   const hasSearchFilter = Boolean(filterValue);
 
@@ -664,7 +719,6 @@ export default function App() {
 
   const deleteKey = async (user) => {
     try {
-      // Use the decrypted keys for deletion
       const keyForHash = user.decryptedPrivateKey || user.decryptedPublicKey;
       if (!keyForHash) {
         throw new Error("No key data found");
@@ -682,9 +736,7 @@ export default function App() {
 
       const deleteResponse = await fetch("/api/manage-keys", {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
 
@@ -697,6 +749,10 @@ export default function App() {
         title: `${user.name}'s Key successfully deleted from the cloud`,
         color: "success",
       });
+
+      decryptedCacheRef.current = {};
+      apiCacheRef.current = {};
+
       const refreshedKeys = await loadKeysFromCloud();
       setUsers(refreshedKeys);
       setPage(1);
@@ -806,7 +862,7 @@ export default function App() {
         </div>
         <div className="flex justify-between items-center">
           <span className="text-default-400 text-small">
-            Total {users.length} keys
+            Total {totalKeys} keys
           </span>
           <label className="flex items-center text-default-400 text-small">
             Rows per page:
@@ -825,7 +881,7 @@ export default function App() {
   }, [
     filterValue,
     onRowsPerPageChange,
-    users.length,
+    totalKeys,
     visibleColumns,
     onSearchChange,
     hasSearchFilter,
@@ -852,7 +908,7 @@ export default function App() {
               try {
                 await lockVault();
                 NProgress.start();
-                router.push("/vault");
+                router.push("/vault?redirect=%2Fcloud-manage");
               } catch (error) {
                 console.error("Error locking vault:", error);
               } finally {
@@ -930,7 +986,20 @@ export default function App() {
         <TableBody
           loadingContent={
             <div className="flex justify-center items-center mt-12">
-              <Spinner size="lg" color="warning" label="Loading keyrings..." />
+              <Spinner
+                size="lg"
+                color="warning"
+                label={
+                  <div className="text-center">
+                    Loading keyrings...
+                    <br />
+                    <span className="text-gray-300 text-sm">
+                      This may take some time depending on your device&apos;s
+                      performance.
+                    </span>
+                  </div>
+                }
+              />
             </div>
           }
           isLoading={isLoading}
@@ -950,7 +1019,7 @@ export default function App() {
               </div>
             </>
           }
-          items={sortedItems}
+          items={!isLoading ? sortedItems : []}
         >
           {(item) => (
             <TableRow key={item.id}>

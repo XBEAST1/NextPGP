@@ -60,7 +60,7 @@
 
 | Video 1 | Video 2 |
 | ------ | ------ |
-| [![Next PGP](https://img.youtube.com/vi/1gl4OlUaibY/maxresdefault.jpg)](https://www.youtube.com/watch?v=1gl4OlUaibY) | [![Next PGP](https://img.youtube.com/vi/NRofMNqZPfo/maxresdefault.jpg)](https://www.youtube.com/watch?v=NRofMNqZPfo) |
+| [![Next PGP](https://img.youtube.com/vi/1gl4OlUaibY/maxresdefault.jpg)](https://www.youtube.com/watch?v=1gl4OlUaibY) | [![Next PGP](https://img.youtube.com/vi/TdBdOO4SRew/maxresdefault.jpg)](https://www.youtube.com/watch?v=TdBdOO4SRew) |
 
 ---
 
@@ -70,7 +70,6 @@
 <img width="410px" src="https://github.com/user-attachments/assets/6eea6178-bf5f-4cd2-94b2-7271d196fce0" alt="Image">
 <img width="410px" src="https://github.com/user-attachments/assets/7fa7ac95-5c86-4f80-8d72-1825c71b9f68" alt="Image">
 <img width="410px" src="https://github.com/user-attachments/assets/9cac8569-082b-4a56-afef-f4f51b2acf53" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/76374819-a2c5-4a4b-af15-4b289913d505" alt="Image">
 <img width="410px" src="https://github.com/user-attachments/assets/150e1f10-fc25-4517-9a75-db056c93b97e" alt="Image">
 <img width="410px" src="https://github.com/user-attachments/assets/c86e1217-496a-4ade-a10e-63aa5f93abb3" alt="Image">
 <img width="410px" src="https://github.com/user-attachments/assets/6a040f34-8fed-4ab2-85b8-53d9b6fcfff8" alt="Image">
@@ -90,7 +89,7 @@
 <img width="270px" src="https://github.com/user-attachments/assets/591f26f5-7274-44b1-9677-8379aa7cf38e" alt="Image">
 <img width="270px" src="https://github.com/user-attachments/assets/450bfa8f-9fb8-47d9-b23e-4c843a27f04b" alt="Image">
 <img width="270px" src="https://github.com/user-attachments/assets/fd7642d3-f618-4738-b9d0-271c9007ef4d" alt="Image">
-<img width="270px" src="https://github.com/user-attachments/assets/5e20bb66-c8a9-4006-9db3-38eabc5dbe0f" alt="Image">
+<img width="270px" src="https://github.com/user-attachments/assets/d31831ad-ba6b-4c52-a1dd-46250c99baa1" alt="Image">
 
 
 <h2>📝 License</h2>

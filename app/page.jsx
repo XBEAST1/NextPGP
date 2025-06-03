@@ -135,6 +135,187 @@ const capitalize = (s) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
+const isPasswordProtected = async (privateKeyArmored) => {
+  try {
+    const privateKey = await openpgp.readPrivateKey({
+      armoredKey: privateKeyArmored,
+    });
+    return privateKey.isPrivate() && !privateKey.isDecrypted();
+  } catch {
+    return false;
+  }
+};
+
+const processKey = async (key) => {
+  const openpgpKey = await openpgp.readKey({ armoredKey: key.publicKey });
+
+  const formatDate = (isoDate) => {
+    const date = new Date(isoDate);
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = monthNames[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
+  const getKeyExpiryInfo = async (key) => {
+    try {
+      const isRevoked = await key.isRevoked();
+      if (isRevoked) return { expirydate: "Revoked", status: "revoked" };
+      const expirationTime = await key.getExpirationTime();
+      const now = new Date();
+      if (expirationTime === null || expirationTime === Infinity) {
+        return { expirydate: "No Expiry", status: "active" };
+      } else if (expirationTime < now) {
+        return { expirydate: formatDate(expirationTime), status: "expired" };
+      } else {
+        return { expirydate: formatDate(expirationTime), status: "active" };
+      }
+    } catch {
+      return { expirydate: "Error", status: "unknown" };
+    }
+  };
+
+  const userIDs = openpgpKey.getUserIDs();
+  const userIdCount = userIDs.length;
+  const firstUserID = userIDs[0];
+  let name, email;
+  const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
+  if (match) {
+    name = match[1].trim();
+    email = match[2].trim();
+  } else {
+    name = firstUserID.trim();
+    email = "N/A";
+  }
+
+  const creationdate = formatDate(openpgpKey.getCreationTime());
+  const { expirydate, status } = await getKeyExpiryInfo(openpgpKey);
+
+  const passwordProtected = key.privateKey
+    ? await isPasswordProtected(key.privateKey)
+    : false;
+
+  const formatFingerprint = (fingerprint) => {
+    const parts = fingerprint.match(/.{1,4}/g);
+    const nbsp = "\u00A0";
+    return (
+      parts.slice(0, 5).join(" ") + nbsp.repeat(6) + parts.slice(5).join(" ")
+    );
+  };
+  const fingerprint = formatFingerprint(
+    openpgpKey.getFingerprint().toUpperCase()
+  );
+
+  const formatKeyID = (keyid) => keyid.match(/.{1,4}/g).join(" ");
+  const keyid = formatKeyID(openpgpKey.getKeyID().toHex().toUpperCase());
+
+  const formatAlgorithm = (algoInfo) => {
+    const labelMap = {
+      curve25519: "Curve25519 (EdDSA/ECDH)",
+      nistP256: "NIST P-256 (ECDSA/ECDH)",
+      nistP521: "NIST P-521 (ECDSA/ECDH)",
+      brainpoolP256r1: "Brainpool P-256r1 (ECDSA/ECDH)",
+      brainpoolP512r1: "Brainpool P-512r1 (ECDSA/ECDH)",
+    };
+    if (["eddsa", "eddsaLegacy", "curve25519"].includes(algoInfo.algorithm)) {
+      return labelMap.curve25519;
+    }
+    if (algoInfo.curve && labelMap[algoInfo.curve]) {
+      return labelMap[algoInfo.curve];
+    }
+    if (/^rsa/i.test(algoInfo.algorithm)) {
+      switch (algoInfo.bits) {
+        case 2048:
+          return "RSA 2048";
+        case 3072:
+          return "RSA 3072";
+        case 4096:
+          return "RSA 4096";
+        default:
+          return `RSA (${algoInfo.bits || "?"} bits)`;
+      }
+    }
+    return algoInfo.algorithm || "Unknown Algorithm";
+  };
+  const algorithm = formatAlgorithm(openpgpKey.getAlgorithmInfo());
+
+  return {
+    id: key.id,
+    name,
+    email,
+    creationdate,
+    expirydate,
+    status,
+    passwordprotected: passwordProtected ? "Yes" : "No",
+    keyid,
+    fingerprint,
+    algorithm,
+    avatar: (() => {
+      const hasPrivateKey = key.privateKey && key.privateKey.trim() !== "";
+      const hasPublicKey = key.publicKey && key.publicKey.trim() !== "";
+      if (hasPrivateKey && hasPublicKey) return Keyring.src;
+      else if (hasPublicKey) return Public.src;
+    })(),
+    publicKey: key.publicKey,
+    privateKey: key.privateKey,
+    userIdCount,
+  };
+};
+
+const loadKeysFromIndexedDB = async () => {
+  const db = await openDB();
+  const encryptionKey = await getEncryptionKey();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(dbPgpKeys, "readonly");
+    const store = transaction.objectStore(dbPgpKeys);
+    const encryptedRecords = [];
+    const request = store.openCursor();
+
+    request.onsuccess = async (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        encryptedRecords.push(cursor.value);
+        cursor.continue();
+      } else {
+        try {
+          const decryptedKeys = await Promise.all(
+            encryptedRecords.map(async (record) => {
+              return await decryptData(
+                record.encrypted,
+                encryptionKey,
+                record.iv
+              );
+            })
+          );
+          const processedKeys = await Promise.all(
+            decryptedKeys.map(processKey)
+          );
+          resolve(processedKeys.filter((key) => key !== null));
+        } catch (error) {
+          reject(error);
+        }
+      }
+    };
+
+    request.onerror = (e) => reject(e.target.error);
+  });
+};
+
 export default function App() {
   const [filterValue, setFilterValue] = useState("");
   const [users, setUsers] = useState([]);
@@ -182,17 +363,6 @@ export default function App() {
 
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
-
-  const isPasswordProtected = async (privateKeyArmored) => {
-    try {
-      const privateKey = await openpgp.readPrivateKey({
-        armoredKey: privateKeyArmored,
-      });
-      return privateKey.isPrivate() && !privateKey.isDecrypted();
-    } catch {
-      return false;
-    }
-  };
 
   const UserActionsDropdown = ({ user }) => {
     const [isProtected, setIsProtected] = useState(null);
@@ -407,215 +577,6 @@ export default function App() {
         </Dropdown>
       </div>
     );
-  };
-
-  const loadKeysFromIndexedDB = async () => {
-    const db = await openDB();
-    const encryptionKey = await getEncryptionKey();
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(dbPgpKeys, "readonly");
-      const store = transaction.objectStore(dbPgpKeys);
-      const encryptedRecords = [];
-      const request = store.openCursor();
-
-      request.onsuccess = async (e) => {
-        const cursor = e.target.result;
-        if (cursor) {
-          encryptedRecords.push(cursor.value);
-          cursor.continue();
-        } else {
-          try {
-            const decryptedKeys = await Promise.all(
-              encryptedRecords.map(async (record) => {
-                return await decryptData(
-                  record.encrypted,
-                  encryptionKey,
-                  record.iv
-                );
-              })
-            );
-
-            const formatDate = (isoDate) => {
-              const date = new Date(isoDate);
-              const monthNames = [
-                "Jan",
-                "Feb",
-                "Mar",
-                "Apr",
-                "May",
-                "Jun",
-                "Jul",
-                "Aug",
-                "Sep",
-                "Oct",
-                "Nov",
-                "Dec",
-              ];
-
-              const day = String(date.getDate()).padStart(2, "0");
-              const month = monthNames[date.getMonth()];
-              const year = date.getFullYear();
-
-              return `${day}-${month}-${year}`;
-            };
-
-            const getKeyExpiryInfo = async (key) => {
-              try {
-                const isRevoked = await key.isRevoked();
-                if (isRevoked) {
-                  return { expirydate: "Revoked", status: "revoked" };
-                }
-
-                const expirationTime = await key.getExpirationTime();
-                const now = new Date();
-                if (expirationTime === null || expirationTime === Infinity) {
-                  return { expirydate: "No Expiry", status: "active" };
-                } else if (expirationTime < now) {
-                  return {
-                    expirydate: formatDate(expirationTime),
-                    status: "expired",
-                  };
-                } else {
-                  return {
-                    expirydate: formatDate(expirationTime),
-                    status: "active",
-                  };
-                }
-              } catch {
-                return { expirydate: "Error", status: "unknown" };
-              }
-            };
-
-            const processedKeys = await Promise.all(
-              decryptedKeys.map(async (key) => {
-                const openpgpKey = await openpgp.readKey({
-                  armoredKey: key.publicKey,
-                });
-
-                const userIDs = openpgpKey.getUserIDs();
-                const userIdCount = userIDs.length;
-
-                const firstUserID = userIDs[0];
-                let name, email;
-
-                const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
-                if (match) {
-                  name = match[1].trim();
-                  email = match[2].trim();
-                } else {
-                  name = firstUserID.trim();
-                  email = "N/A";
-                }
-
-                const creationdate = formatDate(openpgpKey.getCreationTime());
-
-                const { expirydate, status } =
-                  await getKeyExpiryInfo(openpgpKey);
-
-                const passwordProtected = key.privateKey
-                  ? await isPasswordProtected(key.privateKey)
-                  : false;
-
-                const formatFingerprint = (fingerprint) => {
-                  const parts = fingerprint.match(/.{1,4}/g);
-                  const nbsp = "\u00A0";
-                  return (
-                    parts.slice(0, 5).join(" ") +
-                    nbsp.repeat(6) +
-                    parts.slice(5).join(" ")
-                  );
-                };
-                const fingerprint = formatFingerprint(
-                  openpgpKey.getFingerprint().toUpperCase()
-                );
-
-                const formatKeyID = (keyid) => keyid.match(/.{1,4}/g).join(" ");
-                const keyid = formatKeyID(
-                  openpgpKey.getKeyID().toHex().toUpperCase()
-                );
-
-                const formatAlgorithm = (algoInfo) => {
-                  // ECC curve detection
-                  const labelMap = {
-                    curve25519: "Curve25519 (EdDSA/ECDH)",
-                    nistP256: "NIST P-256 (ECDSA/ECDH)",
-                    nistP521: "NIST P-521 (ECDSA/ECDH)",
-                    brainpoolP256r1: "Brainpool P-256r1 (ECDSA/ECDH)",
-                    brainpoolP512r1: "Brainpool P-512r1 (ECDSA/ECDH)",
-                  };
-
-                  if (
-                    ["eddsa", "eddsaLegacy", "curve25519"].includes(
-                      algoInfo.algorithm
-                    )
-                  ) {
-                    return labelMap.curve25519;
-                  }
-
-                  if (algoInfo.curve && labelMap[algoInfo.curve]) {
-                    return labelMap[algoInfo.curve];
-                  }
-
-                  // RSA detection
-                  if (/^rsa/i.test(algoInfo.algorithm)) {
-                    switch (algoInfo.bits) {
-                      case 2048:
-                        return "RSA 2048";
-                      case 3072:
-                        return "RSA 3072";
-                      case 4096:
-                        return "RSA 4096";
-                      default:
-                        return `RSA (${algoInfo.bits || "?"} bits)`;
-                    }
-                  }
-
-                  return algoInfo.algorithm || "Unknown Algorithm";
-                };
-
-                const algorithm = formatAlgorithm(
-                  openpgpKey.getAlgorithmInfo()
-                );
-
-                return {
-                  id: key.id,
-                  name,
-                  email,
-                  creationdate,
-                  expirydate,
-                  status,
-                  passwordprotected: passwordProtected ? "Yes" : "No",
-                  keyid,
-                  fingerprint,
-                  algorithm,
-                  avatar: (() => {
-                    const hasPrivateKey =
-                      key.privateKey && key.privateKey.trim() !== "";
-                    const hasPublicKey =
-                      key.publicKey && key.publicKey.trim() !== "";
-                    if (hasPrivateKey && hasPublicKey) {
-                      return Keyring.src;
-                    } else if (hasPublicKey) {
-                      return Public.src;
-                    }
-                  })(),
-                  publicKey: key.publicKey,
-                  privateKey: key.privateKey,
-                  userIdCount,
-                };
-              })
-            );
-
-            resolve(processedKeys);
-          } catch (error) {
-            reject(error);
-          }
-        }
-      };
-
-      request.onerror = (e) => reject(e.target.error);
-    });
   };
 
   useEffect(() => {
@@ -1100,7 +1061,11 @@ export default function App() {
       request.onsuccess = async () => {
         const refreshedKeys = await loadKeysFromIndexedDB();
         setUsers(refreshedKeys);
-        setPage(1);
+
+        const totalPages = Math.ceil(refreshedKeys.length / rowsPerPage);
+        if (page > totalPages) {
+          setPage(Math.max(1, totalPages));
+        }
         resolve();
       };
 
@@ -1137,7 +1102,6 @@ export default function App() {
       });
       const currentUserIDs = fullPublicKey.getUserIDs();
 
-      // Parse a user ID string into an object.
       const parseUserId = (uid) => {
         const match = uid.match(/^(.*?)\s*<(.+?)>$/);
         return match
@@ -1145,10 +1109,8 @@ export default function App() {
           : { name: uid.trim() };
       };
 
-      // Convert existing IDs to object format.
       const formattedUserIDs = currentUserIDs.map(parseUserId);
 
-      // Build the new user id object.
       const newUserID = validEmail
         ? { name: name.trim(), email: validEmail }
         : { name: name.trim() };
@@ -1189,7 +1151,6 @@ export default function App() {
       const currentUserObj = refreshedStart.find((u) => u.id === user.id);
       if (!currentUserObj) throw new Error("User not found in IndexedDB");
 
-      // Check if the clicked User ID is already primary
       const freshPublicKey = await openpgp.readKey({
         armoredKey: currentUserObj.publicKey,
       });
@@ -1504,6 +1465,9 @@ export default function App() {
               <option value="5">5</option>
               <option value="10">10</option>
               <option value="20">20</option>
+              <option value="30">30</option>
+              <option value="40">40</option>
+              <option value="50">50</option>
             </select>
           </label>
         </div>
@@ -1857,7 +1821,20 @@ export default function App() {
         <TableBody
           loadingContent={
             <div className="flex justify-center items-center mt-12">
-              <Spinner size="lg" color="warning" label="Loading keyrings..." />
+              <Spinner
+                size="lg"
+                color="warning"
+                label={
+                  <div className="text-center">
+                    Loading keyrings...
+                    <br />
+                    <span className="text-gray-300 text-sm">
+                      This may take some time depending on your device&apos;s
+                      performance.
+                    </span>
+                  </div>
+                }
+              />
             </div>
           }
           isLoading={isLoading}
