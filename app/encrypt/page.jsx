@@ -22,8 +22,8 @@ import {
 } from "@/lib/indexeddb";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { saveAs } from "file-saver";
-import JSZip from "jszip";
 import * as openpgp from "openpgp";
+import { workerPool } from "./workerPool";
 
 export default function App() {
   const [pgpKeys, setPgpKeys] = useState([]);
@@ -309,7 +309,6 @@ export default function App() {
 
   const getDecryptedPrivateKey = async () => {
     if (!signerKey) return null;
-    // Use the numeric id from the selected signer object
     const signer = signerKeys.find((key) => key.id.toString() === signerKey.id);
     if (!signer) {
       addToast({
@@ -322,7 +321,7 @@ export default function App() {
       armoredKey: signer.privateKey,
     });
     if (privateKeyObject.isDecrypted()) {
-      return privateKeyObject;
+      return await privateKeyObject.armor();
     }
     let decryptedKey;
     while (!decryptedKey || !decryptedKey.isDecrypted()) {
@@ -349,57 +348,7 @@ export default function App() {
       }
     }
     setIsPasswordModalOpen(false);
-    return decryptedKey;
-  };
-
-  const encryptMessage = async (decryptedKey = null) => {
-    try {
-      if (!message.trim()) {
-        return;
-      }
-      const recipientKeysPublic = recipientKeys
-        .filter((key) =>
-          recipients.some(
-            (r) => typeof r === "object" && r.keyId === key.id.toString()
-          )
-        )
-        .map((key) => key.publicKey);
-
-      // Validate that at least one recipient or a password is available.
-      if (!isChecked && recipientKeysPublic.length === 0) {
-        addToast({
-          title: "Please select at least one recipient or provide a password",
-          color: "danger",
-        });
-        return;
-      }
-
-      // Use the already-decrypted key if available
-      let signingKey = decryptedKey;
-
-      const messageToEncrypt = await openpgp.createMessage({ text: message });
-      const encryptionOptions = {
-        message: messageToEncrypt,
-        ...(isChecked &&
-          encryptionPassword && { passwords: [encryptionPassword] }),
-        ...(recipientKeysPublic.length > 0 && {
-          encryptionKeys: await Promise.all(
-            recipientKeysPublic.map((key) =>
-              openpgp.readKey({ armoredKey: key })
-            )
-          ),
-        }),
-        ...(signingKey && { signingKeys: signingKey }),
-      };
-
-      const encryptedMessage = await openpgp.encrypt(encryptionOptions);
-      setOutput(encryptedMessage);
-    } catch {
-      addToast({
-        title: "Please Enter a Password",
-        color: "danger",
-      });
-    }
+    return await decryptedKey.armor();
   };
 
   const handleFileUpload = (event) => {
@@ -412,128 +361,65 @@ export default function App() {
     setdirectoryFiles(selectedDirectory);
   };
 
-  const encryptFiles = async (dataFiles, decryptedKey = null) => {
-    if (!dataFiles || dataFiles.length === 0) {
-      return;
-    }
-
-    try {
-      let fileToEncrypt;
-      let outputFileName;
-      const isDirectoryUpload =
-        dataFiles[0].webkitRelativePath &&
-        dataFiles[0].webkitRelativePath.trim() !== "";
-
-      // For a single file that isn’t a directory upload, use it directly.
-      // Otherwise, zip the files.
-      if (dataFiles.length === 1 && !isDirectoryUpload) {
-        const fileData = await dataFiles[0].arrayBuffer();
-        fileToEncrypt = new Uint8Array(fileData);
-        outputFileName = dataFiles[0].name;
-      } else {
-        const zip = new JSZip();
-
-        for (const file of dataFiles) {
-          const fileData = await file.arrayBuffer();
-          // Preserve folder structure if available
-          const relativePath =
-            file.webkitRelativePath && file.webkitRelativePath.trim() !== ""
-              ? file.webkitRelativePath
-              : file.name;
-          zip.file(relativePath, fileData);
-        }
-
-        // If uploading a directory, use the top folder name and ensure the name
-        if (isDirectoryUpload) {
-          const firstFileRelPath = dataFiles[0].webkitRelativePath;
-          const folderName = firstFileRelPath.split("/")[0];
-          outputFileName = `${folderName}.zip`;
-        } else {
-          // If multiple files are uploaded that aren't a directory set output file name to archive.zip
-          outputFileName = "archive.zip";
-        }
-
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-        const zipArrayBuffer = await zipBlob.arrayBuffer();
-        fileToEncrypt = new Uint8Array(zipArrayBuffer);
-      }
-
-      // Find the recipient keys (public keys of the selected recipients)
-      const recipientKeysPublic = recipientKeys
-        .filter((key) =>
-          recipients.some(
-            (r) => typeof r === "object" && r.keyId === key.id.toString()
-          )
-        )
-        .map((key) => key.publicKey);
-
-      // Validate that at least one recipient or a password is provided.
-      if (recipientKeysPublic.length === 0 && !isChecked) {
-        addToast({
-          title: "Please select at least one recipient or provide a password",
-          color: "danger",
-        });
-        return;
-      }
-
-      let encryptionOptions = {
-        message: await openpgp.createMessage({ binary: fileToEncrypt }),
-      };
-
-      // If recipients are selected, encrypt with public keys
-      if (recipientKeysPublic.length > 0) {
-        encryptionOptions.encryptionKeys = await Promise.all(
-          recipientKeysPublic.map((key) => openpgp.readKey({ armoredKey: key }))
-        );
-      }
-
-      // If no recipients are selected but a password is provided, encrypt with the password
-      if (recipientKeysPublic.length === 0 && encryptionPassword && isChecked) {
-        encryptionOptions.passwords = [encryptionPassword];
-      }
-
-      // If both recipients and password are selected, include both in encryption
-      if (recipientKeysPublic.length > 0 && encryptionPassword && isChecked) {
-        encryptionOptions.passwords = [encryptionPassword];
-      }
-
-      if (decryptedKey) {
-        encryptionOptions.signingKeys = decryptedKey;
-      }
-
-      const encrypted = await openpgp.encrypt({
-        ...encryptionOptions,
-        format: "binary",
-      });
-
-      const encryptedBlob = new Blob([encrypted], {
-        type: "application/octet-stream",
-      });
-      saveAs(encryptedBlob, `${outputFileName}.gpg`);
-    } catch {
-      addToast({
-        title: "Please Enter a Password",
-        color: "danger",
-      });
-    }
-  };
-
   const handleEncrypt = async () => {
-    let decryptedKey = null;
+    let decryptedPrivateKey = null;
     if (signerKey) {
-      decryptedKey = await getDecryptedPrivateKey();
+      decryptedPrivateKey = await getDecryptedPrivateKey();
     }
 
     if (message) {
-      await encryptMessage(decryptedKey);
+      const task = {
+        type: "messageEncrypt",
+        responseType: "setEncryptedMessage",
+        message,
+        recipientKeys,
+        recipients,
+        isChecked,
+        encryptionPassword,
+        decryptedPrivateKey,
+      };
+      workerPool(task, addToast).then((encryptedMessage) => {
+        setOutput(encryptedMessage);
+      });
     }
 
     if (files) {
-      await encryptFiles(files, decryptedKey);
+      const fileTask = {
+        type: "fileEncrypt",
+        responseType: "downloadFile",
+        files,
+        recipientKeys,
+        recipients,
+        isChecked,
+        encryptionPassword,
+        decryptedPrivateKey,
+      };
+      workerPool(fileTask, addToast).then((result) => {
+        const blob = new Blob([result.encrypted], {
+          type: "application/octet-stream",
+        });
+        saveAs(blob, result.fileName);
+      });
     }
 
     if (directoryFiles) {
-      await encryptFiles(directoryFiles, decryptedKey);
+      const dirTask = {
+        type: "fileEncrypt",
+        responseType: "downloadFile",
+        directoryFiles,
+        recipientKeys,
+        recipients,
+        isChecked,
+        encryptionPassword,
+        decryptedPrivateKey,
+        signerKey,
+      };
+      workerPool(dirTask, addToast).then((result) => {
+        const blob = new Blob([result.encrypted], {
+          type: "application/octet-stream",
+        });
+        saveAs(blob, result.fileName);
+      });
     }
 
     if (!message && !files && !directoryFiles) {
