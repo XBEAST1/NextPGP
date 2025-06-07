@@ -31,6 +31,7 @@ export function workerPool(task) {
       onDetails,
       onToast,
       onModal,
+      onError,
       onDecryptedMessage,
       onDecryptedFile,
       onCurrentPrivateKey,
@@ -83,7 +84,12 @@ export function workerPool(task) {
         modalHandled = true;
       }
 
-      if (type === "error") {
+      if (type === "error" && typeof onError === "function") {
+        await onError(payload);
+        return;
+      }
+
+      if (type === "passworderror") {
         worker.removeEventListener("message", handleMessage);
         return;
       }

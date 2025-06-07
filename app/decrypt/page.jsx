@@ -80,6 +80,7 @@ export default function App() {
                 setDecryptedMessage(payload);
                 resolve();
               },
+              onError: () => setDecrypting(false),
               onDetails: (payload) =>
                 setDetails((prev) => (prev ? prev + "\n" + payload : payload)),
               onToast: (payload) => addToast(payload),
@@ -108,6 +109,7 @@ export default function App() {
                   }
                   resolve();
                 },
+                onError: () => setDecrypting(false),
                 onDetails: (payload) =>
                   setDetails((prev) =>
                     prev ? prev + "\n" + payload : payload
@@ -127,6 +129,20 @@ export default function App() {
     setDecrypting(false);
   };
 
+  const removeDuplicateDetails = (detailsStr) => {
+    if (!detailsStr) return "";
+    const blocks = detailsStr.split(/(?=Recipients:)/).map((b) => b.trim());
+    const seen = new Set();
+    const uniqueBlocks = [];
+    blocks.forEach((block) => {
+      if (!seen.has(block)) {
+        seen.add(block);
+        uniqueBlocks.push(block);
+      }
+    });
+    return uniqueBlocks.join("\n\n");
+  };
+
   const handlePasswordDecrypt = async () => {
     if (!password) {
       addToast({
@@ -135,6 +151,7 @@ export default function App() {
       });
       return;
     }
+
     setDecrypting(true);
     try {
       const tasks = [];
@@ -154,7 +171,9 @@ export default function App() {
                 resolve();
               },
               onDetails: (payload) =>
-                setDetails((prev) => (prev ? prev + "\n" + payload : payload)),
+                setDetails((prev) =>
+                  removeDuplicateDetails(prev ? prev + "\n" + payload : payload)
+                ),
               onToast: (payload) => addToast(payload),
               onModal: (payload) => setIsPasswordModalOpen(payload),
               onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
@@ -183,7 +202,9 @@ export default function App() {
                 },
                 onDetails: (payload) =>
                   setDetails((prev) =>
-                    prev ? prev + "\n" + payload : payload
+                    removeDuplicateDetails(
+                      prev ? prev + "\n" + payload : payload
+                    )
                   ),
                 onToast: (payload) => addToast(payload),
                 onModal: (payload) => setIsPasswordModalOpen(payload),
@@ -259,7 +280,7 @@ export default function App() {
         style={{ transition: "height 0.2s ease-out" }}
       />
       <br />
-      <Button disabled={decrypting} onPress={handleDecrypt}>
+      <Button className="w-24" disabled={decrypting} onPress={handleDecrypt}>
         {decrypting ? <Spinner color="white" size="sm" /> : "🔓 Decrypt"}
       </Button>
       {isPasswordModalOpen && (

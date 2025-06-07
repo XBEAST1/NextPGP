@@ -32,6 +32,10 @@ onmessage = async function (e) {
           color: "danger",
         },
       });
+      postMessage({
+        type: "error",
+        payload: { message: "error" },
+      });
       return;
     }
     try {
@@ -91,6 +95,10 @@ onmessage = async function (e) {
                     "The message is encrypted with a password protected key",
                   color: "primary",
                 },
+              });
+              postMessage({
+                type: "error",
+                payload: { message: "error" },
               });
               return;
             }
@@ -228,6 +236,10 @@ onmessage = async function (e) {
               color: "success",
             },
           });
+          postMessage({
+            type: "error",
+            payload: { message: "error" },
+          });
           return;
         } catch (error) {
           console.log("Key failed to decrypt the message:", error);
@@ -246,6 +258,11 @@ onmessage = async function (e) {
             color: "primary",
           },
         });
+        postMessage({
+          type: "error",
+          payload: { message: "error" },
+        });
+        return;
       } else if (!successfulDecryption) {
         postMessage({
           type: "addToast",
@@ -254,6 +271,11 @@ onmessage = async function (e) {
             color: "danger",
           },
         });
+        postMessage({
+          type: "error",
+          payload: { message: "error" },
+        });
+        return;
       }
     } catch {
       postMessage({
@@ -262,6 +284,10 @@ onmessage = async function (e) {
           title: "Decryption failed due to an unexpected error",
           color: "danger",
         },
+      });
+      postMessage({
+        type: "error",
+        payload: { message: "error" },
       });
     }
   }
@@ -293,6 +319,10 @@ onmessage = async function (e) {
           title: "The message is not in a valid PGP format",
           color: "danger",
         },
+      });
+      postMessage({
+        type: "error",
+        payload: { message: "error" },
       });
       return;
     }
@@ -581,6 +611,10 @@ onmessage = async function (e) {
         type: "addToast",
         payload: { title: "Incorrect password", color: "danger" },
       });
+      postMessage({
+        type: "error",
+        payload: { message: "error" },
+      });
     }
   }
 
@@ -824,6 +858,10 @@ onmessage = async function (e) {
               color: "danger",
             },
           });
+          postMessage({
+            type: "error",
+            payload: { message: "error" },
+          });
         }
       } catch {
         postMessage({
@@ -834,7 +872,7 @@ onmessage = async function (e) {
           },
         });
         postMessage({
-          type: "error",
+          type: "passworderror",
           payload: { message: `Incorrect password for file ${file.name}` },
         });
       }
@@ -1153,7 +1191,7 @@ onmessage = async function (e) {
           },
         });
         postMessage({
-          type: "error",
+          type: "passworderror",
           payload: { message: `Incorrect password for file ${file.name}` },
         });
       }

@@ -319,7 +319,7 @@ export default function App() {
       armoredKey: signer.privateKey,
     });
     if (privateKeyObject.isDecrypted()) {
-      return await privateKeyObject.armor();
+      return privateKeyObject.armor();
     }
     let decryptedKey;
     while (!decryptedKey || !decryptedKey.isDecrypted()) {
@@ -346,7 +346,7 @@ export default function App() {
       }
     }
     setIsPasswordModalOpen(false);
-    return await decryptedKey.armor();
+    return decryptedKey.armor();
   };
 
   const handleFileUpload = (event) => {
@@ -369,6 +369,11 @@ export default function App() {
 
       const tasks = [];
 
+      const wrappedAddToast = (toast) => {
+        setEncrypting(false);
+        addToast(toast);
+      };
+
       if (message) {
         const task = {
           type: "messageEncrypt",
@@ -381,7 +386,7 @@ export default function App() {
           decryptedPrivateKey,
         };
         tasks.push(
-          workerPool(task, addToast).then((encryptedMessage) => {
+          workerPool(task, wrappedAddToast).then((encryptedMessage) => {
             setOutput(encryptedMessage);
           })
         );
@@ -399,7 +404,7 @@ export default function App() {
           decryptedPrivateKey,
         };
         tasks.push(
-          workerPool(fileTask, addToast).then((result) => {
+          workerPool(fileTask, wrappedAddToast).then((result) => {
             const blob = new Blob([result.encrypted], {
               type: "application/octet-stream",
             });
@@ -421,7 +426,7 @@ export default function App() {
           signerKey,
         };
         tasks.push(
-          workerPool(dirTask, addToast).then((result) => {
+          workerPool(dirTask, wrappedAddToast).then((result) => {
             const blob = new Blob([result.encrypted], {
               type: "application/octet-stream",
             });
@@ -513,7 +518,9 @@ export default function App() {
                       ? `${selectedKey.keyId}-${selectedKey.userId}`
                       : ""
                   }
-                  onSelectionChange={(key) => handleRecipientsSelection(index, key)}
+                  onSelectionChange={(key) =>
+                    handleRecipientsSelection(index, key)
+                  }
                   defaultItems={recipientKeys
                     .flatMap((key) =>
                       key.userIDs.map((uid) => ({
@@ -621,7 +628,7 @@ export default function App() {
       </Snippet>
       <br />
       <br />
-      <Button disabled={encrypting} onPress={handleEncrypt}>
+      <Button className="w-24" disabled={encrypting} onPress={handleEncrypt}>
         {encrypting ? <Spinner color="white" size="sm" /> : "🔒 Encrypt"}
       </Button>
       <Modal
