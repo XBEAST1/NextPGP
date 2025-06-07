@@ -83,6 +83,11 @@ export function workerPool(task) {
         modalHandled = true;
       }
 
+      if (type === "error") {
+        worker.removeEventListener("message", handleMessage);
+        return;
+      }
+
       if (responseReceived && detailsReceived && toastHandled && modalHandled) {
         worker.removeEventListener("message", handleMessage);
         resolve(responsePayload);

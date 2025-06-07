@@ -191,14 +191,15 @@ export default function App() {
   }, [pgpKeys]);
 
   const handleSignerSelection = async (selectedItem) => {
+    const db = await openDB();
+    const transaction = db.transaction(
+      [dbPgpKeys, selectedSigners],
+      "readwrite"
+    );
+    const store = transaction.objectStore(selectedSigners);
+
     if (!selectedItem) {
       setSignerKey(null);
-      const db = await openDB();
-      const transaction = db.transaction(
-        [dbPgpKeys, selectedSigners],
-        "readwrite"
-      );
-      const store = transaction.objectStore(selectedSigners);
       store.clear();
       return;
     }
@@ -221,12 +222,7 @@ export default function App() {
       return;
     }
 
-    const db = await openDB();
-    const transaction = db.transaction(
-      [dbPgpKeys, selectedSigners],
-      "readwrite"
-    );
-    const store = transaction.objectStore(selectedSigners);
+    store.clear();
 
     const newSigner = {
       id: itemObj.id.toString(),
@@ -240,7 +236,7 @@ export default function App() {
     };
   };
 
-  const handleSelection = async (index, selectedItem) => {
+  const handleRecipientsSelection = async (index, selectedItem) => {
     if (!selectedItem) {
       let updatedRecipients = [...recipients];
       updatedRecipients[index] = "";
@@ -517,7 +513,7 @@ export default function App() {
                       ? `${selectedKey.keyId}-${selectedKey.userId}`
                       : ""
                   }
-                  onSelectionChange={(key) => handleSelection(index, key)}
+                  onSelectionChange={(key) => handleRecipientsSelection(index, key)}
                   defaultItems={recipientKeys
                     .flatMap((key) =>
                       key.userIDs.map((uid) => ({

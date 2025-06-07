@@ -833,6 +833,10 @@ onmessage = async function (e) {
             color: "danger",
           },
         });
+        postMessage({
+          type: "error",
+          payload: { message: `Incorrect password for file ${file.name}` },
+        });
       }
     }
   }
@@ -1147,6 +1151,10 @@ onmessage = async function (e) {
             title: "Incorrect Password for file " + file.name,
             color: "danger",
           },
+        });
+        postMessage({
+          type: "error",
+          payload: { message: `Incorrect password for file ${file.name}` },
         });
       }
     }
