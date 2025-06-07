@@ -985,6 +985,7 @@ onmessage = async function (e) {
               color: "success",
             },
           });
+          // Continue with next file
           continue;
         } catch (error) {
           console.error(

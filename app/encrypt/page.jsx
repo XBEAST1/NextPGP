@@ -12,6 +12,7 @@ import {
   Modal,
   ModalContent,
   Snippet,
+  Spinner,
 } from "@heroui/react";
 import {
   openDB,
@@ -41,6 +42,7 @@ export default function App() {
   const [files, setFiles] = useState(null);
   const [directoryFiles, setdirectoryFiles] = useState(null);
   const [isInputHovered, setisInputHovered] = useState(false);
+  const [encrypting, setEncrypting] = useState(false);
   const onSubmitPassword = useRef(null);
 
   const toggleVisibility = () => setIsVisible(!isVisible);
@@ -362,73 +364,90 @@ export default function App() {
   };
 
   const handleEncrypt = async () => {
-    let decryptedPrivateKey = null;
-    if (signerKey) {
-      decryptedPrivateKey = await getDecryptedPrivateKey();
-    }
+    setEncrypting(true);
+    try {
+      let decryptedPrivateKey = null;
+      if (signerKey) {
+        decryptedPrivateKey = await getDecryptedPrivateKey();
+      }
 
-    if (message) {
-      const task = {
-        type: "messageEncrypt",
-        responseType: "setEncryptedMessage",
-        message,
-        recipientKeys,
-        recipients,
-        isChecked,
-        encryptionPassword,
-        decryptedPrivateKey,
-      };
-      workerPool(task, addToast).then((encryptedMessage) => {
-        setOutput(encryptedMessage);
-      });
-    }
+      const tasks = [];
 
-    if (files) {
-      const fileTask = {
-        type: "fileEncrypt",
-        responseType: "downloadFile",
-        files,
-        recipientKeys,
-        recipients,
-        isChecked,
-        encryptionPassword,
-        decryptedPrivateKey,
-      };
-      workerPool(fileTask, addToast).then((result) => {
-        const blob = new Blob([result.encrypted], {
-          type: "application/octet-stream",
+      if (message) {
+        const task = {
+          type: "messageEncrypt",
+          responseType: "setEncryptedMessage",
+          message,
+          recipientKeys,
+          recipients,
+          isChecked,
+          encryptionPassword,
+          decryptedPrivateKey,
+        };
+        tasks.push(
+          workerPool(task, addToast).then((encryptedMessage) => {
+            setOutput(encryptedMessage);
+          })
+        );
+      }
+
+      if (files) {
+        const fileTask = {
+          type: "fileEncrypt",
+          responseType: "downloadFile",
+          files,
+          recipientKeys,
+          recipients,
+          isChecked,
+          encryptionPassword,
+          decryptedPrivateKey,
+        };
+        tasks.push(
+          workerPool(fileTask, addToast).then((result) => {
+            const blob = new Blob([result.encrypted], {
+              type: "application/octet-stream",
+            });
+            saveAs(blob, result.fileName);
+          })
+        );
+      }
+
+      if (directoryFiles) {
+        const dirTask = {
+          type: "fileEncrypt",
+          responseType: "downloadFile",
+          directoryFiles,
+          recipientKeys,
+          recipients,
+          isChecked,
+          encryptionPassword,
+          decryptedPrivateKey,
+          signerKey,
+        };
+        tasks.push(
+          workerPool(dirTask, addToast).then((result) => {
+            const blob = new Blob([result.encrypted], {
+              type: "application/octet-stream",
+            });
+            saveAs(blob, result.fileName);
+          })
+        );
+      }
+
+      if (!message && !files && !directoryFiles) {
+        addToast({
+          title: "Please enter a message or Select a File",
+          color: "danger",
         });
-        saveAs(blob, result.fileName);
-      });
-    }
+        setEncrypting(false);
+        return;
+      }
 
-    if (directoryFiles) {
-      const dirTask = {
-        type: "fileEncrypt",
-        responseType: "downloadFile",
-        directoryFiles,
-        recipientKeys,
-        recipients,
-        isChecked,
-        encryptionPassword,
-        decryptedPrivateKey,
-        signerKey,
-      };
-      workerPool(dirTask, addToast).then((result) => {
-        const blob = new Blob([result.encrypted], {
-          type: "application/octet-stream",
-        });
-        saveAs(blob, result.fileName);
-      });
+      await Promise.all(tasks);
+    } catch (error) {
+      console.error(error);
     }
-
-    if (!message && !files && !directoryFiles) {
-      addToast({
-        title: "Please enter a message or Select a File",
-        color: "danger",
-      });
-      return;
-    }
+    setEncrypting(false);
   };
 
   return (
@@ -606,11 +625,15 @@ export default function App() {
       </Snippet>
       <br />
       <br />
-      <Button onPress={handleEncrypt}>Encrypt</Button>
+      <Button disabled={encrypting} onPress={handleEncrypt}>
+        {encrypting ? <Spinner color="white" size="sm" /> : "🔒 Encrypt"}
+      </Button>
       <Modal
         backdrop="blur"
         isOpen={isPasswordModalOpen}
-        onClose={() => setIsPasswordModalOpen(false)}
+        onClose={() => {
+          setIsPasswordModalOpen(false), setEncrypting(false);
+        }}
       >
         <ModalContent className="p-5">
           <h3 className="mb-4">Signing Key Is Password Protected</h3>

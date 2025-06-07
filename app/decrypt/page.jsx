@@ -9,6 +9,7 @@ import {
   Button,
   addToast,
   Textarea,
+  Spinner,
 } from "@heroui/react";
 import { openDB, getStoredKeys } from "@/lib/indexeddb";
 import { saveAs } from "file-saver";
@@ -24,6 +25,7 @@ export default function App() {
   const [files, setFiles] = useState(null);
   const [currentPrivateKey, setCurrentPrivateKey] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [decrypting, setDecrypting] = useState(false);
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
@@ -48,6 +50,7 @@ export default function App() {
   };
 
   const handleDecrypt = async () => {
+    setDecrypting(true);
     setDetails("");
     setDecryptedMessage("");
 
@@ -56,59 +59,72 @@ export default function App() {
         title: "Please enter a PGP message or Select a File",
         color: "danger",
       });
+      setDecrypting(false);
       return;
     }
 
     try {
+      const tasks = [];
+
       if (inputMessage) {
-        await workerPool({
-          type: "messageDecrypt",
-          inputMessage,
-          pgpKeys,
-          password,
-          currentPrivateKey,
-          responseType: "setDecryptedMessage",
-          onDecryptedMessage: (payload) => setDecryptedMessage(payload),
-          onDetails: (payload) => setDetails(payload),
-          onToast: (payload) => addToast(payload),
-          onModal: (payload) => setIsPasswordModalOpen(payload),
-          onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
-        });
+        tasks.push(
+          new Promise((resolve, reject) => {
+            workerPool({
+              type: "messageDecrypt",
+              inputMessage,
+              pgpKeys,
+              password,
+              currentPrivateKey,
+              responseType: "setDecryptedMessage",
+              onDecryptedMessage: (payload) => {
+                setDecryptedMessage(payload);
+                resolve();
+              },
+              onDetails: (payload) =>
+                setDetails((prev) => (prev ? prev + "\n" + payload : payload)),
+              onToast: (payload) => addToast(payload),
+              onModal: (payload) => setIsPasswordModalOpen(payload),
+              onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
+            }).catch(reject);
+          })
+        );
       }
 
       if (files) {
-        const invalidFile = files.find(
-          (file) => !file.name.toLowerCase().endsWith(".gpg")
+        const fileTasks = files.map(
+          (file) =>
+            new Promise((resolve, reject) => {
+              workerPool({
+                type: "fileDecrypt",
+                files: [file],
+                pgpKeys,
+                password,
+                currentPrivateKey,
+                responseType: "downloadFile",
+                onDecryptedFile: (payload) => {
+                  if (payload && payload.fileName && payload.decrypted) {
+                    const blob = new Blob([payload.decrypted]);
+                    saveAs(blob, payload.fileName);
+                  }
+                  resolve();
+                },
+                onDetails: (payload) =>
+                  setDetails((prev) =>
+                    prev ? prev + "\n" + payload : payload
+                  ),
+                onToast: (payload) => addToast(payload),
+                onModal: (payload) => setIsPasswordModalOpen(payload),
+                onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
+              }).catch(reject);
+            })
         );
-        if (invalidFile) {
-          addToast({
-            title: "Invalid file type. Please select .gpg files only",
-            color: "danger",
-          });
-          return;
-        }
-        await workerPool({
-          type: "fileDecrypt",
-          files,
-          pgpKeys,
-          password,
-          currentPrivateKey,
-          responseType: "downloadFile",
-          onDecryptedFile: (payload) => {
-            if (payload && payload.fileName && payload.decrypted) {
-              const blob = new Blob([payload.decrypted]);
-              saveAs(blob, payload.fileName);
-            }
-          },
-          onDetails: (payload) => setDetails(payload),
-          onToast: (payload) => addToast(payload),
-          onModal: (payload) => setIsPasswordModalOpen(payload),
-          onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
-        });
+        tasks.push(...fileTasks);
       }
+      await Promise.all(tasks);
     } catch (error) {
       console.error("Decryption error:", error);
     }
+    setDecrypting(false);
   };
 
   const handlePasswordDecrypt = async () => {
@@ -119,57 +135,69 @@ export default function App() {
       });
       return;
     }
-
+    setDecrypting(true);
     try {
+      const tasks = [];
+
       if (inputMessage) {
-        await workerPool({
-          type: "messagePasswordDecrypt",
-          inputMessage,
-          pgpKeys,
-          password,
-          currentPrivateKey,
-          responseType: "setDecryptedMessage",
-          onDecryptedMessage: (payload) => setDecryptedMessage(payload),
-          onDetails: (payload) => setDetails(payload),
-          onToast: (payload) => addToast(payload),
-          onModal: (payload) => setIsPasswordModalOpen(payload),
-          onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
-        });
+        tasks.push(
+          new Promise((resolve, reject) => {
+            workerPool({
+              type: "messagePasswordDecrypt",
+              inputMessage,
+              pgpKeys,
+              password,
+              currentPrivateKey,
+              responseType: "setDecryptedMessage",
+              onDecryptedMessage: (payload) => {
+                setDecryptedMessage(payload);
+                resolve();
+              },
+              onDetails: (payload) =>
+                setDetails((prev) => (prev ? prev + "\n" + payload : payload)),
+              onToast: (payload) => addToast(payload),
+              onModal: (payload) => setIsPasswordModalOpen(payload),
+              onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
+            }).catch(reject);
+          })
+        );
       }
 
       if (files) {
-        const invalidFile = files.find(
-          (file) => !file.name.toLowerCase().endsWith(".gpg")
+        const fileTasks = files.map(
+          (file) =>
+            new Promise((resolve, reject) => {
+              workerPool({
+                type: "filePasswordDecrypt",
+                files: [file],
+                pgpKeys,
+                password,
+                currentPrivateKey,
+                responseType: "downloadFile",
+                onDecryptedFile: (payload) => {
+                  if (payload && payload.fileName && payload.decrypted) {
+                    const blob = new Blob([payload.decrypted]);
+                    saveAs(blob, payload.fileName);
+                  }
+                  resolve();
+                },
+                onDetails: (payload) =>
+                  setDetails((prev) =>
+                    prev ? prev + "\n" + payload : payload
+                  ),
+                onToast: (payload) => addToast(payload),
+                onModal: (payload) => setIsPasswordModalOpen(payload),
+                onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
+              }).catch(reject);
+            })
         );
-        if (invalidFile) {
-          addToast({
-            title: "Invalid file type. Please select .gpg files only",
-            color: "danger",
-          });
-          return;
-        }
-        await workerPool({
-          type: "filePasswordDecrypt",
-          files,
-          pgpKeys,
-          password,
-          currentPrivateKey,
-          responseType: "downloadFile",
-          onDecryptedFile: (payload) => {
-            if (payload && payload.fileName && payload.decrypted) {
-              const blob = new Blob([payload.decrypted]);
-              saveAs(blob, payload.fileName);
-            }
-          },
-          onDetails: (payload) => setDetails(payload),
-          onToast: (payload) => addToast(payload),
-          onModal: (payload) => setIsPasswordModalOpen(payload),
-          onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
-        });
+        tasks.push(...fileTasks);
       }
+      await Promise.all(tasks);
     } catch (error) {
       console.error("Password decryption error:", error);
     }
+    setDecrypting(false);
   };
 
   // Details Textareas Auto Expand Height
@@ -210,7 +238,7 @@ export default function App() {
         onChange={(e) => setInputMessage(e.target.value)}
       />
       <br />
-      <Input type="file" multiple onChange={handleFileUpload} />
+      <Input type="file" accept=".gpg" multiple onChange={handleFileUpload} />
       <br />
       <Textarea
         ref={detailsRef}
@@ -231,12 +259,16 @@ export default function App() {
         style={{ transition: "height 0.2s ease-out" }}
       />
       <br />
-      <Button onPress={handleDecrypt}>Decrypt</Button>
+      <Button disabled={decrypting} onPress={handleDecrypt}>
+        {decrypting ? <Spinner color="white" size="sm" /> : "🔓 Decrypt"}
+      </Button>
       {isPasswordModalOpen && (
         <Modal
           backdrop="blur"
           isOpen={isPasswordModalOpen}
-          onClose={() => setIsPasswordModalOpen(false)}
+          onClose={() => {
+            setIsPasswordModalOpen(false), setDecrypting(false);
+          }}
         >
           <ModalContent className="p-5">
             <h3 className="mb-4">Password Required</h3>
