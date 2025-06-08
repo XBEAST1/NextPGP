@@ -56,11 +56,98 @@
 
 ---
 
+<h2>📚 Vault & Cloud Flow Overview (Zero-Knowledge Architecture)</h2>
+
+#### Vault Creation
+```
+├─ User enters password
+├─ Generate 32-byte random verification text (Uint8Array)
+├─ Convert to hex string and add "VERIFY:" prefix
+├─ Encrypt combined verification text with password:
+│   ├─ Generate 16-byte random salt (for PBKDF2)
+│   ├─ Generate 12-byte random IV (for AES-GCM)
+│   ├─ Derive AES key from password + salt using PBKDF2 (1,000,000 iterations)
+│   ├─ Encrypt verification text using the derived AES Key + IV
+|   ├─ Combine salt + IV + ciphertext into one buffer
+|   └─ Base64 encode combined buffer → verificationCipher
+└─ Send the verificationCipher to the server and store in the database (no password sent)
+```
+
+#### Vault Login
+```
+├─ User enters password
+├─ Fetch verificationCipher from server
+├─ Decode base64 → extract salt, IV, ciphertext
+├─ Derive AES key from entered password + extracted salt PBKDF2 (1,000,000 iterations)
+├─ Decrypt ciphertext using the derived AES Key + IV
+├─ Check decrypted text:
+│   ├─ If starts with "VERIFY:" → password correct → unlock vault
+│   └─ Else → incorrect password → show error
+├─ Call VaultContext.unlockVault(password)
+│   ├─ Get masterKey from IndexedDB
+│   ├─ Encrypt vault password with AES-GCM + random IV using masterKey
+│   ├─ Store encrypted vault password + IV in React state (in-memory)
+│   └─ Set vault unlocked flag
+└─ Call server API `/api/vault/unlock`
+   └─ Issues secure jwt vault session token cookie (30 min expiry)
+```
+
+#### Vault Password Storage in VaultContext
+```
+├─ Vault password stored encrypted in React state
+├─ Encryption uses separate masterKey (from IndexedDB)
+└─ Password decrypted on-demand via VaultContext.getVaultPassword()
+```
+
+#### Cloud Backup
+```
+├─ Retrieve vault password by calling VaultContext.getVaultPassword()
+└─ For each PGP key to backup:
+    ├─ Compute hashes and compare with:
+    │   ├─ IndexedDB PGP key
+    │   └─ MongoDB PGP key
+    │       └─ To check the PGP key is already backed up to the MongoDB or not
+    ├─ Generate 16-byte random salt (for PBKDF2)
+    ├─ Generate 12-byte random IV (for AES-GCM)
+    ├─ Derive AES key from vault password + salt using PBKDF2 (1,000,000 iterations)
+    ├─ Encrypt PGP Key using the derived AES Key + IV
+    ├─ Combine salt + IV + PGP Key Cipher into one buffer
+    ├─ Base64 encode combined buffer → Encrypted PGP Key
+    └─ Send the encrypted PGP key and its hash to the server and store in the database
+```
+
+#### Cloud Manage
+```
+├─ Retrieve vault password by calling VaultContext.getVaultPassword()
+└─ Retrieve encrypted PGP keys from MongoDB
+    ├─ Decode base64 → extract salt, IV, PGP Key Cipher
+    ├─ Derive AES key from vault password + extracted salt PBKDF2 (1,000,000 iterations)
+    ├─ Decrypt each PGP Key Cipher using the derived AES Key + IV
+    ├─ User clicks on import PGP key button
+    ├─ Compare PGP Key hash with:
+    │   ├─ MongoDB PGP key
+    │   └─ IndexedDB PGP key
+    │       └─ To check that the PGP key is already imported to the IndexedDB or not
+    ├─ Get masterKey from IndexedDB
+    └─ Encrypt PGP Key with AES-GCM + random IV using masterKey and store in IndexedDB
+```
+
+#### Vault Locking
+```
+├─ User presses lock vault button or closes tab
+└─ VaultContext.lockVault()
+   ├─ Clears encrypted vault password from React state (in-memory)
+   ├─ Calls server API `/api/vault/lock` to revoke jwt vault session token
+   └─ Sets vault locked flag
+```
+
+---
+
 <h2>💻 Click To Watch Previews</h2>
 
 | Video 1 | Video 2 |
 | ------ | ------ |
-| [![Next PGP](https://img.youtube.com/vi/1gl4OlUaibY/maxresdefault.jpg)](https://www.youtube.com/watch?v=1gl4OlUaibY) | [![Next PGP](https://img.youtube.com/vi/TdBdOO4SRew/maxresdefault.jpg)](https://www.youtube.com/watch?v=TdBdOO4SRew) |
+| [![Next PGP](https://img.youtube.com/vi/1gl4OlUaibY/maxresdefault.jpg)](https://www.youtube.com/watch?v=1gl4OlUaibY) | [![Next PGP](https://img.youtube.com/vi/YZAAwo0ukS0/maxresdefault.jpg)](https://www.youtube.com/watch?v=YZAAwo0ukS0) |
 
 ---
 
