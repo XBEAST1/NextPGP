@@ -35,7 +35,7 @@ import {
   decryptData,
   dbPgpKeys,
 } from "@/lib/indexeddb";
-import { decrypt, encrypt, hashKey } from "@/lib/cryptoUtils";
+import { workerPool } from "@/lib/workerPool";
 import { NProgressLink } from "@/components/nprogress";
 import { useRouter } from "next/navigation";
 import { useVault } from "@/context/VaultContext";
@@ -187,20 +187,42 @@ const processKey = async (key, openpgpKey, vaultPassword, backedUpKeys) => {
     const isBackedUp = await (async () => {
       const statuses = await Promise.all(
         backedUpKeys.map(async (backedUpKey) => {
-          let decryptedCloudPublicKey = "";
-          let decryptedCloudPrivateKey = "";
+          const decryptionTasks = [];
           if (backedUpKey.publicKey) {
-            decryptedCloudPublicKey = await decrypt(
-              backedUpKey.publicKey,
-              vaultPassword
+            decryptionTasks.push(
+              workerPool(
+                {
+                  type: "decrypt",
+                  responseType: "decryptResponse",
+                  encryptedBase64: backedUpKey.publicKey,
+                  password: vaultPassword,
+                },
+                addToast
+              )
             );
+          } else {
+            decryptionTasks.push(Promise.resolve(""));
           }
+
           if (backedUpKey.privateKey) {
-            decryptedCloudPrivateKey = await decrypt(
-              backedUpKey.privateKey,
-              vaultPassword
+            decryptionTasks.push(
+              workerPool(
+                {
+                  type: "decrypt",
+                  responseType: "decryptResponse",
+                  encryptedBase64: backedUpKey.privateKey,
+                  password: vaultPassword,
+                },
+                addToast
+              )
             );
+          } else {
+            decryptionTasks.push(Promise.resolve(""));
           }
+
+          const [decryptedCloudPublicKey, decryptedCloudPrivateKey] =
+            await Promise.all(decryptionTasks);
+
           return (
             decryptedCloudPublicKey === key.publicKey ||
             (key.privateKey && decryptedCloudPrivateKey === key.privateKey)
@@ -734,12 +756,51 @@ export default function App() {
       const hasPublic = user.publicKey && user.publicKey.trim() !== "";
 
       if (hasPrivate) {
-        privateKeyHash = await hashKey(privateKeyRaw);
-        encryptedPrivateKey = await encrypt(privateKeyRaw, vaultPassword);
+        // Offload hashing and encryption concurrently to the crypto worker
+        const [hash, encrypted] = await Promise.all([
+          workerPool(
+            {
+              type: "hashKey",
+              responseType: "hashKeyResponse",
+              text: privateKeyRaw,
+            },
+            addToast
+          ),
+          workerPool(
+            {
+              type: "encrypt",
+              responseType: "encryptResponse",
+              text: privateKeyRaw,
+              password: vaultPassword,
+            },
+            addToast
+          ),
+        ]);
+        privateKeyHash = hash;
+        encryptedPrivateKey = encrypted;
       }
       if (!hasPrivate && hasPublic) {
-        publicKeyHash = await hashKey(user.publicKey);
-        encryptedPublicKey = await encrypt(user.publicKey, vaultPassword);
+        const [hash, encrypted] = await Promise.all([
+          workerPool(
+            {
+              type: "hashKey",
+              responseType: "hashKeyResponse",
+              text: user.publicKey,
+            },
+            addToast
+          ),
+          workerPool(
+            {
+              type: "encrypt",
+              responseType: "encryptResponse",
+              text: user.publicKey,
+              password: vaultPassword,
+            },
+            addToast
+          ),
+        ]);
+        publicKeyHash = hash;
+        encryptedPublicKey = encrypted;
       }
 
       // Construct payload with already hashed + encrypted keys
@@ -1029,8 +1090,9 @@ export default function App() {
                     Loading keyrings...
                     <br />
                     <span className="text-gray-300 text-sm">
-                      This may take some time depending on your device&apos;s
-                      performance.
+                      This may take some time depending
+                      <br className="block sm:hidden" />
+                      on your device&apos;s performance.
                     </span>
                   </div>
                 }

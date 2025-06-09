@@ -15,7 +15,7 @@ import { openDB } from "@/lib/indexeddb";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useVault } from "@/context/VaultContext";
-import { decrypt } from "@/lib/cryptoUtils";
+import { workerPool } from "@/lib/workerPool";
 import NProgress from "nprogress";
 import UserDetails from "@/components/userdetails";
 import ConnectivityCheck from "@/components/connectivity-check";
@@ -63,7 +63,14 @@ const Page = () => {
         return;
       }
 
-      const decrypted = await decrypt(verificationCipher, password);
+      const decrypted = await workerPool(
+        {
+          type: "decrypt",
+          responseType: "decryptResponse",
+          encryptedBase64: verificationCipher,
+          password,
+        },
+      );
 
       // Check if the decrypted text starts with "VERIFY:"
       if (!decrypted.startsWith("VERIFY:")) {
@@ -83,8 +90,7 @@ const Page = () => {
       const redirectUrl = searchParams.get("redirect") ?? "/cloud-backup";
       NProgress.start();
       router.push(redirectUrl);
-    } catch (e) {
-      console.error("Error during decryption:", e);
+    } catch {
       addToast({
         title: "Incorrect password",
         color: "danger",

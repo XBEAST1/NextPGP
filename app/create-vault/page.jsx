@@ -5,7 +5,7 @@ import { Button, Input, Spinner, addToast } from "@heroui/react";
 import { logout } from "@/actions/auth";
 import { useRouter } from "next/navigation";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "@/components/icons";
-import { encrypt } from "@/lib/cryptoUtils";
+import { workerPool } from "@/lib/workerPool";
 import UserDetails from "@/components/userdetails";
 import NProgress from "nprogress";
 import ConnectivityCheck from "@/components/connectivity-check";
@@ -74,7 +74,15 @@ const Page = () => {
 
       // Store the verification text with a prefix to identify it
       const combinedText = `VERIFY:${verificationText}`;
-      const verificationCipher = await encrypt(combinedText, password);
+      
+      const verificationCipher = await workerPool(
+        {
+          type: "encrypt",
+          responseType: "encryptResponse",
+          text: combinedText,
+          password,
+        },
+      );
 
       // Only send the cipher
       const res = await fetch("/api/create-vault", {

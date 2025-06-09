@@ -1829,8 +1829,9 @@ export default function App() {
                     Loading keyrings...
                     <br />
                     <span className="text-gray-300 text-sm">
-                      This may take some time depending on your device&apos;s
-                      performance.
+                      This may take some time depending
+                      <br className="block sm:hidden" />
+                      on your device&apos;s performance.
                     </span>
                   </div>
                 }

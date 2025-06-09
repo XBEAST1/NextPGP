@@ -19,9 +19,9 @@ import {
 import { NProgressLink } from "@/components/nprogress";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { HeartFilledIcon } from "@/components/icons";
+import { useTheme } from "next-themes";
 import Logo from "@/assets/Logo.png";
 import LogoLight from "@/assets/Logo-Light.png";
-import { useTheme } from "next-themes";
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useReducer(
@@ -39,6 +39,7 @@ export const Navbar = () => {
     { label: "Decrypt", href: "/decrypt" },
     { label: "Cloud Backup", href: "/cloud-backup" },
     { label: "Cloud Manage", href: "/cloud-manage" },
+    { label: "About", href: "/about" },
     { label: "Open Source", href: "https://github.com/XBEAST1/NextPGP" },
   ];
 
@@ -55,7 +56,10 @@ export const Navbar = () => {
         justify="start"
       >
         <NavbarBrand as="li" className="gap-3 max-w-fit">
-          <NProgressLink className="flex justify-start items-center gap-1" href="/">
+          <NProgressLink
+            className="flex justify-start items-center gap-1"
+            href="/"
+          >
             <img
               width={70}
               src={theme === "light" ? LogoLight.src : Logo.src}
@@ -64,6 +68,9 @@ export const Navbar = () => {
             <p className="font-bold text-inherit">Next PGP</p>
           </NProgressLink>
         </NavbarBrand>
+        <NavbarItem className="hidden lg:flex gap-2 mb-1">
+          <ThemeSwitch />
+        </NavbarItem>
       </NavbarContent>
 
       <NavbarContent className="hidden lg:flex gap-4 ms-12" justify="center">
@@ -168,7 +175,10 @@ export const Navbar = () => {
             }}
           >
             <DropdownItem textValue="Backup">
-              <NProgressLink className="text-decoration-none" href="/cloud-backup">
+              <NProgressLink
+                className="text-decoration-none"
+                href="/cloud-backup"
+              >
                 <div>
                   Backup Keyrings
                   <p className="text-default-500 text-xs">
@@ -178,7 +188,10 @@ export const Navbar = () => {
               </NProgressLink>
             </DropdownItem>
             <DropdownItem textValue="Import">
-              <NProgressLink className="text-decoration-none" href="/cloud-manage">
+              <NProgressLink
+                className="text-decoration-none"
+                href="/cloud-manage"
+              >
                 <div>
                   Manage Keyrings
                   <p className="text-default-500 text-xs">
@@ -195,8 +208,15 @@ export const Navbar = () => {
         className="hidden lg:flex basis-1/5 lg:basis-full"
         justify="end"
       >
-        <NavbarItem className="hidden lg:flex gap-2">
-          <ThemeSwitch />
+        <NavbarItem className="hidden md:flex">
+          <Button
+            as={NProgressLink}
+            className="text-sm font-normal text-default-600 bg-default-100"
+            href="/about"
+            variant="flat"
+          >
+            ℹ️ About
+          </Button>
         </NavbarItem>
         <NavbarItem className="hidden md:flex">
           <Button

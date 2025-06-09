@@ -37,7 +37,7 @@ import {
   getStoredKeys,
   dbPgpKeys,
 } from "@/lib/indexeddb";
-import { computeKeyHash, decrypt } from "@/lib/cryptoUtils";
+import { workerPool } from "@/lib/workerPool";
 import { NProgressLink } from "@/components/nprogress";
 import { useRouter } from "next/navigation";
 import ConnectivityCheck from "@/components/connectivity-check";
@@ -156,13 +156,40 @@ const processKey = async (key, vaultPassword, storedKeys) => {
   try {
     let decryptedCloudPrivateKey = "";
     let decryptedCloudPublicKey = "";
+    const decryptionTasks = [];
 
     if (key.privateKey) {
-      decryptedCloudPrivateKey = await decrypt(key.privateKey, vaultPassword);
+      decryptionTasks.push(
+        workerPool(
+          {
+            type: "decrypt",
+            responseType: "decryptResponse",
+            encryptedBase64: key.privateKey,
+            password: vaultPassword,
+          },
+          addToast
+        ).then((result) => {
+          decryptedCloudPrivateKey = result;
+        })
+      );
     }
     if (key.publicKey) {
-      decryptedCloudPublicKey = await decrypt(key.publicKey, vaultPassword);
+      decryptionTasks.push(
+        workerPool(
+          {
+            type: "decrypt",
+            responseType: "decryptResponse",
+            encryptedBase64: key.publicKey,
+            password: vaultPassword,
+          },
+          addToast
+        ).then((result) => {
+          decryptedCloudPublicKey = result;
+        })
+      );
     }
+
+    await Promise.all(decryptionTasks);
 
     const openpgpKey = await openpgp.readKey({
       armoredKey: decryptedCloudPrivateKey || decryptedCloudPublicKey,
@@ -568,7 +595,7 @@ export default function App() {
             u.id === selectedUser.id ? { ...u, status: "Imported" } : u
           )
         );
-
+        
       } else {
         const keyType = keyData.privateKey === null ? "Public Key" : "Keyring";
         addToast({
@@ -727,10 +754,24 @@ export default function App() {
       let requestBody = { keyId: user.id };
 
       if (user.decryptedPrivateKey) {
-        const privateKeyHash = await computeKeyHash(user.decryptedPrivateKey);
+        const privateKeyHash = await workerPool(
+          {
+            type: "hashKey",
+            responseType: "hashKeyResponse",
+            text: user.decryptedPrivateKey,
+          },
+          addToast
+        );
         requestBody.privateKeyHash = privateKeyHash;
       } else if (user.decryptedPublicKey) {
-        const publicKeyHash = await computeKeyHash(user.decryptedPublicKey);
+        const publicKeyHash = await workerPool(
+          {
+            type: "hashKey",
+            responseType: "hashKeyResponse",
+            text: user.decryptedPublicKey,
+          },
+          addToast
+        );
         requestBody.publicKeyHash = publicKeyHash;
       }
 
@@ -994,8 +1035,9 @@ export default function App() {
                     Loading keyrings...
                     <br />
                     <span className="text-gray-300 text-sm">
-                      This may take some time depending on your device&apos;s
-                      performance.
+                      This may take some time depending
+                      <br className="block sm:hidden" />
+                      on your device&apos;s performance.
                     </span>
                   </div>
                 }

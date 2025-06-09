@@ -8,13 +8,75 @@
 
 <h2>🚀 Features</h2>
 <ul>
-  <li><b>Key Generation:</b> Effortlessly generate secure PGP keys to protect sensitive information.</li>
-  <li><b>Keyring Management:</b> Easily add, manage, and delete keyrings for seamless key organization.</li>
-  <li><b>Encryption & Decryption:</b> Encrypt and decrypt messages and files securely with an intuitive user interface.</li>
-  <li><b>Batch File Encryption & Decryption:</b> Efficiently encrypt and decrypt multiple files at once.</li>
-  <li><b>Folder Encryption & Decryption:</b> Securely Encrypt and Decrypt entire folders while maintaining the <b>original directory structure</b> (recursive encryption).</li>
-  <li><b>Cloud Management:</b> Securely backup and manage PGP keys in the cloud, with encrypted vaults ensuring top tier protection.</li>
-  <li><b>Encrypted Vaults:</b> Each user’s vault is secured with a password-derived key using <b>PBKDF2</b> (1,000,000 iterations, SHA-256), and vault data including <b>verification cipher</b> is encrypted client-side using <b>AES-256-GCM</b> for strong confidentiality and integrity.</li>
+  <li><b>Key Generation:</b>
+    <ul>
+      <li>Effortlessly generate secure PGP keys</li>
+      <li>Supports multiple algorithms, including:
+        <ul>
+          <li>Curve25519 (EdDSA/ECDH) - Recommended</li>
+          <li>NIST P-256, P-521 (ECDSA/ECDH)</li>
+          <li>Brainpool P-256r1, P-512r1 (ECDSA/ECDH)</li>
+          <li>RSA 2048, 3072, 4096</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+
+  <li><b>Keyring Management:</b>
+    <ul>
+      <li>Add, manage, delete, import, export, and backup keys</li>
+      <li>Change key validity periods</li>
+      <li>Add, change, and remove passphrases</li>
+      <li>Add, manage, and delete User IDs</li>
+      <li>Revoke keys securely when needed</li>
+    </ul>
+  </li>
+
+  <li><b>Encryption & Decryption:</b>
+    <ul>
+      <li>Encrypt and decrypt messages with ease</li>
+      <li>Secure file encryption and decryption</li>
+      <li>Intuitive user interface for seamless operation</li>
+    </ul>
+  </li>
+
+  <li><b>Batch File Encryption & Decryption:</b>
+    <ul>
+      <li>Encrypt multiple files at once</li>
+      <li>Decrypt multiple files efficiently</li>
+    </ul>
+  </li>
+
+  <li><b>Folder Encryption & Decryption:</b>
+    <ul>
+      <li>Encrypt and decrypt entire folders recursively</li>
+      <li>Maintain original directory structure</li>
+    </ul>
+  </li>
+
+  <li><b>Cloud Management:</b>
+    <ul>
+      <li>Securely backup PGP keys to the cloud</li>
+      <li>Manage keys remotely with encrypted vaults</li>
+      <li>Ensure top-tier protection with <b>end-to-end encryption</b></li>
+    </ul>
+  </li>
+
+  <li><b>Encrypted Vaults:</b>
+    <ul>
+      <li>Password-derived key security using <b>PBKDF2</b> (1,000,000 iterations, SHA-512)</li>
+      <li>Vault data including <b>verification cipher</b> encrypted client-side</li>
+      <li>Strong confidentiality and integrity with <b>AES-256-GCM</b></li>
+    </ul>
+  </li>
+
+  <li><b>Web Worker Multithreading:</b>
+    <ul>
+      <li>Dynamically scales encryption and decryption workloads in parallel across <b>all CPU cores</b></li>
+      <li>Keeps the interface fast and responsive, even during <b>heavy processing</b></li>
+      <li>Automatically adapts to <b>your device's performance</b> capabilities</li>
+    </ul>
+  </li>
 </ul>
 
 ---
@@ -37,6 +99,7 @@
   <li><b>Database:</b> MongoDB for cloud storage and user vault management.</li>
   <li><b>PWA Integration:</b> Service workers, manifest setup, and offline support.</li>
   <li><b>State Management:</b> Efficient handling of state for keyrings and messages.</li>
+  <li><b>Performance Optimization:</b> Dynamic Web Worker pool for parallel cryptographic operations using all available CPU cores</li>
 </ul>
 
 ---
@@ -48,7 +111,7 @@
   <li><b>True End-to-End Encryption (E2EE):</b> All encryption and decryption happens entirely on the <b>client-side</b>. Your <b>PGP keys</b>, <b>vault contents</b>, and <b>sensitive data</b> are encrypted before ever <b>leaving your device</b> — the server never sees them <b>unencrypted</b>.</li>
   <li><b>Vault Protection:</b> Your vault password is used to derive an encryption key via <b>PBKDF2</b> (with 1,000,000 iterations) on the client, securing your data with <b>AES-256-GCM</b>. For authentication, the password verification is also handled client-side ensuring <b>zero-knowledge architecture</b> at every layer.</li>
   <li><b>Zero-knowledge cloud storage:</b> Although you can back up and sync your encrypted vault to the cloud, it is <b>fully opaque</b> to the server. Only <b>you can decrypt it</b>.</li>
-  <li><b>In-memory vault context:</b> Vault password is never stored in session or local storage — it’s kept in <b>memory only</b> while the app is open, adding an additional layer of <b>runtime safety</b>.</li>
+  <li><b>In-memory vault context:</b> Vault password is never stored in session or local storage — it's kept in <b>memory only</b> while the app is open, adding an additional layer of <b>runtime safety</b>.</li>
   <li><b>Built on HTTPS + Web Crypto API:</b> Communication is always <b>encrypted in transit</b>, and cryptographic operations use <b>trusted, native browser APIs</b>.</li>
 </ul>
 
@@ -153,16 +216,16 @@
 
 <h2>📸 Screenshots</h2>
 <h3>💻 PC</h3>
-<img width="410px" src="https://github.com/user-attachments/assets/1f2d772a-08b6-4498-b837-bd64495758a0" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/6eea6178-bf5f-4cd2-94b2-7271d196fce0" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/7fa7ac95-5c86-4f80-8d72-1825c71b9f68" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/9cac8569-082b-4a56-afef-f4f51b2acf53" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/150e1f10-fc25-4517-9a75-db056c93b97e" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/c86e1217-496a-4ade-a10e-63aa5f93abb3" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/6a040f34-8fed-4ab2-85b8-53d9b6fcfff8" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/eb8b3130-bed1-4e84-9af1-8666c9385f59" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/96eef080-7aea-496b-8147-33dcec93044b" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/9cd5e356-d292-413f-8e97-0b5c0945b6af" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/f8fefe61-ab36-4441-82e3-88a62f65117e" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/5cfeda3a-48fa-46f2-9b15-018d9563fc18" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/64993170-c9bf-4e74-9cdb-f14e6ac8ea9c" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/b6b04a60-1d12-4497-b582-1803fef1d116" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/f40d8d13-4e89-4c61-bc31-6bada9e0699a" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/22b7b0e2-8677-4c47-8a0f-87b521136967" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/190e1000-5b1d-4554-bdd5-59a6b753ecf5" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/6bf0a3f5-2673-4c54-8b80-23f361954e91" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/81bd6714-af57-4917-9735-d584b213b043" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/a9e5a9fc-e19c-4569-bbac-f81d0cd51665" alt="Image">
 
 <h3>📱 Mobile</h3>
 <img width="270px" src="https://github.com/user-attachments/assets/cc2e314b-0d61-495b-838a-3bb3c35a2ef8" alt="Image">

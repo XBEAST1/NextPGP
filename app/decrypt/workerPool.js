@@ -4,12 +4,14 @@
 let workers = [];
 if (typeof window !== "undefined" && typeof Worker !== "undefined") {
   const numWorkers = navigator.hardwareConcurrency || 4;
-  workers = Array.from(
-    { length: numWorkers },
-    () => new Worker(new URL("./decryptWorker.js", import.meta.url))
-  );
+  workers = Array.from({ length: numWorkers }, () => {
+    const workerUrl = new URL("./decryptWorker.js?worker", import.meta.url);
+    return new Worker(workerUrl, { type: "module" });
+  });
   console.log(
-    `[NextPGP] Initialized ${workers.length} parallel worker thread${workers.length > 1 ? "s" : ""} to fully utilize multicore CPU performance.`
+    `[NextPGP] Initialized ${workers.length} parallel worker thread${
+      workers.length > 1 ? "s" : ""
+    } to fully utilize multicore CPU performance.`
   );
 }
 
