@@ -216,16 +216,16 @@
 
 <h2>📸 Screenshots</h2>
 <h3>💻 PC</h3>
-<img width="410px" src="https://github.com/user-attachments/assets/f8fefe61-ab36-4441-82e3-88a62f65117e" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/5cfeda3a-48fa-46f2-9b15-018d9563fc18" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/64993170-c9bf-4e74-9cdb-f14e6ac8ea9c" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/b6b04a60-1d12-4497-b582-1803fef1d116" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/f40d8d13-4e89-4c61-bc31-6bada9e0699a" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/22b7b0e2-8677-4c47-8a0f-87b521136967" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/190e1000-5b1d-4554-bdd5-59a6b753ecf5" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/6bf0a3f5-2673-4c54-8b80-23f361954e91" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/81bd6714-af57-4917-9735-d584b213b043" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/a9e5a9fc-e19c-4569-bbac-f81d0cd51665" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/d19ebf42-6bb0-40d6-82b4-bc34472c6814" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/de599f7c-b133-4ca1-ac3c-dcf8a8589c3c" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/45e823b0-2218-482d-9e7f-3ee46dd547dd" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/e57d92bf-1b33-41e3-a1ce-2a6b1d59aca9" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/04948ea5-2328-4b39-bc99-d6be931174cc" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/0a2dddf8-426b-4f23-adb7-e5790d2560e6" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/9cb0ebde-8b48-4187-a67e-ebd7fa4c6917" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/069f1832-cb55-4dd4-b12d-44c6e08f07e4" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/b37758e7-c460-4ab7-9efb-ab71e55c51f4" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/167d1b09-1ed7-49a1-8dff-107048b276ef" alt="Image">
 
 <h3>📱 Mobile</h3>
 <img width="270px" src="https://github.com/user-attachments/assets/cc2e314b-0d61-495b-838a-3bb3c35a2ef8" alt="Image">
