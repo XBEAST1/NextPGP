@@ -259,7 +259,7 @@ export default function App() {
         onChange={(e) => setInputMessage(e.target.value)}
       />
       <br />
-      <Input type="file" accept=".gpg" multiple onChange={handleFileUpload} />
+      <Input type="file" accept=".gpg, .sig, .pgp" multiple onChange={handleFileUpload} />
       <br />
       <Textarea
         ref={detailsRef}

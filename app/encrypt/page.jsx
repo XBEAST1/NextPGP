@@ -628,8 +628,30 @@ export default function App() {
       </Snippet>
       <br />
       <br />
-      <Button className="w-24" disabled={encrypting} onPress={handleEncrypt}>
-        {encrypting ? <Spinner color="white" size="sm" /> : "🔒 Encrypt"}
+      <Button
+        className={`${
+          !isChecked &&
+          !recipients.some((r) => typeof r === "object" && r.keyId) &&
+          !signerKey
+            ? "w-30"
+            : "w-24"
+        }`}
+        disabled={encrypting}
+        onPress={handleEncrypt}
+      >
+        {encrypting ? (
+          <Spinner color="white" size="sm" />
+        ) : recipients.some((r) => typeof r === "object" && r.keyId) ? (
+          "🔒 Encrypt"
+        ) : !isChecked ? (
+          !signerKey ? (
+            "📝 Sign \u00A0/ 🔒 Encrypt"
+          ) : (
+            "📝 Sign"
+          )
+        ) : (
+          "🔒 Encrypt"
+        )}
       </Button>
       <Modal
         backdrop="blur"

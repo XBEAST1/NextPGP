@@ -27,15 +27,30 @@ onmessage = async function (e) {
         )
         .map((key) => key.publicKey);
 
-      // Validate that at least one recipient or a password is available.
-      if (!isChecked && recipientKeysPublic.length === 0) {
-        postMessage({
-          type: "addToast",
-          payload: {
-            title: "Please select at least one recipient or provide a password",
-            color: "danger",
-          },
-        });
+      // If neither recipients nor a password is provided, then sign the message only.
+      if (recipientKeysPublic.length === 0 && !isChecked) {
+        if (decryptedPrivateKey) {
+          const signingKey = await openpgp.readPrivateKey({
+            armoredKey: decryptedPrivateKey,
+          });
+          const cleartextMessage = await openpgp.createCleartextMessage({
+            text: message,
+          });
+          const signedMessage = await openpgp.sign({
+            message: cleartextMessage,
+            signingKeys: signingKey,
+          });
+          postMessage({ type: "setEncryptedMessage", payload: signedMessage });
+        } else {
+          postMessage({
+            type: "addToast",
+            payload: {
+              title:
+                "Please provide a signing key, select at least one recipient, or enter a password",
+              color: "danger",
+            },
+          });
+        }
         return;
       }
 
@@ -128,15 +143,37 @@ onmessage = async function (e) {
         )
         .map((key) => key.publicKey);
 
-      // Validate that at least one recipient or a password is provided.
+      // If neither recipients nor a password is provided, then sign the file only.
       if (recipientKeysPublic.length === 0 && !isChecked) {
-        postMessage({
-          type: "addToast",
-          payload: {
-            title: "Please select at least one recipient or provide a password",
-            color: "danger",
-          },
-        });
+        if (decryptedPrivateKey) {
+          const signingKey = await openpgp.readPrivateKey({
+            armoredKey: decryptedPrivateKey,
+          });
+          const messageToSign = await openpgp.createMessage({
+            binary: fileToEncrypt,
+          });
+          const signedFile = await openpgp.sign({
+            message: messageToSign,
+            signingKeys: signingKey,
+            format: "binary",
+          });
+          postMessage({
+            type: "downloadFile",
+            payload: {
+              fileName: `${outputFileName}.sig`,
+              encrypted: signedFile,
+            },
+          });
+        } else {
+          postMessage({
+            type: "addToast",
+            payload: {
+              title:
+                "Please provide a signing key, select at least one recipient, or enter a password",
+              color: "danger",
+            },
+          });
+        }
         return;
       }
 
