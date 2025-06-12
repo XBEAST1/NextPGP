@@ -3,12 +3,11 @@
 import { useState, useEffect } from "react";
 import {
   openDB,
-  getEncryptionKey,
-  encryptData,
   getStoredKeys,
-  dbPgpKeys,
+  saveKeyToIndexedDB,
 } from "@/lib/indexeddb";
 import { Textarea, Button, Input, addToast } from "@heroui/react";
+import KeyServer from "@/components/keyserver";
 import * as openpgp from "openpgp";
 
 // Extract only the PGP keys from the content
@@ -30,22 +29,11 @@ const extractPGPKeys = (content) => {
 export default function ImportKeyPage() {
   const [keyInput, setKeyInput] = useState("");
   const [fileContents, setFileContents] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     openDB();
   }, []);
-
-  const saveKeyToIndexedDB = async (keyData) => {
-    const encryptionKey = await getEncryptionKey();
-    const { encrypted, iv } = await encryptData(keyData, encryptionKey);
-
-    const db = await openDB();
-    const transaction = db.transaction(dbPgpKeys, "readwrite");
-    const store = transaction.objectStore(dbPgpKeys);
-
-    // Save the encrypted data along with its id.
-    store.put({ id: keyData.id, encrypted, iv });
-  };
 
   const checkIfKeyExists = async (newKeyData) => {
     const existingKeys = await getStoredKeys();
@@ -71,6 +59,14 @@ export default function ImportKeyPage() {
       const key = await openpgp.readKey({
         armoredKey: privateKey || publicKey,
       });
+
+      if (!key || !key.getUserIDs || key.getUserIDs().length === 0) {
+        addToast({
+          title: "The PGP key is Corrupted",
+          color: "danger",
+        });
+        return;
+      }
 
       const isPrivateKey = privateKey !== null;
 
@@ -167,13 +163,28 @@ export default function ImportKeyPage() {
     <>
       <h1 className="text-center text-4xl dm-serif-text-regular">Import Key</h1>
       <br />
-      <p className="ms-1 mb-3 text-small">Upload PGP Key File</p>
-      <Input
-        multiple
-        type="file"
-        accept=".asc,.txt,.key"
-        onChange={handleFileInput}
-      />
+      <div className="flex flex-col sm:flex-row gap-3 mt-6 w-full">
+        <Input
+          className="w-full sm:w-1/2"
+          multiple
+          type="file"
+          accept=".asc,.txt,.key"
+          onChange={handleFileInput}
+        />
+
+        <span className="text-center text-sm text-gray-300 sm:mt-3">Or</span>
+
+        <Button
+          className="w-full sm:w-1/2 border-0"
+          variant="faded"
+          onPress={() => setIsModalOpen(true)}
+        >
+          Import From Keyserver
+        </Button>
+
+        <KeyServer isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      </div>
+
       <br />
       <Textarea
         disableAutosize

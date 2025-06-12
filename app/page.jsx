@@ -351,6 +351,7 @@ export default function App() {
   const [revocationReasonText, setRevocationReasonText] = useState("");
   const [revocationReasonModal, setrevocationReasonModal] = useState(false);
   const [revocationInfo, setRevocationInfo] = useState(null);
+  const [PublishKeyModal, setPublishKeyModal] = useState(false);
   const [deleteModal, setdeleteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [visibleColumns, setVisibleColumns] = useState(
@@ -433,6 +434,17 @@ export default function App() {
                   View User IDs
                 </DropdownItem>
               )}
+
+            <DropdownItem
+              key="publish-key"
+              onPress={() => {
+                setSelectedUserId(user);
+                setSelectedKeyName(user.name);
+                setPublishKeyModal(true);
+              }}
+            >
+              Publish On Server
+            </DropdownItem>
 
             <DropdownItem
               key="export-public-key"
@@ -614,8 +626,18 @@ export default function App() {
     let filteredUsers = [...users];
 
     if (filterValue) {
-      filteredUsers = filteredUsers.filter((user) =>
-        user.name.toLowerCase().includes(filterValue.toLowerCase())
+      filteredUsers = filteredUsers.filter(
+        (user) =>
+          user.name.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.email.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.creationdate.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.expirydate.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.status.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.passwordprotected
+            .toLowerCase()
+            .includes(filterValue.toLowerCase()) ||
+          user.keyid.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.fingerprint.toLowerCase().includes(filterValue.toLowerCase())
       );
     }
 
@@ -1371,6 +1393,33 @@ export default function App() {
     return null;
   };
 
+  const publishKeyOnServer = async () => {
+    try {
+      const response = await fetch("/api/keyserver", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          publicKey: selectedUserId.publicKey,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to publish key on the server.");
+      }
+      addToast({
+        title: "Key published successfully",
+        color: "success",
+      });
+    } catch (error) {
+      console.error("Error publishing key:", error);
+      addToast({
+        title: "Failed to publish key",
+        color: "danger",
+      });
+    }
+  };
+
   const closedeleteModal = () => {
     setSelectedUserId(null);
     setSelectedKeyName("");
@@ -1419,7 +1468,7 @@ export default function App() {
           <Input
             isClearable
             className="w-full sm:max-w-[100%]"
-            placeholder="Search by name..."
+            placeholder="Search all fields (name, email, dates, status, key ID, fingerprint, etc.)"
             startContent={<SearchIcon />}
             value={filterValue}
             onClear={() => onClear()}
@@ -1429,7 +1478,8 @@ export default function App() {
             <DropdownTrigger>
               <Button
                 endContent={<ChevronDownIcon className="text-small" />}
-                variant="flat"
+                variant="faded"
+                className="border-0"
               >
                 Columns
               </Button>
@@ -1579,8 +1629,10 @@ export default function App() {
   const filteredItemsModal = useMemo(() => {
     let filtered = [...modalUserIDs];
     if (Boolean(filterValueModal)) {
-      filtered = filtered.filter((user) =>
-        user.name.toLowerCase().includes(filterValueModal.toLowerCase())
+      filtered = filtered.filter(
+        (user) =>
+          user.name.toLowerCase().includes(filterValueModal.toLowerCase()) ||
+          user.email.toLowerCase().includes(filterValueModal.toLowerCase())
       );
     }
     return filtered;
@@ -1715,7 +1767,7 @@ export default function App() {
           <Input
             isClearable
             className="w-full"
-            placeholder="Search by name..."
+            placeholder="Search by name or email..."
             startContent={<SearchIcon />}
             value={filterValueModal}
             onClear={() => onClearModal()}
@@ -1786,7 +1838,7 @@ export default function App() {
     <>
       <Table
         isHeaderSticky
-        aria-label="Example table with custom cells, pagination and sorting"
+        aria-label="Keyrings Table"
         bottomContent={bottomContent}
         bottomContentPlacement="outside"
         sortDescriptor={sortDescriptor}
@@ -1829,7 +1881,7 @@ export default function App() {
                     Loading keyrings...
                     <br />
                     <span className="text-gray-300 text-sm">
-                      This may take some time depending
+                      This may take some time depending{" "}
                       <br className="block sm:hidden" />
                       on your device&apos;s performance.
                     </span>
@@ -1848,11 +1900,11 @@ export default function App() {
                 <Button as={NProgressLink} href="/import">
                   Import Key
                 </Button>
-                <span className="mx-3 mt-1">or</span>
+                <span className="mx-3 mt-2">or</span>
                 <Button as={NProgressLink} href="/cloud-manage">
                   Import Keyrings From Cloud
                 </Button>
-                <span className="mx-3 mt-1">or</span>
+                <span className="mx-3 mt-2">or</span>
                 <Button as={NProgressLink} href="/generate">
                   Generate Key
                 </Button>
@@ -1899,7 +1951,7 @@ export default function App() {
             onChange={(date) => setExpiryDate(date)}
           />
           <Button
-            className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+            className="mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
             onPress={handleUpdateValidity}
           >
             Confirm
@@ -1948,7 +2000,7 @@ export default function App() {
             }
           />
           <Button
-            className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+            className="mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
             onPress={() => {
               if (password.trim() === "") {
                 addToast({
@@ -2006,7 +2058,7 @@ export default function App() {
             }
           />
           <Button
-            className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+            className="mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
             onPress={() => {
               if (password.trim() === "") {
                 addToast({
@@ -2106,13 +2158,15 @@ export default function App() {
 
           <div className="flex gap-2">
             <Button
-              className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+              className="w-full mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
               onPress={() => setaddUserIDModal(false)}
             >
               Cancel
             </Button>
             <Button
-              className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
+              className="w-full mt-4 px-4 py-2 text-white rounded-full"
+              color="success"
+              variant="flat"
               onPress={() => addUserID(selectedUserId)}
             >
               Add
@@ -2359,6 +2413,58 @@ export default function App() {
               }}
             >
               Close
+            </Button>
+          </div>
+        </ModalContent>
+      </Modal>
+      <Modal
+        size="2xl"
+        backdrop="blur"
+        isOpen={PublishKeyModal}
+        onClose={() => setPublishKeyModal(false)}
+      >
+        <ModalContent className="p-5">
+          <h3 className="mb-2 font-semibold text-lg">
+            Are you sure you want to publish {selectedKeyName}&apos;s public key
+            to the server?
+          </h3>
+
+          <div className="mb-4 text-sm text-yellow-400">
+            <p className="font-semibold mb-2">
+              ⚠️ Once an OpenPGP public key is published to a public directory
+              server, it cannot be removed.
+            </p>
+            <p className="mb-2">
+              Before proceeding, ensure you have generated a revocation
+              certificate. This is essential in case your key is compromised,
+              lost, or if you forget the passphrase.
+            </p>
+            <p>Do you still want to continue?</p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
+              onPress={() => setPublishKeyModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="w-full mt-4 px-4 py-2 text-white rounded-full"
+              color="warning"
+              variant="flat"
+              onPress={async () => {
+                await publishKeyOnServer();
+                setPublishKeyModal(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  publishKeyOnServer();
+                  setPublishKeyModal(false);
+                }
+              }}
+            >
+              Yes, Publish Key
             </Button>
           </div>
         </ModalContent>

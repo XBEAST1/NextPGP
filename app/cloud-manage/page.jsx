@@ -595,7 +595,6 @@ export default function App() {
             u.id === selectedUser.id ? { ...u, status: "Imported" } : u
           )
         );
-        
       } else {
         const keyType = keyData.privateKey === null ? "Public Key" : "Keyring";
         addToast({
@@ -647,8 +646,19 @@ export default function App() {
     let filteredUsers = [...users];
 
     if (filterValue) {
-      filteredUsers = filteredUsers.filter((user) =>
-        user.name.toLowerCase().includes(filterValue.toLowerCase())
+      filteredUsers = filteredUsers.filter(
+        (user) =>
+          user.name.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.email.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.creationdate.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.expirydate.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.keystatus.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.passwordprotected
+            .toLowerCase()
+            .includes(filterValue.toLowerCase()) ||
+          user.status.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.keyid.toLowerCase().includes(filterValue.toLowerCase()) ||
+          user.fingerprint.toLowerCase().includes(filterValue.toLowerCase())
       );
     }
 
@@ -868,7 +878,7 @@ export default function App() {
           <Input
             isClearable
             className="w-full sm:max-w-[100%]"
-            placeholder="Search by name..."
+            placeholder="Search all fields (name, email, dates, status, key ID, fingerprint, etc.)"
             startContent={<SearchIcon />}
             value={filterValue}
             onClear={() => onClear()}
@@ -878,7 +888,8 @@ export default function App() {
             <DropdownTrigger>
               <Button
                 endContent={<ChevronDownIcon className="text-small" />}
-                variant="flat"
+                variant="faded"
+                className="border-0"
               >
                 Columns
               </Button>
@@ -987,7 +998,7 @@ export default function App() {
       <ConnectivityCheck />
       <Table
         isHeaderSticky
-        aria-label="Example table with custom cells, pagination and sorting"
+        aria-label="Keyrings Table"
         bottomContent={bottomContent}
         bottomContentPlacement="outside"
         classNames={{
@@ -1035,7 +1046,7 @@ export default function App() {
                     Loading keyrings...
                     <br />
                     <span className="text-gray-300 text-sm">
-                      This may take some time depending
+                      This may take some time depending{" "}
                       <br className="block sm:hidden" />
                       on your device&apos;s performance.
                     </span>
@@ -1117,7 +1128,7 @@ export default function App() {
             }
           />
           <Button
-            className="mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+            className="mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
             onPress={() => {
               if (password.trim() === "") {
                 addToast({
