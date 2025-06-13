@@ -346,6 +346,9 @@ export default function App() {
   const [modalUserIDs, setModalUserIDs] = useState([]);
   const [userIDToDelete, setUserIDToDelete] = useState(null);
   const [deleteUserIDModal, setdeleteUserIDModal] = useState(false);
+  const [keyInput, setKeyInput] = useState("");
+  const [revokeUsingCertificateModal, setrevokeUsingCertificateModal] =
+    useState(false);
   const [revokeModal, setrevokeModal] = useState(false);
   const [revocationReason, setRevocationReason] = useState("0");
   const [revocationReasonText, setRevocationReasonText] = useState("");
@@ -564,19 +567,41 @@ export default function App() {
                     )}
 
                   {user.status === "revoked" ? null : (
-                    <DropdownItem
-                      key="revoke-key"
-                      onPress={() => {
-                        setSelectedUserId(user);
-                        setSelectedKeyName(user.name);
-                        setrevokeModal(true);
-                      }}
-                    >
-                      Revoke Key
-                    </DropdownItem>
+                    <>
+                      <DropdownItem
+                        key="revocation-certificate"
+                        onPress={() => GenerateRevocationCertificate(user)}
+                      >
+                        Get Revocation Certificate
+                      </DropdownItem>
+
+                      <DropdownItem
+                        key="revoke-key"
+                        onPress={() => {
+                          setSelectedUserId(user);
+                          setSelectedKeyName(user.name);
+                          setrevokeModal(true);
+                        }}
+                      >
+                        Revoke Key
+                      </DropdownItem>
+                    </>
                   )}
                 </>
               </>
+            )}
+
+            {user.status === "revoked" ? null : (
+              <DropdownItem
+                key="revoke-using-certificate"
+                onPress={() => {
+                  setSelectedUserId(user);
+                  setSelectedKeyName(user.name);
+                  setrevokeUsingCertificateModal(true);
+                }}
+              >
+                Revoke Using Certificate
+              </DropdownItem>
             )}
 
             <DropdownItem
@@ -759,7 +784,7 @@ export default function App() {
     }
   };
 
-  const updateKeyValidity = async (keyId, updatedKeys) => {
+  const updateKeyInIndexeddb = async (keyId, updatedKeys) => {
     const db = await openDB();
     const encryptionKey = await getEncryptionKey();
 
@@ -861,7 +886,7 @@ export default function App() {
         userIDs: existingUserIDs,
       });
 
-      await updateKeyValidity(selectedValidityKey.id, {
+      await updateKeyInIndexeddb(selectedValidityKey.id, {
         privateKey: updatedKeyPair.privateKey,
         publicKey: updatedKeyPair.publicKey,
       });
@@ -1146,7 +1171,7 @@ export default function App() {
         format: "armored",
       });
 
-      await updateKeyValidity(user.id, {
+      await updateKeyInIndexeddb(user.id, {
         privateKey: updatedKeyPair.privateKey,
         publicKey: updatedKeyPair.publicKey,
       });
@@ -1225,7 +1250,7 @@ export default function App() {
         format: "armored",
       });
 
-      await updateKeyValidity(user.id, {
+      await updateKeyInIndexeddb(user.id, {
         privateKey: updatedKeyPair.privateKey,
         publicKey: updatedKeyPair.publicKey,
       });
@@ -1287,7 +1312,7 @@ export default function App() {
           format: "armored",
         });
 
-      await updateKeyValidity(user.id, {
+      await updateKeyInIndexeddb(user.id, {
         privateKey: newArmoredPrivate,
         publicKey: newArmoredPublic,
       });
@@ -1324,6 +1349,156 @@ export default function App() {
     setdeleteUserIDModal(true);
   };
 
+  const GenerateRevocationCertificate = async (user) => {
+    try {
+      let privateKey = await openpgp.readKey({
+        armoredKey: user.privateKey,
+      });
+      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+        const currentPassword = await triggerKeyPasswordModal(user);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+
+      const fullPublicKey = await openpgp.readKey({
+        armoredKey: user.publicKey,
+      });
+
+      const currentUserIDs = fullPublicKey.getUserIDs();
+
+      const parseUserId = (uid) => {
+        const match = uid.match(/^(.*?)\s*<(.+?)>$/);
+        return match
+          ? { name: match[1].trim(), email: match[2].trim() }
+          : { name: uid.trim() };
+      };
+
+      const formattedUserIDs = currentUserIDs.map(parseUserId);
+
+      const { revocationCertificate } = await openpgp.reformatKey({
+        privateKey,
+        userIDs: formattedUserIDs,
+        format: "armored",
+      });
+
+      const keyid = user.keyid.replace(/\s/g, "");
+      const blob = new Blob([revocationCertificate], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${user.name}_0x${keyid}_REVOCATION_CERTIFICATE.asc`;
+      link.click();
+      URL.revokeObjectURL(blob);
+
+      addToast({
+        title: "Revocation Certificate Generated",
+        color: "success",
+      });
+    } catch {
+      addToast({
+        title: "Failed to generate revocation certificate",
+        color: "danger",
+      });
+    }
+  };
+
+  const handleFileInput = (event) => {
+    const files = event.target.files;
+    if (files) {
+      const newContents = [];
+      let processedFiles = 0;
+      Array.from(files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          newContents.push(e.target.result);
+          processedFiles++;
+          if (processedFiles === files.length) {
+            if (files.length === 1) {
+              setKeyInput(newContents[0]);
+            }
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+  };
+
+  const RevokeUsingCertificate = async (user, revocationCertificate) => {
+    setKeyInput("");
+    try {
+      if (user.privateKey && user.privateKey.trim()) {
+        const privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+
+        const revokedKey = await openpgp.revokeKey({
+          key: privateKey,
+          format: "armored",
+          revocationCertificate,
+          date: new Date(),
+        });
+
+        await updateKeyInIndexeddb(user.id, {
+          privateKey: revokedKey.privateKey,
+          publicKey: revokedKey.publicKey,
+        });
+
+        const keyid = user.keyid.replace(/\s/g, "");
+        const blob = new Blob([revokedKey.publicKey], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${user.name}_0x${keyid}_REVOKED_PUBLIC_KEY.asc`;
+        link.click();
+        URL.revokeObjectURL(url);
+
+        addToast({
+          title: "Key Revoked",
+          description:
+            "Both public and private keys have been updated with the revocation signature.",
+          color: "success",
+        });
+      } else {
+        const publicKey = await openpgp.readKey({ armoredKey: user.publicKey });
+
+        const revokedKey = await openpgp.revokeKey({
+          key: publicKey,
+          format: "armored",
+          revocationCertificate,
+          date: new Date(),
+        });
+
+        await updateKeyInIndexeddb(user.id, {
+          publicKey: revokedKey.publicKey,
+        });
+
+        const keyid = user.keyid.replace(/\s/g, "");
+        const blob = new Blob([revokedKey.publicKey], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${user.name}_0x${keyid}_REVOKED_PUBLIC_KEY.asc`;
+        link.click();
+        URL.revokeObjectURL(url);
+
+        addToast({
+          title: "Public Key Revoked",
+          description:
+            "Your public key has been updated with the revocation signature.",
+          color: "success",
+        });
+      }
+      
+      const refreshedKeys = await loadKeysFromIndexedDB();
+      setUsers(refreshedKeys);
+    } catch (error) {
+      addToast({
+        title: "Revocation Failed",
+        description: error.message || "An unexpected error occurred.",
+        color: "danger",
+      });
+    }
+  };
+
   const revokeKey = async (user) => {
     setRevocationReasonText("");
     try {
@@ -1346,7 +1521,7 @@ export default function App() {
         date: new Date(),
       });
 
-      await updateKeyValidity(user.id, {
+      await updateKeyInIndexeddb(user.id, {
         privateKey: revokedKey.privateKey,
         publicKey: revokedKey.publicKey,
       });
@@ -2258,6 +2433,94 @@ export default function App() {
                 if (e.key === "Enter") {
                   deleteUserID(selectedUserId, userIDToDelete);
                   setdeleteUserIDModal(false);
+                }
+              }}
+            >
+              Yes
+            </Button>
+          </div>
+        </ModalContent>
+      </Modal>
+      <Modal
+        size="xl"
+        backdrop="blur"
+        isOpen={revokeUsingCertificateModal}
+        onClose={() => setrevokeUsingCertificateModal(false)}
+      >
+        <ModalContent className="p-5">
+          <h3 className="mb-2 font-semibold text-lg">
+            Are You Sure You Want To Revoke {selectedKeyName}&apos;s Key?
+          </h3>
+          <div className="mb-4 p-3 bg-gray-800 rounded-lg">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <p className="text-default-400">Creation Date:</p>
+                <p className="font-mono">{selectedUserId?.creationdate}</p>
+              </div>
+              <div className="sm:-ms-12 -ms-6">
+                <p className="text-default-400">Key ID:</p>
+                <p className="font-mono">{selectedUserId?.keyid}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-default-400">Fingerprint:</p>
+                <p className="font-mono">{selectedUserId?.fingerprint}</p>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-sm text-red-500 font-semibold mb-2">
+            This action is permanent and will take effect immediately.
+          </p>
+
+          <ul className="list-disc list-inside text-sm mb-4 text-default-500">
+            <li>
+              You can still decrypt anything previously encrypted to this key.
+            </li>
+            <li>
+              You will no longer be able to sign messages or data with it.
+            </li>
+            <li>The key will no longer be usable for encryption.</li>
+            <li>
+              This revocation only takes effect locally unless you share the
+              revoked key.
+            </li>
+          </ul>
+          <div className="flex flex-col sm:flex-row gap-3 w-full">
+            <Input
+              className="w-full"
+              multiple
+              type="file"
+              accept=".asc,.txt,.key"
+              onChange={handleFileInput}
+            />
+          </div>
+          <br />
+          <Textarea
+            disableAutosize
+            classNames={{
+              input: "resize-y min-h-[120px]",
+            }}
+            value={keyInput}
+            onChange={(e) => setKeyInput(e.target.value)}
+            placeholder="Paste Revocation Certificate Here"
+          />
+          <div className="flex gap-2">
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+              onPress={() => setrevokeUsingCertificateModal(false)}
+            >
+              No
+            </Button>
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
+              onPress={async () => {
+                await RevokeUsingCertificate(selectedUserId, keyInput);
+                setrevokeUsingCertificateModal(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  RevokeUsingCertificate(selectedUserId, keyInput);
+                  setrevokeUsingCertificateModal(false);
                 }
               }}
             >

@@ -125,7 +125,9 @@ const capitalize = (s) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
-const processKey = async (key, openpgpKey, vaultPassword, backedUpKeys) => {
+const processKey = async (key, decryptedBackedUpKeys) => {
+  const openpgpKey = await openpgp.readKey({ armoredKey: key.publicKey });
+
   try {
     const userIDs = openpgpKey.getUserIDs();
     const firstUserID = userIDs[0];
@@ -184,53 +186,12 @@ const processKey = async (key, openpgpKey, vaultPassword, backedUpKeys) => {
       }
     };
 
-    const isBackedUp = await (async () => {
-      const statuses = await Promise.all(
-        backedUpKeys.map(async (backedUpKey) => {
-          const decryptionTasks = [];
-          if (backedUpKey.publicKey) {
-            decryptionTasks.push(
-              workerPool(
-                {
-                  type: "decrypt",
-                  responseType: "decryptResponse",
-                  encryptedBase64: backedUpKey.publicKey,
-                  password: vaultPassword,
-                },
-                addToast
-              )
-            );
-          } else {
-            decryptionTasks.push(Promise.resolve(""));
-          }
-
-          if (backedUpKey.privateKey) {
-            decryptionTasks.push(
-              workerPool(
-                {
-                  type: "decrypt",
-                  responseType: "decryptResponse",
-                  encryptedBase64: backedUpKey.privateKey,
-                  password: vaultPassword,
-                },
-                addToast
-              )
-            );
-          } else {
-            decryptionTasks.push(Promise.resolve(""));
-          }
-
-          const [decryptedCloudPublicKey, decryptedCloudPrivateKey] =
-            await Promise.all(decryptionTasks);
-
-          return (
-            decryptedCloudPublicKey === key.publicKey ||
-            (key.privateKey && decryptedCloudPrivateKey === key.privateKey)
-          );
-        })
+    const isBackedUp = decryptedBackedUpKeys.some((decrypted) => {
+      return (
+        decrypted.publicKey === key.publicKey ||
+        (key.privateKey && decrypted.privateKey === key.privateKey)
       );
-      return statuses.some((status) => status);
-    })();
+    });
 
     const status = isBackedUp ? "Backed Up" : "Not Backed Up";
 
@@ -244,8 +205,7 @@ const processKey = async (key, openpgpKey, vaultPassword, backedUpKeys) => {
           armoredKey: privateKeyArmored,
         });
         return privateKey.isPrivate() && !privateKey.isDecrypted();
-      } catch (error) {
-        console.error("Error reading private key:", error);
+      } catch {
         return false;
       }
     };
@@ -532,6 +492,41 @@ export default function App() {
       console.error("Error fetching backed up keys:", error);
     }
 
+    let vaultPassword = await getVaultPassword();
+    const decryptedBackedUpKeys = await Promise.all(
+      backedUpKeys.map(async (backedUpKey) => {
+        const [decryptedCloudPublicKey, decryptedCloudPrivateKey] =
+          await Promise.all([
+            backedUpKey.publicKey
+              ? workerPool(
+                  {
+                    type: "decrypt",
+                    responseType: "decryptResponse",
+                    encryptedBase64: backedUpKey.publicKey,
+                    password: vaultPassword,
+                  },
+                  addToast
+                )
+              : Promise.resolve(""),
+            backedUpKey.privateKey
+              ? workerPool(
+                  {
+                    type: "decrypt",
+                    responseType: "decryptResponse",
+                    encryptedBase64: backedUpKey.privateKey,
+                    password: vaultPassword,
+                  },
+                  addToast
+                )
+              : Promise.resolve(""),
+          ]);
+        return {
+          publicKey: decryptedCloudPublicKey,
+          privateKey: decryptedCloudPrivateKey,
+        };
+      })
+    );
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(dbPgpKeys, "readonly");
       const store = transaction.objectStore(dbPgpKeys);
@@ -539,41 +534,31 @@ export default function App() {
       let skipped = 0;
       const request = store.openCursor();
 
-      const processResults = async () => {
+      const finish = async () => {
         try {
           const decryptedKeys = await Promise.all(
-            results.map(async (record) =>
+            results.map((record) =>
               decryptData(record.encrypted, encryptionKey, record.iv)
             )
           );
-          let vaultPassword = await getVaultPassword();
           const processedKeys = await Promise.all(
             decryptedKeys.map(async (key) => {
               try {
-                const openpgpKey = await openpgp.readKey({
-                  armoredKey: key.publicKey,
-                });
-                return await processKey(
-                  key,
-                  openpgpKey,
-                  vaultPassword,
-                  backedUpKeys
-                );
+                return await processKey(key, decryptedBackedUpKeys);
               } catch (error) {
                 console.error("Error processing individual key:", error);
                 return null;
               }
             })
           );
-
           vaultPassword = null;
-          resolve(processedKeys.filter((key) => key !== null));
-        } catch (error) {
-          reject(error);
+          resolve(processedKeys.filter((k) => k !== null));
+        } catch (err) {
+          reject(err);
         }
       };
 
-      request.onsuccess = async (e) => {
+      request.onsuccess = (e) => {
         const cursor = e.target.result;
         if (cursor) {
           if (skipped < offset) {
@@ -585,10 +570,10 @@ export default function App() {
           if (results.length < limit) {
             cursor.continue();
           } else {
-            await processResults();
+            finish();
           }
         } else {
-          await processResults();
+          finish();
         }
       };
 
@@ -598,7 +583,7 @@ export default function App() {
 
   const filteredItems = useMemo(() => {
     let filteredUsers = [...users];
-    
+
     if (filterValue) {
       filteredUsers = filteredUsers.filter(
         (user) =>
@@ -615,7 +600,7 @@ export default function App() {
           user.fingerprint.toLowerCase().includes(filterValue.toLowerCase())
       );
     }
-    
+
     return filteredUsers;
   }, [users, filterValue]);
 

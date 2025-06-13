@@ -25,7 +25,11 @@ export function NProgressLink({ href, ...props }) {
   const handleClick = (e) => {
     NProgress.start();
     const isNewTab =
-      e.ctrlKey || e.metaKey || e.shiftKey || e.nativeEvent?.button === 1;
+      e.ctrlKey ||
+      e.metaKey ||
+      e.shiftKey ||
+      e.nativeEvent?.button === 1 ||
+      e.currentTarget.target === "_blank";
     if (isNewTab) {
       NProgress.done();
     } else if (href === currentPath) {

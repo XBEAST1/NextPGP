@@ -234,20 +234,15 @@ const processKey = async (key, vaultPassword, storedKeys) => {
     };
     const { expirydate, keystatus } = await getKeyExpiryInfo(openpgpKey);
 
-    const isPasswordProtected = async (privateKeyArmored) => {
+    const isPasswordProtected = async (privateKey) => {
       try {
-        const privateKey = await openpgp.readPrivateKey({
-          armoredKey: privateKeyArmored,
-        });
         return privateKey.isPrivate() && !privateKey.isDecrypted();
       } catch {
         return false;
       }
     };
 
-    const passwordProtected = key.privateKey
-      ? await isPasswordProtected(key.privateKey)
-      : false;
+    const passwordProtected = await isPasswordProtected(openpgpKey)
 
     const formatFingerprint = (fingerprint) => {
       const parts = fingerprint.match(/.{1,4}/g);

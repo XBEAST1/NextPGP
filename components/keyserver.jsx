@@ -23,7 +23,7 @@ import {
   Spinner,
 } from "@heroui/react";
 import { openDB, getStoredKeys, saveKeyToIndexedDB } from "@/lib/indexeddb";
-import { SearchIcon, ChevronDownIcon } from "@/components/icons";
+import { SearchIcon } from "@/components/icons";
 import Public from "@/assets/Public.png";
 import * as openpgp from "openpgp";
 
