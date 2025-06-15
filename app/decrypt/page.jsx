@@ -12,6 +12,7 @@ import {
   Spinner,
 } from "@heroui/react";
 import { openDB, getStoredKeys } from "@/lib/indexeddb";
+import KeyServer from "@/components/keyserver";
 import { saveAs } from "file-saver";
 import { workerPool } from "./workerPool";
 
@@ -26,6 +27,8 @@ export default function App() {
   const [currentPrivateKey, setCurrentPrivateKey] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
   const [decrypting, setDecrypting] = useState(false);
+  const [keyServerModal, setkeyServerModal] = useState(false);
+  const [keyserverQuery, setKeyserverQuery] = useState("");
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
@@ -131,7 +134,9 @@ export default function App() {
 
   const removeDuplicateDetails = (detailsStr) => {
     if (!detailsStr) return "";
-    const blocks = detailsStr.split(/(?=Recipients:)/).map((b) => b.trim());
+    const blocks = detailsStr
+      .split(/(?=👥 (?:Recipients:|No recipients found))/)
+      .map((b) => b.trim());
     const seen = new Set();
     const uniqueBlocks = [];
     blocks.forEach((block) => {
@@ -221,6 +226,41 @@ export default function App() {
     setDecrypting(false);
   };
 
+  const SearchSignerOnKeyserver = () => {
+    const regex =
+      /Signature by: Unknown Key[\s\S]*?Fingerprint:\s*([A-Fa-f0-9 ]{4,})/g;
+    const matches = details.matchAll(regex);
+    const fingerprints = new Set();
+
+    for (const match of matches) {
+      fingerprints.add(match[1].trim());
+    }
+
+    if (fingerprints.size > 0) {
+      setKeyserverQuery([...fingerprints].join(", "));
+      setkeyServerModal(true);
+    } else {
+      console.log("Fingerprint not found.");
+    }
+  };
+
+  const SearchUnknownOnKeyserver = () => {
+    const regex = /Unknown\s*\(\s*([0-9A-Fa-f0-9 ]+)\s*\)/g;
+    const matches = details.matchAll(regex);
+    const keyIds = new Set();
+
+    for (const match of matches) {
+      keyIds.add(match[1].trim());
+    }
+
+    if (keyIds.size > 0) {
+      setKeyserverQuery([...keyIds].join(", "));
+      setkeyServerModal(true);
+    } else {
+      console.log("No Unknown key IDs found.");
+    }
+  };
+
   // Details Textareas Auto Expand Height
   const decryptedDetails = details.trimEnd();
   const detailsRef = useRef(null);
@@ -259,7 +299,12 @@ export default function App() {
         onChange={(e) => setInputMessage(e.target.value)}
       />
       <br />
-      <Input type="file" accept=".gpg, .sig, .pgp" multiple onChange={handleFileUpload} />
+      <Input
+        type="file"
+        accept=".gpg, .sig, .pgp"
+        multiple
+        onChange={handleFileUpload}
+      />
       <br />
       <Textarea
         ref={detailsRef}
@@ -280,9 +325,38 @@ export default function App() {
         style={{ transition: "height 0.2s ease-out" }}
       />
       <br />
-      <Button className="w-24" disabled={decrypting} onPress={handleDecrypt}>
-        {decrypting ? <Spinner color="white" size="sm" /> : "🔓 Decrypt"}
-      </Button>
+      <div className="flex justify-between">
+        <Button
+          className={
+            details.includes("- Unknown") &&
+            details.includes("Signature by: Unknown Key")
+              ? "w-60"
+              : "w-24"
+          }
+          disabled={decrypting}
+          onPress={handleDecrypt}
+        >
+          {decrypting ? <Spinner color="white" size="sm" /> : "🔓 Decrypt"}
+        </Button>
+
+        {details.includes("- Unknown") && (
+          <Button onPress={SearchUnknownOnKeyserver}>
+            🔍 Search Recipient Key On Key Server
+          </Button>
+        )}
+
+        {details.includes("Signature by: Unknown Key") && (
+          <Button onPress={SearchSignerOnKeyserver}>
+            🔍 Search Signer Key On Key Server
+          </Button>
+        )}
+
+        <KeyServer
+          isOpen={keyServerModal}
+          onClose={() => setkeyServerModal(false)}
+          initialSearch={keyserverQuery}
+        />
+      </div>
       {isPasswordModalOpen && (
         <Modal
           backdrop="blur"

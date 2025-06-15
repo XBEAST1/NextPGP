@@ -27,6 +27,7 @@ import {
   Textarea,
   Radio,
   RadioGroup,
+  Snippet,
 } from "@heroui/react";
 import {
   EyeFilledIcon,
@@ -347,16 +348,19 @@ export default function App() {
   const [userIDToDelete, setUserIDToDelete] = useState(null);
   const [deleteUserIDModal, setdeleteUserIDModal] = useState(false);
   const [keyInput, setKeyInput] = useState("");
-  const [revokeUsingCertificateModal, setrevokeUsingCertificateModal] =
-    useState(false);
   const [revokeModal, setrevokeModal] = useState(false);
   const [revocationReason, setRevocationReason] = useState("0");
   const [revocationReasonText, setRevocationReasonText] = useState("");
   const [revocationReasonModal, setrevocationReasonModal] = useState(false);
   const [revocationInfo, setRevocationInfo] = useState(null);
-  const [PublishKeyModal, setPublishKeyModal] = useState(false);
+  const [publishKeyModal, setpublishKeyModal] = useState(false);
+  const [publicKeyModal, setpublicKeyModal] = useState(false);
+  const [selectedUserPublicKey, setSelectedUserPublicKey] = useState(null);
+  const [publicKeySnippet, setPublicKeySnippet] = useState("");
   const [deleteModal, setdeleteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [revokeUsingCertificateModal, setrevokeUsingCertificateModal] =
+    useState(false);
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
   );
@@ -443,7 +447,7 @@ export default function App() {
               onPress={() => {
                 setSelectedUserId(user);
                 setSelectedKeyName(user.name);
-                setPublishKeyModal(true);
+                setpublishKeyModal(true);
               }}
             >
               Publish On Server
@@ -451,7 +455,11 @@ export default function App() {
 
             <DropdownItem
               key="export-public-key"
-              onPress={() => exportPublicKey(user)}
+              onPress={() => {
+                setSelectedUserPublicKey(user);
+                setPublicKeySnippet(user.publicKey);
+                setpublicKeyModal(true);
+              }}
             >
               Export Public Key
             </DropdownItem>
@@ -738,10 +746,14 @@ export default function App() {
     const keyid = user.keyid.replace(/\s/g, "");
     const publicKey = user.publicKey;
     const blob = new Blob([publicKey], { type: "text/plain" });
+    const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
+    link.href = objectUrl;
     link.download = `${user.name}_0x${keyid}_PUBLIC.asc`;
     link.click();
+    URL.revokeObjectURL(objectUrl);
+    setPublicKeySnippet(publicKey);
+    setpublicKeyModal(true);
   };
 
   const backupKeyring = async (user, password = null) => {
@@ -771,10 +783,12 @@ export default function App() {
 
       const privateKeyBackup = user.privateKey;
       const blob = new Blob([privateKeyBackup], { type: "text/plain" });
+      const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
+      link.href = objectUrl;
       link.download = `${user.name}_0x${keyid}_SECRET.asc`;
       link.click();
+      URL.revokeObjectURL(objectUrl);
     } catch {
       addToast({
         title:
@@ -1385,11 +1399,12 @@ export default function App() {
 
       const keyid = user.keyid.replace(/\s/g, "");
       const blob = new Blob([revocationCertificate], { type: "text/plain" });
+      const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
+      link.href = objectUrl;
       link.download = `${user.name}_0x${keyid}_REVOCATION_CERTIFICATE.asc`;
       link.click();
-      URL.revokeObjectURL(blob);
+      URL.revokeObjectURL(objectUrl);
 
       addToast({
         title: "Revocation Certificate Generated",
@@ -1428,7 +1443,9 @@ export default function App() {
     setKeyInput("");
     try {
       if (user.privateKey && user.privateKey.trim()) {
-        const privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+        const privateKey = await openpgp.readKey({
+          armoredKey: user.privateKey,
+        });
 
         const revokedKey = await openpgp.revokeKey({
           key: privateKey,
@@ -1487,7 +1504,7 @@ export default function App() {
           color: "success",
         });
       }
-      
+
       const refreshedKeys = await loadKeysFromIndexedDB();
       setUsers(refreshedKeys);
     } catch (error) {
@@ -1528,10 +1545,13 @@ export default function App() {
 
       const keyid = user.keyid.replace(/\s/g, "");
       const blob = new Blob([revokedKey.publicKey], { type: "text/plain" });
+      const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
+      link.href = objectUrl;
       link.download = `${user.name}_0x${keyid}_PUBLIC_REVOKED.asc`;
       link.click();
+      URL.revokeObjectURL(objectUrl);
+      
 
       addToast({
         title: "Key Revoked Successfully",
@@ -2683,8 +2703,8 @@ export default function App() {
       <Modal
         size="2xl"
         backdrop="blur"
-        isOpen={PublishKeyModal}
-        onClose={() => setPublishKeyModal(false)}
+        isOpen={publishKeyModal}
+        onClose={() => setpublishKeyModal(false)}
       >
         <ModalContent className="p-5">
           <h3 className="mb-2 font-semibold text-lg">
@@ -2708,7 +2728,7 @@ export default function App() {
           <div className="flex gap-2">
             <Button
               className="w-full mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
-              onPress={() => setPublishKeyModal(false)}
+              onPress={() => setpublishKeyModal(false)}
             >
               Cancel
             </Button>
@@ -2718,16 +2738,54 @@ export default function App() {
               variant="flat"
               onPress={async () => {
                 await publishKeyOnServer();
-                setPublishKeyModal(false);
+                setpublishKeyModal(false);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   publishKeyOnServer();
-                  setPublishKeyModal(false);
+                  setpublishKeyModal(false);
                 }
               }}
             >
               Yes, Publish Key
+            </Button>
+          </div>
+        </ModalContent>
+      </Modal>
+      <Modal
+        size="xl"
+        backdrop="blur"
+        isOpen={publicKeyModal}
+        onClose={() => setpublicKeyModal(false)}
+      >
+        <ModalContent className="p-8">
+          <Snippet
+            symbol=""
+            classNames={{
+              base: "max-w-full p-5 overflow-auto",
+              content: "whitespace-pre-wrap break-all",
+              pre: "whitespace-pre-wrap break-all max-h-[300px] overflow-auto",
+            }}
+          >
+            {publicKeySnippet}
+          </Snippet>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              className="px-4 py-2 text-white rounded-full"
+              color="success"
+              variant="flat"
+              onPress={() => {
+                exportPublicKey(selectedUserPublicKey);
+                setpublicKeyModal(false);
+              }}
+            >
+              Download Public Key
+            </Button>
+            <Button
+              className="px-4 py-2 bg-default-200 text-white rounded-full"
+              onPress={() => setpublicKeyModal(false)}
+            >
+              Close
             </Button>
           </div>
         </ModalContent>

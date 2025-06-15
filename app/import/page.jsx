@@ -1,11 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  openDB,
-  getStoredKeys,
-  saveKeyToIndexedDB,
-} from "@/lib/indexeddb";
+import { openDB, getStoredKeys, saveKeyToIndexedDB } from "@/lib/indexeddb";
 import { Textarea, Button, Input, addToast } from "@heroui/react";
 import KeyServer from "@/components/keyserver";
 import * as openpgp from "openpgp";
@@ -137,6 +133,15 @@ export default function ImportKeyPage() {
   };
 
   const handleImport = async () => {
+    if (!keyInput.trim() && fileContents.length === 0) {
+      addToast({
+        title:
+          "Please provide a PGP key by pasting into the text area or selecting a valid file.",
+        color: "danger",
+      });
+      return;
+    }
+
     try {
       let importedFromText = false;
 

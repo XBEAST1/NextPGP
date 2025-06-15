@@ -25,6 +25,7 @@
   <li><b>Keyring Management:</b>
     <ul>
       <li>Add, manage, delete, import, export, and backup keys</li>
+      <li>Search, import, and publish public keys via PGP keyservers</li>
       <li>Change key validity periods</li>
       <li>Add, change, and remove passphrases</li>
       <li>Add, manage, and delete User IDs</li>

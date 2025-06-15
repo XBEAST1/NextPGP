@@ -35,13 +35,19 @@ onmessage = async function (e) {
             .map((k) => openpgp.readKey({ armoredKey: k.publicKey }))
         );
 
-        const signingKeyIDs = detachedSig.getSigningKeyIDs();
+        const emptyMsg = await openpgp.createMessage({ text: "" });
 
-        if (signingKeyIDs.length === 0) {
-          functionDetails = "No signatures found in detached signature.\n\n";
-        } else {
-          for (const keyID of signingKeyIDs) {
-            const hex = keyID.toHex();
+        const verificationResult = await openpgp.verify({
+          message: emptyMsg,
+          signature: detachedSig,
+          verificationKeys: publicKeys,
+          format: "binary",
+        });
+
+        if (verificationResult.signatures?.length) {
+          for (const sig of verificationResult.signatures) {
+            const resolved = await sig.signature;
+            const hex = sig.keyID?.toHex() ?? "";
             const matched = publicKeys.find(
               (k) =>
                 k.getKeyID().toHex() === hex ||
@@ -50,7 +56,16 @@ onmessage = async function (e) {
             const userID = matched?.getUserIDs()[0] ?? "Unknown Key";
             const formatted = hex.replace(/(.{4})/g, "$1 ").trim();
 
-            const signaturePacket = detachedSig.packets.find((p) => p.created);
+            const signaturePacket = resolved.packets[0];
+
+            const fingerprintBytes = signaturePacket.issuerFingerprint;
+            const fingerprint = Array.from(fingerprintBytes)
+              .map((b) => b.toString(16).padStart(2, "0"))
+              .join("")
+              .toUpperCase()
+              .match(/.{1,4}/g)
+              .join(" ");
+
             const created = signaturePacket
               ? new Date(signaturePacket.created)
               : null;
@@ -81,9 +96,13 @@ onmessage = async function (e) {
               createdTimeStr = "Not Available";
             }
 
-            functionDetails += `Signature by: ${userID} (${formatted})\n`;
-            functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
+            functionDetails += `📝 Signature by: ${userID} (${formatted})\n`;
+            functionDetails += `🔐 Fingerprint: ${fingerprint}\n`;
+            functionDetails += `⏱️ Signature created on: ${createdTimeStr}\n\n`;
           }
+        } else {
+          functionDetails =
+            "❌ No signatures found or could not verify signature.\n\n";
         }
 
         postMessage({ type: "setDecryptedMessage", payload: "" });
@@ -96,12 +115,15 @@ onmessage = async function (e) {
             color: "primary",
           },
         });
-      } catch {
+      } catch (e) {
         postMessage({
           type: "addToast",
           payload: { title: "Invalid Detached Signature", color: "danger" },
         });
-        postMessage({ type: "error", payload: { message: "error" } });
+        postMessage({
+          type: "error",
+          payload: { message: e.message || "error" },
+        });
       }
       return;
     }
@@ -156,24 +178,34 @@ onmessage = async function (e) {
           const formatted = hex.replace(/(.{4})/g, "$1 ").trim();
 
           const signaturePacket = resolved.packets[0];
-          const created = signaturePacket
+
+          const fingerprintBytes = signaturePacket.issuerFingerprint;
+
+          const fingerprint = Array.from(fingerprintBytes)
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("")
+            .toUpperCase()
+            .match(/.{1,4}/g)
+            .join(" ");
+
+          const createdTime = signaturePacket
             ? new Date(signaturePacket.created)
             : null;
 
           let createdTimeStr;
-          if (created) {
+          if (createdTime) {
             const locale = "en-US";
             const is24Hour = locale.includes("GB") || locale.includes("DE");
 
-            const dayName = created.toLocaleDateString(locale, {
+            const dayName = createdTime.toLocaleDateString(locale, {
               weekday: "long",
             });
-            const monthName = created.toLocaleDateString(locale, {
+            const monthName = createdTime.toLocaleDateString(locale, {
               month: "long",
             });
-            const day = created.getDate();
-            const year = created.getFullYear();
-            const timeWithZone = created.toLocaleTimeString(locale, {
+            const day = createdTime.getDate();
+            const year = createdTime.getFullYear();
+            const timeWithZone = createdTime.toLocaleTimeString(locale, {
               hour: "2-digit",
               minute: "2-digit",
               second: "2-digit",
@@ -186,12 +218,13 @@ onmessage = async function (e) {
             createdTimeStr = "Not Available";
           }
 
-          functionDetails += `Signature by: ${userID} (${formatted})\n`;
-          functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
+          functionDetails += `📝 Signature by: ${userID} (${formatted})\n`;
+          functionDetails += `🔐 Fingerprint: ${fingerprint}\n`;
+          functionDetails += `⏱️ Signature created on: ${createdTimeStr}\n\n`;
         }
       } else {
         functionDetails =
-          "No signatures found or could not verify signature.\n\n";
+          "❌ No signatures found or could not verify signature.\n\n";
       }
 
       postMessage({ type: "setDetails", payload: functionDetails });
@@ -338,27 +371,37 @@ onmessage = async function (e) {
 
             if (matchedKey) {
               const userID = matchedKey.getUserIDs()[0];
-              return `  - ${userID} (${keyID
+              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
                 .toHex()
                 .match(/.{1,4}/g)
                 .join(" ")})`;
             } else {
-              return `  - Unknown (${keyID
+              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
                 .toHex()
                 .match(/.{1,4}/g)
                 .join(" ")})`;
             }
           });
 
-          functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
+          functionDetails +=
+            "👥 Recipients:\n" + recipients.join("\n") + "\n\n";
 
           if (signatures && signatures.length > 0) {
             for (const sig of signatures) {
               // Resolve the signature and extract created time
               const { signature } = sig;
               const resolvedSignature = await signature;
-
               const signaturePacket = resolvedSignature.packets[0];
+
+              const fingerprintBytes = signaturePacket.issuerFingerprint;
+
+              const fingerprint = Array.from(fingerprintBytes)
+                .map((b) => b.toString(16).padStart(2, "0"))
+                .join("")
+                .toUpperCase()
+                .match(/.{1,4}/g)
+                .join(" ");
+
               const createdTime =
                 signaturePacket && signaturePacket.created
                   ? new Date(signaturePacket.created)
@@ -410,15 +453,16 @@ onmessage = async function (e) {
                 }
               }
 
-              functionDetails += `Message successfully decrypted using key: ${decryptionKeyName}\n`;
-              functionDetails += `Signature by: ${userID}`;
+              functionDetails += `🔑 Message successfully decrypted using key: ${decryptionKeyName}\n`;
+              functionDetails += `📝 Signature by: ${userID}`;
               if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
               functionDetails += `\n`;
-              functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
+              functionDetails += `🔐 Fingerprint: ${fingerprint}\n`;
+              functionDetails += `⏱️ Signature created on: ${createdTimeStr}\n\n`;
             }
           } else {
-            functionDetails += `Message successfully decrypted using key: ${decryptionKeyName}\n`;
-            functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+            functionDetails += `🔑 Message successfully decrypted using key: ${decryptionKeyName}\n`;
+            functionDetails += `❓ You cannot be sure who encrypted this message as it is not signed.\n\n`;
           }
 
           postMessage({ type: "setDetails", payload: functionDetails });
@@ -555,12 +599,12 @@ onmessage = async function (e) {
 
           if (matchedKey) {
             const userID = matchedKey.getUserIDs()[0];
-            return `  - ${userID} (${keyID
+            return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
               .toHex()
               .match(/.{1,4}/g)
               .join(" ")})`;
           } else {
-            return `  - Unknown (${keyID
+            return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
               .toHex()
               .match(/.{1,4}/g)
               .join(" ")})`;
@@ -569,14 +613,24 @@ onmessage = async function (e) {
 
         functionDetails =
           recipients.length > 0
-            ? "Recipients:\n" + recipients.join("\n") + "\n\n"
-            : "No recipients found\n\n";
+            ? "👥 Recipients:\n" + recipients.join("\n") + "\n\n"
+            : "👥 No recipients found\n\n";
 
         if (signatures && signatures.length > 0) {
           for (const sig of signatures) {
             const { signature } = sig;
             const resolvedSignature = await signature;
             const signaturePacket = resolvedSignature.packets[0];
+
+            const fingerprintBytes = signaturePacket.issuerFingerprint;
+
+            const fingerprint = Array.from(fingerprintBytes)
+              .map((b) => b.toString(16).padStart(2, "0"))
+              .join("")
+              .toUpperCase()
+              .match(/.{1,4}/g)
+              .join(" ");
+
             const createdTime =
               signaturePacket && signaturePacket.created
                 ? new Date(signaturePacket.created)
@@ -628,17 +682,17 @@ onmessage = async function (e) {
               }
             }
 
-            functionDetails += `Message successfully decrypted using Password\n`;
+            functionDetails += `🔑 Message successfully decrypted using Password\n`;
 
-            functionDetails += `Signature by: ${userID}`;
+            functionDetails += `📝 Signature by: ${userID}`;
             if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
             functionDetails += `\n`;
-
-            functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
+            functionDetails += `🔐 Fingerprint: ${fingerprint}\n`;
+            functionDetails += `⏱️ Signature created on: ${createdTimeStr}\n\n`;
           }
         } else {
-          functionDetails += `Message successfully decrypted using Password\n`;
-          functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+          functionDetails += `🔑 Message successfully decrypted using Password\n`;
+          functionDetails += `❓ You cannot be sure who encrypted this message as it is not signed.\n\n`;
         }
 
         postMessage({ type: "setDetails", payload: functionDetails });
@@ -713,27 +767,36 @@ onmessage = async function (e) {
 
         if (matchedKey) {
           const userID = matchedKey.getUserIDs()[0];
-          return `  - ${userID} (${keyID
+          return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
             .toHex()
             .match(/.{1,4}/g)
             .join(" ")})`;
         } else {
-          return `  - Unknown (${keyID
+          return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
             .toHex()
             .match(/.{1,4}/g)
             .join(" ")})`;
         }
       });
 
-      functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
+      functionDetails += "👥 Recipients:\n" + recipients.join("\n") + "\n\n";
 
       if (signatures && signatures.length > 0) {
         for (const sig of signatures) {
           // Resolve the signature and extract created time
           const { signature } = sig;
           const resolvedSignature = await signature;
-
           const signaturePacket = resolvedSignature.packets[0];
+
+          const fingerprintBytes = signaturePacket.issuerFingerprint;
+
+          const fingerprint = Array.from(fingerprintBytes)
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("")
+            .toUpperCase()
+            .match(/.{1,4}/g)
+            .join(" ");
+
           const createdTime =
             signaturePacket && signaturePacket.created
               ? new Date(signaturePacket.created)
@@ -785,17 +848,17 @@ onmessage = async function (e) {
             }
           }
 
-          functionDetails += `Message successfully decrypted using key: ${decryptionKeyName}\n`;
+          functionDetails += `🔑 Message successfully decrypted using key: ${decryptionKeyName}\n`;
 
-          functionDetails += `Signature by: ${userID}`;
+          functionDetails += `📝 Signature by: ${userID}`;
           if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
           functionDetails += `\n`;
-
-          functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
+          functionDetails += `🔐 Fingerprint: ${fingerprint}\n`;
+          functionDetails += `⏱️ Signature created on: ${createdTimeStr}\n\n`;
         }
       } else {
-        functionDetails += `Message successfully decrypted using key: ${decryptionKeyName}\n`;
-        functionDetails += `You cannot be sure who encrypted this message as it is not signed.\n\n`;
+        functionDetails += `🔑 Message successfully decrypted using key: ${decryptionKeyName}\n`;
+        functionDetails += `❓ You cannot be sure who encrypted this message as it is not signed.\n\n`;
       }
       postMessage({ type: "setDetails", payload: functionDetails });
       postMessage({
@@ -842,16 +905,13 @@ onmessage = async function (e) {
             verificationKeys: publicKeys,
             format: "binary",
           });
-          await verificationResult.signatures[0].verified;
 
           const extractedData = verificationResult.data;
 
-          const signingKeyIDs = message.getSigningKeyIDs();
-          if (signingKeyIDs.length === 0) {
-            functionDetails = "No signatures found in attached signature.\n\n";
-          } else {
-            for (const keyID of signingKeyIDs) {
-              const hex = keyID.toHex();
+          if (verificationResult.signatures?.length) {
+            for (const sig of verificationResult.signatures) {
+              const resolved = await sig.signature;
+              const hex = sig.keyID?.toHex() ?? "";
               const matched = publicKeys.find(
                 (k) =>
                   k.getKeyID().toHex() === hex ||
@@ -860,16 +920,24 @@ onmessage = async function (e) {
               const userID = matched?.getUserIDs()[0] ?? "Unknown Key";
               const formatted = hex.replace(/(.{4})/g, "$1 ").trim();
 
-              const pkt =
-                message.packets.find((p) => p.date) ||
-                message.packets.find((p) => p.created);
-              const createdTime = pkt
-                ? new Date(pkt.date || pkt.created)
+              const signaturePacket = resolved.packets[0];
+
+              const fingerprintBytes = signaturePacket.issuerFingerprint;
+
+              const fingerprint = Array.from(fingerprintBytes)
+                .map((b) => b.toString(16).padStart(2, "0"))
+                .join("")
+                .toUpperCase()
+                .match(/.{1,4}/g)
+                .join(" ");
+
+              const createdTime = signaturePacket
+                ? new Date(signaturePacket.created)
                 : null;
 
-              let createdTimeStr = "Not Available";
+              let createdTimeStr;
               if (createdTime) {
-                const locale = navigator.language || "en-US";
+                const locale = "en-US";
                 const is24Hour = locale.includes("GB") || locale.includes("DE");
                 const dayName = createdTime.toLocaleDateString(locale, {
                   weekday: "long",
@@ -887,11 +955,17 @@ onmessage = async function (e) {
                   timeZoneName: "long",
                 });
                 createdTimeStr = `${dayName}, ${monthName} ${day}, ${year} ${timeWithZone}`;
+              } else {
+                createdTimeStr = "Not Available";
               }
 
-              functionDetails += `Signature by: ${userID} (${formatted})\n`;
-              functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
+              functionDetails += `📝 Signature by: ${userID} (${formatted})\n`;
+              functionDetails += `🔐 Fingerprint: ${fingerprint}\n`;
+              functionDetails += `⏱️ Signature created on: ${createdTimeStr}\n\n`;
             }
+          } else {
+            functionDetails =
+              "❌ No signatures found or could not verify signature.\n\n";
           }
 
           postMessage({ type: "setDecryptedMessage", payload: "" });
@@ -1025,24 +1099,35 @@ onmessage = async function (e) {
               });
               if (matchedKey) {
                 const userID = matchedKey.getUserIDs()[0];
-                return `  - ${userID} (${keyID
+                return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
                   .toHex()
                   .match(/.{1,4}/g)
                   .join(" ")})`;
               } else {
-                return `  - Unknown (${keyID
+                return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
                   .toHex()
                   .match(/.{1,4}/g)
                   .join(" ")})`;
               }
             });
-            functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
+            functionDetails +=
+              "👥 Recipients:\n" + recipients.join("\n") + "\n\n";
 
             if (signatures && signatures.length > 0) {
               for (const sig of signatures) {
                 const { signature } = sig;
                 const resolvedSignature = await signature;
                 const signaturePacket = resolvedSignature.packets[0];
+
+                const fingerprintBytes = signaturePacket.issuerFingerprint;
+
+                const fingerprint = Array.from(fingerprintBytes)
+                  .map((b) => b.toString(16).padStart(2, "0"))
+                  .join("")
+                  .toUpperCase()
+                  .match(/.{1,4}/g)
+                  .join(" ");
+
                 const createdTime =
                   signaturePacket && signaturePacket.created
                     ? new Date(signaturePacket.created)
@@ -1094,17 +1179,17 @@ onmessage = async function (e) {
                   }
                 }
 
-                functionDetails += `File successfully decrypted using key: ${decryptionKeyName}\n`;
+                functionDetails += `🔑 File successfully decrypted using key: ${decryptionKeyName}\n`;
 
-                functionDetails += `Signature by: ${userID}`;
+                functionDetails += `📝 Signature by: ${userID}`;
                 if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
                 functionDetails += `\n`;
-
-                functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
+                functionDetails += `🔐 Fingerprint: ${fingerprint}\n`;
+                functionDetails += `⏱️ Signature created on: ${createdTimeStr}\n\n`;
               }
             } else {
-              functionDetails += `File successfully decrypted using key: ${decryptionKeyName}\n`;
-              functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
+              functionDetails += `🔑 File successfully decrypted using key: ${decryptionKeyName}\n`;
+              functionDetails += `❓ You cannot be sure who encrypted this file as it is not signed.\n\n`;
             }
 
             postMessage({ type: "setDetails", payload: functionDetails });
@@ -1223,12 +1308,12 @@ onmessage = async function (e) {
 
             if (matchedKey) {
               const userID = matchedKey.getUserIDs()[0];
-              return `  - ${userID} (${keyID
+              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
                 .toHex()
                 .match(/.{1,4}/g)
                 .join(" ")})`;
             } else {
-              return `  - Unknown (${keyID
+              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
                 .toHex()
                 .match(/.{1,4}/g)
                 .join(" ")})`;
@@ -1237,14 +1322,23 @@ onmessage = async function (e) {
 
           functionDetails =
             recipients.length > 0
-              ? "Recipients:\n" + recipients.join("\n") + "\n\n"
-              : "No recipients found\n\n";
+              ? "👥 Recipients:\n" + recipients.join("\n") + "\n\n"
+              : "👥 No recipients found\n\n";
 
           if (signatures && signatures.length > 0) {
             for (const sig of signatures) {
               const { signature } = sig;
               const resolvedSignature = await signature;
               const signaturePacket = resolvedSignature.packets[0];
+              const fingerprintBytes = signaturePacket.issuerFingerprint;
+
+              const fingerprint = Array.from(fingerprintBytes)
+                .map((b) => b.toString(16).padStart(2, "0"))
+                .join("")
+                .toUpperCase()
+                .match(/.{1,4}/g)
+                .join(" ");
+
               const createdTime =
                 signaturePacket && signaturePacket.created
                   ? new Date(signaturePacket.created)
@@ -1295,17 +1389,17 @@ onmessage = async function (e) {
                 }
               }
 
-              functionDetails += `File successfully decrypted using Password\n`;
+              functionDetails += `🔑 File successfully decrypted using Password\n`;
 
-              functionDetails += `Signature by: ${userID}`;
+              functionDetails += `📝 Signature by: ${userID}`;
               if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
               functionDetails += `\n`;
-
-              functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
+              functionDetails += `🔐 Fingerprint: ${fingerprint}\n`;
+              functionDetails += `⏱️ Signature created on: ${createdTimeStr}\n\n`;
             }
           } else {
-            functionDetails += `File successfully decrypted using Password\n`;
-            functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
+            functionDetails += `🔑 File successfully decrypted using Password\n`;
+            functionDetails += `❓ You cannot be sure who encrypted this file as it is not signed.\n\n`;
           }
 
           postMessage({ type: "setDetails", payload: functionDetails });
@@ -1389,25 +1483,35 @@ onmessage = async function (e) {
           });
           if (matchedKey) {
             const userID = matchedKey.getUserIDs()[0];
-            return `  - ${userID} (${keyID
+            return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
               .toHex()
               .match(/.{1,4}/g)
               .join(" ")})`;
           } else {
-            return `  - Unknown (${keyID
+            return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
               .toHex()
               .match(/.{1,4}/g)
               .join(" ")})`;
           }
         });
 
-        functionDetails += "Recipients:\n" + recipients.join("\n") + "\n\n";
+        functionDetails += "👥 Recipients:\n" + recipients.join("\n") + "\n\n";
 
         if (signatures && signatures.length > 0) {
           for (const sig of signatures) {
             const { signature } = sig;
             const resolvedSignature = await signature;
             const signaturePacket = resolvedSignature.packets[0];
+
+            const fingerprintBytes = signaturePacket.issuerFingerprint;
+
+            const fingerprint = Array.from(fingerprintBytes)
+              .map((b) => b.toString(16).padStart(2, "0"))
+              .join("")
+              .toUpperCase()
+              .match(/.{1,4}/g)
+              .join(" ");
+
             const createdTime =
               signaturePacket && signaturePacket.created
                 ? new Date(signaturePacket.created)
@@ -1457,17 +1561,17 @@ onmessage = async function (e) {
                 userID = matchedKey.getUserIDs()[0] || "Unnamed Key";
               }
             }
-            functionDetails += `File successfully decrypted using key: ${decryptionKeyName}\n`;
+            functionDetails += `🔑 File successfully decrypted using key: ${decryptionKeyName}\n`;
 
-            functionDetails += `Signature by: ${userID}`;
+            functionDetails += `📝 Signature by: ${userID}`;
             if (formattedKeyID) functionDetails += ` (${formattedKeyID})`;
             functionDetails += `\n`;
-
-            functionDetails += `Signature created on: ${createdTimeStr}\n\n`;
+            functionDetails += `🔐 Fingerprint: ${fingerprint}\n`;
+            functionDetails += `⏱️ Signature created on: ${createdTimeStr}\n\n`;
           }
         } else {
-          functionDetails += `File successfully decrypted using key: ${decryptionKeyName}\n`;
-          functionDetails += `You cannot be sure who encrypted this file as it is not signed.\n\n`;
+          functionDetails += `🔑 File successfully decrypted using key: ${decryptionKeyName}\n`;
+          functionDetails += `❓ You cannot be sure who encrypted this file as it is not signed.\n\n`;
         }
 
         postMessage({ type: "setDetails", payload: functionDetails });

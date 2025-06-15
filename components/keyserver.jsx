@@ -210,9 +210,9 @@ const processKey = async (key) => {
   };
 };
 
-const KeyServer = ({ isOpen, onClose }) => {
-  const [filterValue, setFilterValue] = useState("");
+const KeyServer = ({ isOpen, onClose, initialSearch }) => {
   const [inputValue, setInputValue] = useState("");
+  const [filterValue, setFilterValue] = useState("");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -225,6 +225,64 @@ const KeyServer = ({ isOpen, onClose }) => {
   useEffect(() => {
     openDB();
   }, []);
+
+  // Define fetchKeys first
+  const fetchKeys = useCallback(async (value) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setRows([]);
+      return;
+    }
+    if (!isValidSearch(trimmed)) {
+      addToast({
+        title: "Search by email, key ID, or fingerprint only",
+        color: "danger",
+      });
+      setRows([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ search: trimmed });
+      const apiUrl = `/api/keyserver?${params.toString()}`;
+
+      const res = await fetch(apiUrl);
+      const text = await res.text();
+      const blocks = text
+        .split(/(?=-----BEGIN PGP PUBLIC KEY BLOCK-----)/g)
+        .filter(Boolean);
+
+      const processed = await Promise.all(
+        blocks.map(async (armored, index) => {
+          try {
+            return await processKey({ id: index, publicKey: armored });
+          } catch (e) {
+            console.error("processKey error", e);
+            return null;
+          }
+        })
+      );
+      setRows(processed.filter(Boolean));
+    } catch (e) {
+      console.error(e);
+      addToast({ title: "Error fetching keys", color: "danger" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const doSearch = useCallback(() => {
+    setPage(1);
+    fetchKeys(inputValue);
+  }, [inputValue, fetchKeys]);
+
+  useEffect(() => {
+    if (isOpen && initialSearch) {
+      setInputValue(initialSearch);
+      fetchKeys(initialSearch);
+    }
+  }, [isOpen, initialSearch, fetchKeys]);
 
   const extractPGPKeys = (content) => {
     const publicKeyRegex =
@@ -297,62 +355,14 @@ const KeyServer = ({ isOpen, onClose }) => {
 
   const isValidSearch = (val) => {
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-    const hexRegex = /^[A-Fa-f0-9\s]{8,}$/;
-    return emailRegex.test(val) || hexRegex.test(val);
-  };
+    const hexRegex = /^[A-Fa-f0-9]{8,}$/;
 
-  const fetchKeys = useCallback(async (value) => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      setRows([]);
-      return;
-    }
-    if (!isValidSearch(trimmed)) {
-      addToast({
-        title: "Search by email, key ID, or fingerprint only",
-        color: "danger",
-      });
-      setRows([]);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const rawHex = trimmed.replace(/\s+/g, "");
-      const isFingerprint = /^[A-Fa-f0-9]{40}$/.test(rawHex);
-      const params = new URLSearchParams({ search: trimmed });
-      if (isFingerprint) params.append("fingerprint", "on");
-      const apiUrl = `/api/keyserver?${params.toString()}`;
-
-      const res = await fetch(apiUrl);
-      console.log(res);
-      const text = await res.text();
-      const blocks = text
-        .split(/(?=-----BEGIN PGP PUBLIC KEY BLOCK-----)/g)
-        .filter(Boolean);
-      const processed = await Promise.all(
-        blocks.map(async (armored, index) => {
-          console.log(armored);
-          try {
-            return await processKey({ id: index, publicKey: armored });
-          } catch (e) {
-            console.error("processKey error", e);
-            return null;
-          }
-        })
-      );
-      setRows(processed.filter(Boolean));
-    } catch (e) {
-      console.error(e);
-      addToast({ title: "Error fetching keys", color: "danger" });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const doSearch = () => {
-    setPage(1);
-    fetchKeys(inputValue);
+    // split on commas, strip internal spaces, then validate each piece
+    return val
+      .split(",")
+      .map((term) => term.trim().replace(/\s+/g, ""))
+      .filter(Boolean)
+      .every((term) => emailRegex.test(term) || hexRegex.test(term));
   };
 
   const onKeyDown = (e) => {
@@ -446,7 +456,7 @@ const KeyServer = ({ isOpen, onClose }) => {
         <Input
           isClearable
           className="w-full sm:max-w-[100%]"
-          placeholder="Enter email, key ID or fingerprint"
+          placeholder="Enter email, key ID, or fingerprint, or separate by commas to search multiple keys"
           startContent={<SearchIcon />}
           value={inputValue}
           onValueChange={setInputValue}
@@ -457,11 +467,7 @@ const KeyServer = ({ isOpen, onClose }) => {
         </Button>
         <Dropdown>
           <DropdownTrigger>
-            <Button
-              variant="flat"
-            >
-              Columns
-            </Button>
+            <Button variant="flat">Columns</Button>
           </DropdownTrigger>
           <DropdownMenu
             disallowEmptySelection
