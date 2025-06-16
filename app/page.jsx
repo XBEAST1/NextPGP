@@ -2510,7 +2510,7 @@ export default function App() {
               className="w-full"
               multiple
               type="file"
-              accept=".asc,.txt,.key"
+              accept=".asc,.txt,.key,.rev"
               onChange={handleFileInput}
             />
           </div>

@@ -127,38 +127,69 @@
 ├─ User enters password
 ├─ Generate 32-byte random verification text (Uint8Array)
 ├─ Convert to hex string and add "VERIFY:" prefix
-├─ Encrypt combined verification text with password:
-│   ├─ Generate 16-byte random salt (for PBKDF2)
-│   ├─ Generate 12-byte random IV (for AES-GCM)
-│   ├─ Derive AES key from password + salt using PBKDF2 (1,000,000 iterations)
-│   ├─ Encrypt verification text using the derived AES Key + IV
-|   ├─ Combine salt + IV + ciphertext into one buffer
-|   └─ Base64 encode combined buffer → verificationCipher
-└─ Send the verificationCipher to the server and store in the database (no password sent)
+├─ Encrypt verification text with password:
+│   ├─ Generate 16-byte random salt
+│   ├─ Generate 12-byte random IV
+│   ├─ Derive 64-byte key from password + salt using PBKDF2-SHA512 (1,000,000 iterations)
+│   │   ├─ First 32 bytes: AES-GCM key
+│   │   └─ Next 32 bytes: HMAC-SHA256 key
+│   ├─ Compress plaintext using DEFLATE (pako)
+│   ├─ Encrypt compressed data with AES-GCM
+│   ├─ Construct 45-byte header:
+│   │   ├─ 2 bytes: MAGIC ('NP')
+│   │   ├─ 1 byte: ENCRYPTION_VERSION
+│   │   ├─ 1 byte: PURPOSE
+│   │   ├─ 1 byte: KDF_ID (0x01 = PBKDF2)
+│   │   ├─ 1 byte: CIPHER_ID (0x01 = AES-GCM)
+│   │   ├─ 1 byte: FLAGS (0x01 = compression enabled)
+│   │   ├─ 4 bytes: ITERATIONS (big-endian uint32)
+│   │   ├─ 2 bytes: RESERVED (0x0000)
+│   │   └─ 32 bytes: SHA-256 hash of header prefix (integrity)
+│   ├─ Generate HMAC-SHA256 of (header + ciphertext + IV + salt)
+│   ├─ Concatenate:
+│   │   ├─ header (45 bytes)
+│   │   ├─ ciphertext
+│   │   ├─ IV (12 bytes)
+│   │   ├─ salt (16 bytes)
+│   │   └─ HMAC (32 bytes)
+│   └─ Base64 encode full payload → `verificationCipher`
+└─ Send `verificationCipher` to server (password never sent)
 ```
 
 #### Vault Login
 ```
 ├─ User enters password
-├─ Fetch verificationCipher from server
-├─ Decode base64 → extract salt, IV, ciphertext
-├─ Derive AES key from entered password + extracted salt PBKDF2 (1,000,000 iterations)
-├─ Decrypt ciphertext using the derived AES Key + IV
-├─ Check decrypted text:
-│   ├─ If starts with "VERIFY:" → password correct → unlock vault
+├─ Fetch base64 `verificationCipher` from server
+├─ Decode and parse:
+│   ├─ header (45 bytes)
+│   ├─ ciphertext
+│   ├─ IV (12 bytes)
+│   ├─ salt (16 bytes)
+│   └─ HMAC (32 bytes)
+├─ Validate:
+│   ├─ MAGIC bytes == "NP"
+│   ├─ VERSION supported
+│   ├─ HEADER hash matches
+│   └─ HMAC signature valid
+├─ Derive key using KDF_ID (PBKDF2-SHA512 with salt + iterations)
+│   ├─ Split into AES-GCM key + HMAC key
+├─ Decrypt ciphertext with AES-GCM using IV
+├─ Decompress decrypted data using DEFLATE (pako)
+├─ Check if plaintext starts with "VERIFY:"
+│   ├─ If yes → correct password → unlock vault
 │   └─ Else → incorrect password → show error
 ├─ Call VaultContext.unlockVault(password)
 │   ├─ Get masterKey from IndexedDB
 │   ├─ Encrypt vault password with AES-GCM + random IV using masterKey
-│   ├─ Store encrypted vault password + IV in React state (in-memory)
-│   └─ Set vault unlocked flag
+│   ├─ Store encrypted password + IV in memory (React state)
+│   └─ Mark vault as unlocked
 └─ Call server API `/api/vault/unlock`
-   └─ Issues secure jwt vault session token cookie (30 min expiry)
+   └─ Server issues a secure jwt vault session token cookie (30 min expiry)
 ```
 
 #### Vault Password Storage in VaultContext
 ```
-├─ Vault password stored encrypted in React state
+├─ Vault password stored encrypted in memory (React state)
 ├─ Encryption uses separate masterKey (from IndexedDB)
 └─ Password decrypted on-demand via VaultContext.getVaultPassword()
 ```
@@ -171,29 +202,56 @@
     │   ├─ IndexedDB PGP key
     │   └─ MongoDB PGP key
     │       └─ To check the PGP key is already backed up to the MongoDB or not
-    ├─ Generate 16-byte random salt (for PBKDF2)
-    ├─ Generate 12-byte random IV (for AES-GCM)
-    ├─ Derive AES key from vault password + salt using PBKDF2 (1,000,000 iterations)
-    ├─ Encrypt PGP Key using the derived AES Key + IV
-    ├─ Combine salt + IV + PGP Key Cipher into one buffer
-    ├─ Base64 encode combined buffer → Encrypted PGP Key
+    ├─ If not already backed up:
+    │   ├─ Generate 16-byte random salt
+    │   ├─ Generate 12-byte random IV
+    │   ├─ Compress the PGP key with DEFLATE (pako)
+    │   ├─ Derive 64-byte key from vault password + salt using PBKDF2-SHA512 (1M iterations)
+    │   │   ├─ First 32 bytes: AES-GCM key
+    │   │   └─ Next 32 bytes: HMAC-SHA256 key
+    │   ├─ Encrypt compressed PGP key with AES-GCM + IV
+    │   ├─ Build 45-byte header:
+    │   │   ├─ 2B MAGIC ('NP')
+    │   │   ├─ 1B VERSION
+    │   │   ├─ 1B PURPOSE
+    │   │   ├─ 1B KDF_ID (0x01)
+    │   │   ├─ 1B CIPHER_ID (0x01)
+    │   │   ├─ 1B FLAGS (0x01 = compressed)
+    │   │   ├─ 4B ITERATIONS
+    │   │   ├─ 2B RESERVED
+    │   │   └─ 32B SHA-256(header)
+    │   ├─ Compute HMAC-SHA256 over (header + ciphertext + IV + salt)
+    │   ├─ Concatenate: header  + ciphertext  + IV  + salt  + HMAC
+    │   └─ Base64 encode → encrypted PGP key
     └─ Send the encrypted PGP key and its hash to the server and store in the database
 ```
 
 #### Cloud Manage
 ```
 ├─ Retrieve vault password by calling VaultContext.getVaultPassword()
-└─ Retrieve encrypted PGP keys from MongoDB
-    ├─ Decode base64 → extract salt, IV, PGP Key Cipher
-    ├─ Derive AES key from vault password + extracted salt PBKDF2 (1,000,000 iterations)
-    ├─ Decrypt each PGP Key Cipher using the derived AES Key + IV
-    ├─ User clicks on import PGP key button
-    ├─ Compare PGP Key hash with:
-    │   ├─ MongoDB PGP key
-    │   └─ IndexedDB PGP key
-    │       └─ To check that the PGP key is already imported to the IndexedDB or not
+└─ Retrieve list of encrypted PGP keys from MongoDB
+    ├─ For each encrypted PGP key:
+    │   ├─ Base64 → rawBuffer
+    │   ├─ Parse out:
+    │   │   ├─ header (45 bytes)
+    │   │   ├─ ciphertext
+    │   │   ├─ IV (12 bytes)
+    │   │   ├─ salt (16 bytes)
+    │   │   └─ HMAC (32 bytes)
+    │   ├─ Verify:
+    │   │   ├─ MAGIC == 'NP'
+    │   │   ├─ VERSION supported
+    │   │   ├─ header hash matches
+    │   │   └─ HMAC valid over (header + ciphertext + IV + salt)
+    │   ├─ Extract ITERATIONS & KDF_ID, derive 64-byte key via PBKDF2-SHA512
+    │   ├─ Decrypt ciphertext with AES-GCM + IV
+    │   ├─ Decompress with INFLATE (pako) → PGP key bytes
+    │   └─ Compute its hash
+    ├─ User clicks "import" on one PGP key
+    ├─ Compare cloud PGP key hash against IndexedDB PGP keys to avoid duplicates
     ├─ Get masterKey from IndexedDB
-    └─ Encrypt PGP Key with AES-GCM + random IV using masterKey and store in IndexedDB
+    ├─ Encrypt PGP key with AES-GCM + random IV using masterKey
+    └─ Store the final AES-GCM-wrapped PGP key (and IV) in IndexedDB
 ```
 
 #### Vault Locking

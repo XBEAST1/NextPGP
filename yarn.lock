@@ -5745,6 +5745,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/pako@npm:^2":
+  version: 2.0.3
+  resolution: "@types/pako@npm:2.0.3"
+  checksum: 10c0/45119ac3c4e8a77317c35493327039b74e333562f06ce038048228918d8ddfaa7958125aab960d1565b3861046022754c414dba1eecb210c44a32c415956bee2
+  languageName: node
+  linkType: hard
+
 "@types/prop-types@npm:*":
   version: 15.7.14
   resolution: "@types/prop-types@npm:15.7.14"
@@ -9461,6 +9468,7 @@ __metadata:
     "@types/node": "npm:20.5.7"
     "@types/nodemailer": "npm:^6.4.17"
     "@types/nprogress": "npm:^0"
+    "@types/pako": "npm:^2"
     "@types/react": "npm:18.3.3"
     "@types/react-dom": "npm:18.3.0"
     "@typescript-eslint/eslint-plugin": "npm:8.11.0"
@@ -9493,6 +9501,7 @@ __metadata:
     nodemailer: "npm:^7.0.3"
     nprogress: "npm:^0.2.0"
     openpgp: "npm:^6.1.1"
+    pako: "npm:^2.1.0"
     postcss: "npm:8.4.49"
     prettier: "npm:3.3.3"
     react: "npm:18.3.1"
@@ -9854,6 +9863,13 @@ __metadata:
   version: 1.0.1
   resolution: "package-json-from-dist@npm:1.0.1"
   checksum: 10c0/62ba2785eb655fec084a257af34dbe24292ab74516d6aecef97ef72d4897310bc6898f6c85b5cd22770eaa1ce60d55a0230e150fb6a966e3ecd6c511e23d164b
+  languageName: node
+  linkType: hard
+
+"pako@npm:^2.1.0":
+  version: 2.1.0
+  resolution: "pako@npm:2.1.0"
+  checksum: 10c0/8e8646581410654b50eb22a5dfd71159cae98145bd5086c9a7a816ec0370b5f72b4648d08674624b3870a521e6a3daffd6c2f7bc00fdefc7063c9d8232ff5116
   languageName: node
   linkType: hard
 

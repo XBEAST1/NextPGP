@@ -325,13 +325,13 @@ export default function App() {
         style={{ transition: "height 0.2s ease-out" }}
       />
       <br />
-      <div className="flex justify-between">
+      <div className="md:flex md:justify-between flex-column">
         <Button
           className={
             details.includes("- Unknown") &&
             details.includes("Signature by: Unknown Key")
-              ? "w-60"
-              : "w-24"
+              ? "md:w-60 w-full"
+              : "md:w-24 w-full"
           }
           disabled={decrypting}
           onPress={handleDecrypt}
@@ -340,13 +340,13 @@ export default function App() {
         </Button>
 
         {details.includes("- Unknown") && (
-          <Button onPress={SearchUnknownOnKeyserver}>
+          <Button className="md:w-auto md:mt-0 w-full mt-4" onPress={SearchUnknownOnKeyserver}>
             🔍 Search Recipient Key On Key Server
           </Button>
         )}
 
         {details.includes("Signature by: Unknown Key") && (
-          <Button onPress={SearchSignerOnKeyserver}>
+          <Button className="md:w-auto md:mt-0 w-full mt-4" onPress={SearchSignerOnKeyserver}>
             🔍 Search Signer Key On Key Server
           </Button>
         )}
@@ -390,7 +390,9 @@ export default function App() {
             />
             <Button
               className="mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
-              onPress={handlePasswordDecrypt}
+              onPress={() => {
+                handlePasswordDecrypt(), setDecrypting(false);
+              }}
             >
               Submit
             </Button>

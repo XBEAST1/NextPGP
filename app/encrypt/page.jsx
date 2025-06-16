@@ -392,7 +392,7 @@ export default function App() {
         );
       }
 
-      if (files) {
+      if (files && files.length > 0) {
         const fileTask = {
           type: "fileEncrypt",
           responseType: "downloadFile",
@@ -413,7 +413,7 @@ export default function App() {
         );
       }
 
-      if (directoryFiles) {
+      if (directoryFiles && directoryFiles.length > 0) {
         const dirTask = {
           type: "fileEncrypt",
           responseType: "downloadFile",
@@ -435,9 +435,13 @@ export default function App() {
         );
       }
 
-      if (!message && !files && !directoryFiles) {
+      if (
+        !message &&
+        !(files && files.length > 0) &&
+        !(directoryFiles && directoryFiles.length > 0)
+      ) {
         addToast({
-          title: "Please enter a message or Select a File",
+          title: "Please enter a message or select a file",
           color: "danger",
         });
         setEncrypting(false);
@@ -614,20 +618,24 @@ export default function App() {
         </div>
       </div>
       <br />
-      <h5 className="ms-1">Encrypted PGP Message:</h5>
-      <br />
-      <Snippet
-        symbol=""
-        classNames={{
-          base: "max-w-full p-5 overflow-auto",
-          content: "whitespace-pre-wrap break-all",
-          pre: "whitespace-pre-wrap break-all max-h-[300px] overflow-auto",
-        }}
-      >
-        {output}
-      </Snippet>
-      <br />
-      <br />
+      {output && (
+        <>
+          <h5 className="ms-1">Encrypted PGP Message:</h5>
+          <br />
+          <Snippet
+            symbol=""
+            classNames={{
+              base: "max-w-full p-5 overflow-auto",
+              content: "whitespace-pre-wrap break-all",
+              pre: "whitespace-pre-wrap break-all max-h-[300px] overflow-auto",
+            }}
+          >
+            {output}
+          </Snippet>
+          <br />
+          <br />
+        </>
+      )}
       <Button
         className={`${
           !isChecked &&
