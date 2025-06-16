@@ -24,13 +24,14 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       { url: "/vault", revision: buildTimestamp },
       { url: "/cloud-backup", revision: buildTimestamp },
       { url: "/cloud-manage", revision: buildTimestamp },
+      { url: "/about", revision: buildTimestamp },
       { url: "/offline", revision: buildTimestamp },
     ],
     runtimeCaching: [
       // Cache all main pages permanently
       {
         urlPattern:
-          /^https:\/\/nextpgp\.vercel\.app\/($|generate|import|encrypt|decrypt|login|create-vault|vault|cloud-backup|cloud-manage|offline)$/,
+          /^https:\/\/nextpgp\.vercel\.app\/($|generate|import|encrypt|decrypt|login|create-vault|vault|cloud-backup|cloud-manage|about|offline)$/,
         handler: "NetworkFirst",
         options: {
           cacheName: "main-pages",

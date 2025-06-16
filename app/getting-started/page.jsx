@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "@heroui/react";
 import { motion } from "framer-motion";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -27,7 +27,13 @@ const listItem = {
 
 const Page = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const showButton = pathname === "/getting-started";
+
+  const EnterNextPGP = () => {
+    localStorage.setItem("hasSeenWelcome", "true");
+    router.push("/");
+  };
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center">
@@ -207,8 +213,7 @@ const Page = () => {
             <motion.div {...fadeInUp} className="text-center mt-8 space-y-4">
               <Link href="/" passHref>
                 <Button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  onPress={EnterNextPGP}
                   className="text-base font-medium px-6 py-2 rounded-xl"
                 >
                   Enter Next PGP 🔓
