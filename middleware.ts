@@ -4,6 +4,7 @@ import { jwtVerify } from "jose";
 
 const vaultOnlyRoutes = ["/cloud-backup", "/cloud-manage"];
 const authRoutes = ["/login"];
+const publicRoutes = ["/about", "/getting-started"];
 
 export default async function middleware(request: NextRequest) {
   const session = await getToken({
@@ -19,6 +20,11 @@ export default async function middleware(request: NextRequest) {
     if (session && pathname === "/login") {
       return NextResponse.redirect(new URL("/vault", request.nextUrl.origin));
     }
+    return NextResponse.next();
+  }
+
+  // Allow unauthenticated access to public routes
+  if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();
   }
 
