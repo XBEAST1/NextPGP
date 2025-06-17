@@ -1551,8 +1551,8 @@ export default function App() {
       link.download = `${user.name}_0x${keyid}_PUBLIC_REVOKED.asc`;
       link.click();
       URL.revokeObjectURL(objectUrl);
-      
 
+      
       addToast({
         title: "Key Revoked Successfully",
         color: "success",
@@ -1633,9 +1633,18 @@ export default function App() {
     }
   }, [page]);
 
+  useEffect(() => {
+    const storedRowsPerPage = localStorage.getItem("rowsPerPage");
+    if (storedRowsPerPage) {
+      setRowsPerPage(Number(storedRowsPerPage));
+    }
+  }, []);
+
   const onRowsPerPageChange = useCallback((e) => {
-    setRowsPerPage(Number(e.target.value));
+    const selectedRowsPerPage = Number(e.target.value);
+    setRowsPerPage(selectedRowsPerPage);
     setPage(1);
+    localStorage.setItem("rowsPerPage", selectedRowsPerPage);
   }, []);
 
   const onSearchChange = useCallback((value) => {
@@ -1705,6 +1714,7 @@ export default function App() {
             Rows per page:
             <select
               className="bg-transparent outline-none text-default-400 text-small"
+              value={rowsPerPage}
               onChange={onRowsPerPageChange}
             >
               <option value="5">5</option>
@@ -1721,6 +1731,7 @@ export default function App() {
   }, [
     filterValue,
     onRowsPerPageChange,
+    rowsPerPage,
     users.length,
     visibleColumns,
     onSearchChange,
