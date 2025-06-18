@@ -7,13 +7,17 @@ const authRoutes = ["/login"];
 const publicRoutes = ["/about", "/getting-started"];
 
 export default async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  if (pathname.startsWith("/about")) {
+    return NextResponse.rewrite(new URL("/getting-started", request.url));
+  }
+
   const session = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
     secureCookie: process.env.NODE_ENV === "production",
   });
-
-  const pathname = request.nextUrl.pathname;
 
   // Allow unauthenticated access to login
   if (authRoutes.some((route) => pathname.startsWith(route))) {
@@ -97,10 +101,6 @@ export default async function middleware(request: NextRequest) {
       url.searchParams.set("redirect", pathname);
       return NextResponse.redirect(url);
     }
-  }
-
-  if (pathname.startsWith("/about")) {
-    return NextResponse.rewrite(new URL("/getting-started", request.url));
   }
 
   return NextResponse.next();
