@@ -6,6 +6,7 @@ import { fontSans } from "@/config/fonts";
 import { Navbar } from "@/components/navbar";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { auth } from "@/auth";
+import { NProgressLink } from "@/components/nprogress";
 import { SessionProvider } from "next-auth/react";
 import { NavigationProgress } from "@/components/nprogress";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -100,16 +101,31 @@ export default async function RootLayout({ children }) {
                   <GoogleAnalytics gaId="G-EJ067X6M97" />
                 </main>
                 <br />
-                <footer className="w-full flex items-center justify-center py-3">
+                <footer className="w-full flex flex-col items-center justify-center py-3 gap-1 text-sm">
                   <div className="flex items-center gap-1 text-current">
                     <span className="text-default-400">Developed By</span>
                     <a
                       href="https://github.com/XBEAST1"
-                      target="blank"
+                      target="_blank"
+                      rel="noreferrer"
                       className="text-default-800"
                     >
                       XBEAST 🖤✨
                     </a>
+                  </div>
+                  <div className="text-xs flex gap-3">
+                    <NProgressLink
+                      href="/privacy"
+                      className="text-default-400 hover:text-default-600 transition-all"
+                    >
+                      Privacy Policy
+                    </NProgressLink>
+                    <NProgressLink
+                      href="/terms"
+                      className="text-default-400 hover:text-default-600 transition-all"
+                    >
+                      Terms of Service
+                    </NProgressLink>
                   </div>
                 </footer>
                 <br />
