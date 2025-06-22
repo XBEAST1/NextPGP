@@ -70,6 +70,16 @@ const INITIAL_VISIBLE_COLUMNS = [
   "actions",
 ];
 
+const INITIAL_VISIBLE_COLUMNS_MODAL2 = [
+  "name",
+  "email",
+  "creationdate",
+  "expirydate",
+  "status",
+  "passwordprotected",
+  "select",
+];
+
 const columns = [
   { name: "NAME", uid: "name", width: "15%", sortable: true },
   {
@@ -101,7 +111,6 @@ const columns = [
   {
     name: "PASSWORD",
     uid: "passwordprotected",
-    width: "20%",
     align: "center",
     sortable: true,
   },
@@ -128,6 +137,47 @@ const columnsModal = [
   },
   { name: "PRIMARY", uid: "primary", align: "center" },
   { name: "DELETE", uid: "delete", align: "center" },
+];
+
+const columnsModal2 = [
+  { name: "NAME", uid: "name", width: "15%", sortable: true },
+  {
+    name: "EMAIL",
+    uid: "email",
+    width: "30%",
+    align: "center",
+    sortable: true,
+  },
+  {
+    name: "CREATION DATE",
+    uid: "creationdate",
+    align: "center",
+    width: "20%",
+    sortable: true,
+  },
+  {
+    name: "EXPIRY DATE",
+    uid: "expirydate",
+    width: "15%",
+    sortable: true,
+  },
+  {
+    name: "STATUS",
+    uid: "status",
+    width: "20%",
+    align: "center",
+    sortable: true,
+  },
+  {
+    name: "PASSWORD",
+    uid: "passwordprotected",
+    align: "center",
+    sortable: true,
+  },
+  { name: "KEY ID", uid: "keyid", align: "center" },
+  { name: "FINGERPRINT", uid: "fingerprint", align: "center" },
+  { name: "ALGORITHM", uid: "algorithm", align: "center" },
+  { name: "SELECT", uid: "select", align: "center" },
 ];
 
 const capitalize = (s) => {
@@ -327,6 +377,12 @@ export default function App() {
   const [rowsPerPageModal, setRowsPerPageModal] = useState(5);
   const [sortDescriptorModal, setSortDescriptorModal] = useState({});
   const [pageModal, setPageModal] = useState(1);
+  const [isLoadingModal2, setIsLoadingModal2] = useState(false);
+  const [usersModal2, setUsersModal2] = useState([]);
+  const [rowsPerPageModal2, setRowsPerPageModal2] = useState(5);
+  const [filterValueModal2, setFilterValueModal2] = useState("");
+  const [pageModal2, setPageModal2] = useState(1);
+  const [sortDescriptorModal2, setSortDescriptorModal2] = useState({});
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedKeyName, setSelectedKeyName] = useState("");
   const [isNoExpiryChecked, setIsNoExpiryChecked] = useState(true);
@@ -347,6 +403,7 @@ export default function App() {
   const [modalUserIDs, setModalUserIDs] = useState([]);
   const [userIDToDelete, setUserIDToDelete] = useState(null);
   const [deleteUserIDModal, setdeleteUserIDModal] = useState(false);
+  const [certifyUserModal, setcertifyUserModal] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [revokeModal, setrevokeModal] = useState(false);
   const [revocationReason, setRevocationReason] = useState("0");
@@ -363,6 +420,9 @@ export default function App() {
     useState(false);
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
+  );
+  const [visibleColumnsModal2, setVisibleColumnsModal2] = useState(
+    new Set(INITIAL_VISIBLE_COLUMNS_MODAL2)
   );
 
   useEffect(() => {
@@ -473,129 +533,143 @@ export default function App() {
                   Backup Keyring
                 </DropdownItem>
 
-                <>
-                  {user.status === "revoked" ? null : (
-                    <DropdownItem
-                      key="change-validity"
-                      onPress={() => {
-                        setSelectedValidityKey(user);
-                        if (user.expirydate === "No Expiry") {
-                          setIsNoExpiryChecked(true);
-                          setExpiryDate(null);
-                        } else {
-                          setIsNoExpiryChecked(false);
-                          const [day, month, year] = user.expirydate.split("-");
-                          const monthMap = {
-                            Jan: 0,
-                            Feb: 1,
-                            Mar: 2,
-                            Apr: 3,
-                            May: 4,
-                            Jun: 5,
-                            Jul: 6,
-                            Aug: 7,
-                            Sep: 8,
-                            Oct: 9,
-                            Nov: 10,
-                            Dec: 11,
-                          };
-                          const date = new Date(
-                            year,
-                            monthMap[month],
-                            parseInt(day)
-                          );
-                          setExpiryDate(
-                            new CalendarDate(
-                              date.getFullYear(),
-                              date.getMonth() + 1,
-                              date.getDate()
-                            )
-                          );
-                        }
-                        setvalidityModal(true);
-                      }}
-                    >
-                      Change Validity
-                    </DropdownItem>
-                  )}
+                {user.status === "revoked" ? null : (
+                  <DropdownItem
+                    key="change-validity"
+                    onPress={() => {
+                      setSelectedValidityKey(user);
+                      if (user.expirydate === "No Expiry") {
+                        setIsNoExpiryChecked(true);
+                        setExpiryDate(null);
+                      } else {
+                        setIsNoExpiryChecked(false);
+                        const [day, month, year] = user.expirydate.split("-");
+                        const monthMap = {
+                          Jan: 0,
+                          Feb: 1,
+                          Mar: 2,
+                          Apr: 3,
+                          May: 4,
+                          Jun: 5,
+                          Jul: 6,
+                          Aug: 7,
+                          Sep: 8,
+                          Oct: 9,
+                          Nov: 10,
+                          Dec: 11,
+                        };
+                        const date = new Date(
+                          year,
+                          monthMap[month],
+                          parseInt(day)
+                        );
+                        setExpiryDate(
+                          new CalendarDate(
+                            date.getFullYear(),
+                            date.getMonth() + 1,
+                            date.getDate()
+                          )
+                        );
+                      }
+                      setvalidityModal(true);
+                    }}
+                  >
+                    Change Validity
+                  </DropdownItem>
+                )}
 
-                  {user.status !== "revoked" &&
-                    (isProtected ? (
-                      <>
-                        <DropdownItem
-                          key="change-password"
-                          onPress={() => addOrChangeKeyPassword(user)}
-                        >
-                          Change Password
-                        </DropdownItem>
-                        <DropdownItem
-                          key="remove-password"
-                          onPress={() =>
-                            triggerRemovePasswordModal(user, user.name)
-                          }
-                        >
-                          Remove Password
-                        </DropdownItem>
-                      </>
-                    ) : (
-                      <>
-                        <DropdownItem
-                          key="add-password"
-                          onPress={() => addOrChangeKeyPassword(user)}
-                        >
-                          Add Password
-                        </DropdownItem>
-                      </>
-                    ))}
-
-                  {user.status !== "revoked" && user.status !== "expired" && (
-                    <DropdownItem
-                      key="add-userid"
-                      onPress={() => {
-                        setSelectedUserId(user);
-                        setaddUserIDModal(true);
-                      }}
-                    >
-                      Add User ID
-                    </DropdownItem>
-                  )}
-
-                  {user.userIdCount > 1 &&
-                    user.status !== "revoked" &&
-                    user.status !== "expired" && (
-                      <DropdownItem
-                        key="manage-userids"
-                        onPress={() => {
-                          setSelectedUserId(user);
-                          setmanageUserIDsModal(true);
-                        }}
-                      >
-                        Manage User IDs
-                      </DropdownItem>
-                    )}
-
-                  {user.status === "revoked" ? null : (
+                {user.status !== "revoked" &&
+                  (isProtected ? (
                     <>
                       <DropdownItem
-                        key="revocation-certificate"
-                        onPress={() => GenerateRevocationCertificate(user)}
+                        key="change-password"
+                        onPress={() => addOrChangeKeyPassword(user)}
                       >
-                        Get Revocation Certificate
+                        Change Password
                       </DropdownItem>
-
                       <DropdownItem
-                        key="revoke-key"
-                        onPress={() => {
-                          setSelectedUserId(user);
-                          setSelectedKeyName(user.name);
-                          setrevokeModal(true);
-                        }}
+                        key="remove-password"
+                        onPress={() =>
+                          triggerRemovePasswordModal(user, user.name)
+                        }
                       >
-                        Revoke Key
+                        Remove Password
                       </DropdownItem>
                     </>
+                  ) : (
+                    <>
+                      <DropdownItem
+                        key="add-password"
+                        onPress={() => addOrChangeKeyPassword(user)}
+                      >
+                        Add Password
+                      </DropdownItem>
+                    </>
+                  ))}
+
+                {user.status !== "revoked" && user.status !== "expired" && (
+                  <DropdownItem
+                    key="add-userid"
+                    onPress={() => {
+                      setSelectedUserId(user);
+                      setaddUserIDModal(true);
+                    }}
+                  >
+                    Add User ID
+                  </DropdownItem>
+                )}
+
+                {user.userIdCount > 1 &&
+                  user.status !== "revoked" &&
+                  user.status !== "expired" && (
+                    <DropdownItem
+                      key="manage-userids"
+                      onPress={() => {
+                        setSelectedUserId(user);
+                        setmanageUserIDsModal(true);
+                      }}
+                    >
+                      Manage User IDs
+                    </DropdownItem>
                   )}
-                </>
+              </>
+            )}
+
+            {user.status === "revoked" ? null : (
+              <DropdownItem
+                key="certify-key"
+                onPress={() => {
+                  setSelectedUserId(user);
+                  setcertifyUserModal(true);
+                }}
+              >
+                Certify
+              </DropdownItem>
+            )}
+
+            {user.privateKey?.trim() && isProtected !== null && (
+              <>
+                {user.status === "revoked" ? null : (
+                  <>
+                    <DropdownItem
+                      key="revocation-certificate"
+                      onPress={() => GenerateRevocationCertificate(user)}
+                    >
+                      Get Revocation Certificate
+                    </DropdownItem>
+
+                    <DropdownItem
+                      key="revoke-key"
+                      onPress={() => {
+                        setSelectedUserId(user);
+                        setSelectedKeyName(user.name);
+                        setrevokeModal(true);
+                      }}
+                    >
+                      Revoke Key
+                    </DropdownItem>
+                  </>
+                )}
               </>
             )}
 
@@ -845,6 +919,74 @@ export default function App() {
 
       getRequest.onerror = (e) => reject(e.target.error);
     });
+  };
+
+  const certifyUserKey = async (certifierUser, targetUser) => {
+    try {
+      let signerPriv = await openpgp.readKey({
+        armoredKey: certifierUser.privateKey,
+      });
+
+      if (signerPriv.isPrivate() && !signerPriv.isDecrypted()) {
+        const passphrase = await triggerKeyPasswordModal(certifierUser);
+        signerPriv = await openpgp.decryptKey({
+          privateKey: signerPriv,
+          passphrase,
+        });
+      }
+
+      const theirPub = await openpgp.readKey({
+        armoredKey: targetUser.publicKey,
+      });
+
+      // 4. Check for existing certification by this signer (using key ID)
+      const signerKeyId = signerPriv.getKeyIDs()[0].toHex().toLowerCase();
+
+      const existingKeyIds = theirPub.users.flatMap((user) =>
+        user.otherCertifications.map((sig) =>
+          sig.issuerKeyID.toHex().toLowerCase()
+        )
+      );
+
+      if (existingKeyIds.includes(signerKeyId)) {
+        addToast({
+          title: `${targetUser.name}'s Key Already Certified By ${certifierUser.name}'s Key`,
+          color: "primary",
+        });
+        return targetUser.publicKey;
+      }
+
+      // 5. Perform the certification
+      const certifiedKey = await theirPub.signAllUsers(
+        [signerPriv],
+        new Date()
+      );
+
+      const updatedArmored = certifiedKey.armor();
+
+      await updateKeyInIndexeddb(targetUser.id, {
+        privateKey: targetUser.privateKey,
+        publicKey: updatedArmored,
+      });
+
+      setcertifyUserModal(false);
+
+      setUsers(await loadKeysFromIndexedDB());
+
+      addToast({
+        title: `${targetUser.name}'s Key Successfully Certified By ${certifierUser.name}'s Key`,
+        color: "success",
+      });
+
+      return updatedArmored;
+    } catch (err) {
+      console.error("Certification failed:", err);
+      addToast({
+        title: `Certification Error: ${err.message || err}`,
+        color: "danger",
+      });
+      throw err;
+    }
   };
 
   const handleUpdateValidity = async () => {
@@ -2040,6 +2182,291 @@ export default function App() {
     );
   }, [itemsModal.length, pageModal, pagesModal, hasSearchFilterModal]);
 
+  // Certification Modal Table
+
+  useEffect(() => {
+    if (!certifyUserModal) return;
+
+    const fetchKeys = async () => {
+      setIsLoadingModal2(true);
+      try {
+        const pgpKeys = await loadKeysFromIndexedDB();
+        setUsersModal2(pgpKeys);
+      } catch (error) {
+        console.error("Error loading keys:", error);
+      } finally {
+        setIsLoadingModal2(false);
+      }
+    };
+
+    fetchKeys();
+
+    const handleStorageChange = async () => {
+      setIsLoadingModal2(true);
+      try {
+        const updated = await loadKeysFromIndexedDB();
+        setUsersModal2(updated);
+      } catch (error) {
+        console.error("Error loading keys:", error);
+      } finally {
+        setIsLoadingModal2(false);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [certifyUserModal]);
+
+  const filteredItemsModal2 = useMemo(() => {
+    let items = [...usersModal2];
+
+    items = items.filter(
+      (user) =>
+        user.privateKey &&
+        user.privateKey.trim() !== "" &&
+        (user.status !== "revoked" && user.status !== "expired") &&
+        (
+          !selectedUserId || user.id !== selectedUserId.id
+        )
+    );
+
+    if (filterValueModal2) {
+      items = items.filter(
+        (user) =>
+          [
+            "name",
+            "email",
+            "creationdate",
+            "expirydate",
+            "status",
+            "keyid",
+            "fingerprint",
+          ].some((field) =>
+            user[field].toLowerCase().includes(filterValueModal2.toLowerCase())
+          ) ||
+          user.passwordprotected
+            .toLowerCase()
+            .includes(filterValueModal2.toLowerCase())
+      );
+    }
+    return items;
+  }, [usersModal2, filterValueModal2]);
+
+  const pagesModal2 = useMemo(
+    () => Math.ceil(filteredItemsModal2.length / rowsPerPageModal2),
+    [filteredItemsModal2, rowsPerPageModal2]
+  );
+  const hasSearchFilterModal2 = Boolean(filterValueModal2);
+
+  const sortedItemsModal2 = useMemo(() => {
+    const start = (pageModal2 - 1) * rowsPerPageModal2;
+    const end = start + rowsPerPageModal2;
+    return [...filteredItemsModal2]
+      .sort((a, b) => {
+        const aVal = a[sortDescriptorModal2.column];
+        const bVal = b[sortDescriptorModal2.column];
+        const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        return sortDescriptorModal2.direction === "descending" ? -cmp : cmp;
+      })
+      .slice(start, end);
+  }, [
+    filteredItemsModal2,
+    pageModal2,
+    rowsPerPageModal2,
+    sortDescriptorModal2,
+  ]);
+
+  const onNextPageModal2 = useCallback(() => {
+    if (pageModal2 < pagesModal2) setPageModal2(pageModal2 + 1);
+  }, [pageModal2, pagesModal2]);
+
+  const onPreviousPageModal2 = useCallback(() => {
+    if (pageModal2 > 1) setPageModal2(pageModal2 - 1);
+  }, [pageModal2]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("rowsPerPageModal2");
+    if (stored) setRowsPerPageModal2(Number(stored));
+  }, []);
+
+  const onRowsPerPageChangeModal2 = useCallback((e) => {
+    const val = Number(e.target.value);
+    setRowsPerPageModal2(val);
+    setPageModal2(1);
+    localStorage.setItem("rowsPerPageModal2", val);
+  }, []);
+
+  const onSearchChangeModal2 = useCallback((value) => {
+    setFilterValueModal2(value || "");
+    setPageModal2(1);
+  }, []);
+
+  const onClearModal2 = useCallback(() => {
+    setFilterValueModal2("");
+    setPageModal2(1);
+  }, []);
+
+  const headerColumnsModal2 = useMemo(() => {
+    if (visibleColumnsModal2 === "all") return columnsModal2;
+
+    return columnsModal2.filter((column) =>
+      Array.from(visibleColumnsModal2).includes(column.uid)
+    );
+  }, [visibleColumnsModal2]);
+
+  const renderCellModal2 = useCallback(
+    (user, columnKey) => {
+      const value = user[columnKey];
+      switch (columnKey) {
+        case "name":
+          return (
+            <User
+              avatarProps={{ radius: "lg", src: user.avatar }}
+              name={value}
+            />
+          );
+        case "status":
+          return (
+            <Chip
+              className="-ms-5 capitalize"
+              color={statusColorMap[user.status]}
+              variant="flat"
+            >
+              {value}
+            </Chip>
+          );
+        case "passwordprotected":
+          return (
+            <Chip
+              className="-ms-6 capitalize"
+              color={passwordprotectedColorMap[user.passwordprotected]}
+              variant="flat"
+            >
+              {value}
+            </Chip>
+          );
+        case "select":
+          return (
+            <Button
+              onPress={() => certifyUserKey(user, selectedUserId)}
+              className="ms-2"
+              color="secondary"
+              variant="flat"
+            >
+              Select
+            </Button>
+          );
+        default:
+          return value;
+      }
+    },
+    [selectedUserId]
+  );
+
+  const topContentModal2 = useMemo(() => {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between gap-3 items-end">
+          <Input
+            isClearable
+            className="w-full sm:max-w-[100%]"
+            placeholder="Search all fields (name, email, dates, status, key ID, fingerprint, etc.)"
+            startContent={<SearchIcon />}
+            value={filterValueModal2}
+            onClear={() => onClearModal2()}
+            onValueChange={onSearchChangeModal2}
+          />
+          <Dropdown>
+            <DropdownTrigger>
+              <Button
+                endContent={<ChevronDownIcon className="text-small" />}
+                variant="faded"
+                className="border-0"
+              >
+                Columns
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu
+              disallowEmptySelection
+              aria-label="Table Columns"
+              closeOnSelect={false}
+              selectedKeys={visibleColumnsModal2}
+              selectionMode="multiple"
+              onSelectionChange={setVisibleColumnsModal2}
+            >
+              {columnsModal2
+                .filter((column) => column.uid !== "select")
+                .map((column) => (
+                  <DropdownItem key={column.uid} className="capitalize">
+                    {capitalize(column.name)}
+                  </DropdownItem>
+                ))}
+            </DropdownMenu>
+          </Dropdown>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-default-400 text-small">
+            Total {usersModal2.length} keys
+          </span>
+          <label className="flex items-center text-default-400 text-small">
+            Rows per page:
+            <select
+              className="bg-transparent outline-none text-default-400 text-small"
+              value={rowsPerPageModal2}
+              onChange={onRowsPerPageChangeModal2}
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    );
+  }, [
+    filterValueModal2,
+    onRowsPerPageChangeModal2,
+    rowsPerPageModal2,
+    usersModal2.length,
+    visibleColumnsModal2,
+    onSearchChangeModal2,
+    hasSearchFilterModal2,
+  ]);
+
+  const bottomContentModal2 = useMemo(() => {
+    return (
+      <div className="py-2 px-2 flex justify-between items-center">
+        <Pagination
+          isCompact
+          showControls
+          showShadow
+          color="default"
+          page={pageModal2}
+          total={pagesModal2}
+          onChange={setPageModal2}
+        />
+        <div className="hidden sm:flex w-[30%] justify-end gap-2">
+          <Button
+            isDisabled={pagesModal2 === 1}
+            size="sm"
+            variant="flat"
+            onPress={onPreviousPageModal2}
+          >
+            Previous
+          </Button>
+          <Button
+            isDisabled={pagesModal2 === 1}
+            size="sm"
+            variant="flat"
+            onPress={onNextPageModal2}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    );
+  }, [pageModal2, pagesModal2, hasSearchFilterModal2]);
+
   return (
     <>
       <Table
@@ -2470,6 +2897,86 @@ export default function App() {
               Yes
             </Button>
           </div>
+        </ModalContent>
+      </Modal>
+      <Modal
+        size="5xl"
+        backdrop="blur"
+        isOpen={certifyUserModal}
+        onClose={() => setcertifyUserModal(false)}
+      >
+        <ModalContent className="p-8">
+          <Table
+            isHeaderSticky
+            aria-label="Keyrings Table"
+            bottomContent={bottomContentModal2}
+            bottomContentPlacement="outside"
+            sortDescriptor={sortDescriptorModal2}
+            topContent={topContentModal2}
+            topContentPlacement="outside"
+            onSortChange={setSortDescriptorModal2}
+          >
+            <TableHeader columns={headerColumnsModal2}>
+              {(column) => (
+                <TableColumn
+                  key={column.uid}
+                  align={
+                    [
+                      "email",
+                      "passwordprotected",
+                      "status",
+                      "keyid",
+                      "fingerprint",
+                      "algorithm",
+                      "select",
+                    ].includes(column.uid)
+                      ? "center"
+                      : "start"
+                  }
+                  allowsSorting={column.sortable}
+                  style={{ width: column.width }}
+                >
+                  {column.name}
+                </TableColumn>
+              )}
+            </TableHeader>
+            <TableBody
+              loadingContent={
+                <div className="flex justify-center items-center mt-12">
+                  <Spinner
+                    size="lg"
+                    color="warning"
+                    label={
+                      <div className="text-center">
+                        Loading keyrings...
+                        <br />
+                        <span className="text-gray-300 text-sm">
+                          This may take some time depending{" "}
+                          <br className="block sm:hidden" />
+                          on your device&apos;s performance.
+                        </span>
+                      </div>
+                    }
+                  />
+                </div>
+              }
+              isLoading={isLoadingModal2}
+              emptyContent={
+                <>
+                  <span>No keyrings found</span>
+                </>
+              }
+              items={sortedItemsModal2}
+            >
+              {(item) => (
+                <TableRow key={item.id}>
+                  {(columnKey) => (
+                    <TableCell>{renderCellModal2(item, columnKey)}</TableCell>
+                  )}
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </ModalContent>
       </Modal>
       <Modal
