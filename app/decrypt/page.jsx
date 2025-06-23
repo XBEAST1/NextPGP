@@ -66,6 +66,8 @@ export default function App() {
       return;
     }
 
+    const downloadedFiles = new Set();
+
     try {
       const tasks = [];
 
@@ -95,7 +97,10 @@ export default function App() {
       }
 
       if (files) {
-        const fileTasks = files.map(
+        const uniqueFiles = Array.from(
+          new Map(files.map((file) => [file.name, file])).values()
+        );
+        const fileTasks = uniqueFiles.map(
           (file) =>
             new Promise((resolve, reject) => {
               workerPool({
@@ -106,7 +111,13 @@ export default function App() {
                 currentPrivateKey,
                 responseType: "downloadFile",
                 onDecryptedFile: (payload) => {
-                  if (payload && payload.fileName && payload.decrypted) {
+                  if (
+                    payload &&
+                    payload.fileName &&
+                    payload.decrypted &&
+                    !downloadedFiles.has(payload.fileName)
+                  ) {
+                    downloadedFiles.add(payload.fileName);
                     const blob = new Blob([payload.decrypted]);
                     saveAs(blob, payload.fileName);
                   }
@@ -158,6 +169,9 @@ export default function App() {
     }
 
     setDecrypting(true);
+
+    const downloadedFiles = new Set();
+    
     try {
       const tasks = [];
 
@@ -188,7 +202,10 @@ export default function App() {
       }
 
       if (files) {
-        const fileTasks = files.map(
+        const uniqueFiles = Array.from(
+          new Map(files.map((file) => [file.name, file])).values()
+        );
+        const fileTasks = uniqueFiles.map(
           (file) =>
             new Promise((resolve, reject) => {
               workerPool({
@@ -199,7 +216,13 @@ export default function App() {
                 currentPrivateKey,
                 responseType: "downloadFile",
                 onDecryptedFile: (payload) => {
-                  if (payload && payload.fileName && payload.decrypted) {
+                  if (
+                    payload &&
+                    payload.fileName &&
+                    payload.decrypted &&
+                    !downloadedFiles.has(payload.fileName)
+                  ) {
+                    downloadedFiles.add(payload.fileName);
                     const blob = new Blob([payload.decrypted]);
                     saveAs(blob, payload.fileName);
                   }
@@ -340,13 +363,19 @@ export default function App() {
         </Button>
 
         {details.includes("- Unknown") && (
-          <Button className="md:w-auto md:mt-0 w-full mt-4" onPress={SearchUnknownOnKeyserver}>
+          <Button
+            className="md:w-auto md:mt-0 w-full mt-4"
+            onPress={SearchUnknownOnKeyserver}
+          >
             🔍 Search Recipient Key On Key Server
           </Button>
         )}
 
         {details.includes("Signature by: Unknown Key") && (
-          <Button className="md:w-auto md:mt-0 w-full mt-4" onPress={SearchSignerOnKeyserver}>
+          <Button
+            className="md:w-auto md:mt-0 w-full mt-4"
+            onPress={SearchSignerOnKeyserver}
+          >
             🔍 Search Signer Key On Key Server
           </Button>
         )}

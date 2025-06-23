@@ -210,7 +210,7 @@ const processKey = async (key) => {
   };
 };
 
-const KeyServer = ({ isOpen, onClose, initialSearch }) => {
+const KeyServer = ({ isOpen, onClose, initialSearch, onKeyImported }) => {
   const [inputValue, setInputValue] = useState("");
   const [filterValue, setFilterValue] = useState("");
   const [rows, setRows] = useState([]);
@@ -339,12 +339,16 @@ const KeyServer = ({ isOpen, onClose, initialSearch }) => {
         return;
       }
 
-      saveKeyToIndexedDB(keyData);
+      await saveKeyToIndexedDB(keyData);
 
       addToast({
         title: `${keyname}'s Public key imported`,
         color: "success",
       });
+
+      if (onKeyImported) {
+        onKeyImported();
+      }
     } catch (error) {
       addToast({
         title: `Failed to import key: ${error.message}`,
@@ -515,7 +519,7 @@ const KeyServer = ({ isOpen, onClose, initialSearch }) => {
 
   const bottomContent = useMemo(() => {
     return (
-      <div className="py-2 px-2 flex items-center space-x-4">
+      <div className="py-2 px-2 flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4 justify-between">
         <div className="flex-shrink-0">
           <Pagination
             isCompact
@@ -528,7 +532,7 @@ const KeyServer = ({ isOpen, onClose, initialSearch }) => {
           />
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="w-full sm:flex-1 sm:min-w-0 order-2 sm:order-none mt-2 sm:mt-0">
           <Input
             isClearable
             className="w-full"

@@ -45,6 +45,7 @@ import {
 } from "@/lib/indexeddb";
 import { today, getLocalTimeZone, CalendarDate } from "@internationalized/date";
 import { NProgressLink } from "@/components/nprogress";
+import KeyServer from "@/components/keyserver";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
 import * as openpgp from "openpgp";
@@ -78,6 +79,15 @@ const INITIAL_VISIBLE_COLUMNS_MODAL2 = [
   "status",
   "passwordprotected",
   "select",
+];
+
+const INITIAL_VISIBLE_COLUMNS_MODAL3 = [
+  "name",
+  "email",
+  "creationdate",
+  "expirydate",
+  "status",
+  "passwordprotected",
 ];
 
 const columns = [
@@ -178,6 +188,46 @@ const columnsModal2 = [
   { name: "FINGERPRINT", uid: "fingerprint", align: "center" },
   { name: "ALGORITHM", uid: "algorithm", align: "center" },
   { name: "SELECT", uid: "select", align: "center" },
+];
+
+const columnsModal3 = [
+  { name: "NAME", uid: "name", width: "15%", sortable: true },
+  {
+    name: "EMAIL",
+    uid: "email",
+    width: "30%",
+    align: "center",
+    sortable: true,
+  },
+  {
+    name: "CREATION DATE",
+    uid: "creationdate",
+    align: "center",
+    width: "20%",
+    sortable: true,
+  },
+  {
+    name: "EXPIRY DATE",
+    uid: "expirydate",
+    width: "15%",
+    sortable: true,
+  },
+  {
+    name: "STATUS",
+    uid: "status",
+    width: "20%",
+    align: "center",
+    sortable: true,
+  },
+  {
+    name: "PASSWORD",
+    uid: "passwordprotected",
+    align: "center",
+    sortable: true,
+  },
+  { name: "KEY ID", uid: "keyid", align: "center" },
+  { name: "FINGERPRINT", uid: "fingerprint", align: "center" },
+  { name: "ALGORITHM", uid: "algorithm", align: "center" },
 ];
 
 const capitalize = (s) => {
@@ -383,6 +433,12 @@ export default function App() {
   const [filterValueModal2, setFilterValueModal2] = useState("");
   const [pageModal2, setPageModal2] = useState(1);
   const [sortDescriptorModal2, setSortDescriptorModal2] = useState({});
+  const [isLoadingModal3, setIsLoadingModal3] = useState(false);
+  const [certificationsModal3, setCertificationsModal3] = useState([]);
+  const [rowsPerPageModal3, setRowsPerPageModal3] = useState(5);
+  const [filterValueModal3, setFilterValueModal3] = useState("");
+  const [pageModal3, setPageModal3] = useState(1);
+  const [sortDescriptorModal3, setSortDescriptorModal3] = useState({});
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedKeyName, setSelectedKeyName] = useState("");
   const [isNoExpiryChecked, setIsNoExpiryChecked] = useState(true);
@@ -404,6 +460,9 @@ export default function App() {
   const [userIDToDelete, setUserIDToDelete] = useState(null);
   const [deleteUserIDModal, setdeleteUserIDModal] = useState(false);
   const [certifyUserModal, setcertifyUserModal] = useState(false);
+  const [viewCertificateModal, setviewCertificateModal] = useState(false);
+  const [keyServerModal, setkeyServerModal] = useState(false);
+  const [keyserverQuery, setKeyserverQuery] = useState("");
   const [keyInput, setKeyInput] = useState("");
   const [revokeModal, setrevokeModal] = useState(false);
   const [revocationReason, setRevocationReason] = useState("0");
@@ -423,6 +482,9 @@ export default function App() {
   );
   const [visibleColumnsModal2, setVisibleColumnsModal2] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS_MODAL2)
+  );
+  const [visibleColumnsModal3, setVisibleColumnsModal3] = useState(
+    new Set(INITIAL_VISIBLE_COLUMNS_MODAL3)
   );
 
   useEffect(() => {
@@ -636,15 +698,27 @@ export default function App() {
             )}
 
             {user.status === "revoked" ? null : (
-              <DropdownItem
-                key="certify-key"
-                onPress={() => {
-                  setSelectedUserId(user);
-                  setcertifyUserModal(true);
-                }}
-              >
-                Certify
-              </DropdownItem>
+              <>
+                <DropdownItem
+                  key="certify-key"
+                  onPress={() => {
+                    setSelectedUserId(user);
+                    setcertifyUserModal(true);
+                  }}
+                >
+                  Certify
+                </DropdownItem>
+
+                <DropdownItem
+                  key="certifications-key"
+                  onPress={() => {
+                    setSelectedUserId(user);
+                    setviewCertificateModal(true);
+                  }}
+                >
+                  View Certifications
+                </DropdownItem>
+              </>
             )}
 
             {user.privateKey?.trim() && isProtected !== null && (
@@ -986,6 +1060,65 @@ export default function App() {
         color: "danger",
       });
       throw err;
+    }
+  };
+
+  const getKeyCertifications = async (selectedUser, allKeys) => {
+    if (!selectedUser?.publicKey) return [];
+
+    try {
+      const pubKey = await openpgp.readKey({
+        armoredKey: selectedUser.publicKey,
+      });
+      const certifications = pubKey.users.flatMap((user) =>
+        user.otherCertifications.map((sig) => ({
+          issuerKeyID: sig.issuerKeyID.toHex().toUpperCase(),
+          fingerprint: sig.issuerFingerprint
+            ? Buffer.from(sig.issuerFingerprint).toString("hex").toUpperCase()
+            : "",
+          creationTime: sig.created,
+        }))
+      );
+
+      // Remove duplicates by issuerKeyID
+      const uniqueCerts = [];
+      const seen = new Set();
+      for (const cert of certifications) {
+        if (!seen.has(cert.issuerKeyID)) {
+          uniqueCerts.push(cert);
+          seen.add(cert.issuerKeyID);
+        }
+      }
+
+      return uniqueCerts.map((cert) => {
+        const match = allKeys.find(
+          (k) => k.keyid.replace(/\s/g, "") === cert.issuerKeyID
+        );
+        if (match) {
+          return { ...match, certificationTime: cert.creationTime };
+        } else {
+          return {
+            id: cert.issuerKeyID,
+            name: "Unknown",
+            email: "Unknown",
+            creationdate: "Unknown",
+            expirydate: "Unknown",
+            status: "Unknown",
+            passwordprotected: "Unknown",
+            keyid:
+              cert.issuerKeyID.match(/.{1,4}/g)?.join(" ") || cert.issuerKeyID,
+            fingerprint: cert.fingerprint
+              ? cert.fingerprint.match(/.{1,4}/g)?.join(" ") || cert.fingerprint
+              : "Unknown",
+            algorithm: "Unknown",
+            avatar: Public.src,
+            certificationTime: cert.creationTime,
+          };
+        }
+      });
+    } catch (e) {
+      console.error("Error reading certifications:", e);
+      return [];
     }
   };
 
@@ -1693,7 +1826,6 @@ export default function App() {
       link.download = `${user.name}_0x${keyid}_PUBLIC_REVOKED.asc`;
       link.click();
       URL.revokeObjectURL(objectUrl);
-
       
       addToast({
         title: "Key Revoked Successfully",
@@ -2200,21 +2332,6 @@ export default function App() {
     };
 
     fetchKeys();
-
-    const handleStorageChange = async () => {
-      setIsLoadingModal2(true);
-      try {
-        const updated = await loadKeysFromIndexedDB();
-        setUsersModal2(updated);
-      } catch (error) {
-        console.error("Error loading keys:", error);
-      } finally {
-        setIsLoadingModal2(false);
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
   }, [certifyUserModal]);
 
   const filteredItemsModal2 = useMemo(() => {
@@ -2224,10 +2341,9 @@ export default function App() {
       (user) =>
         user.privateKey &&
         user.privateKey.trim() !== "" &&
-        (user.status !== "revoked" && user.status !== "expired") &&
-        (
-          !selectedUserId || user.id !== selectedUserId.id
-        )
+        user.status !== "revoked" &&
+        user.status !== "expired" &&
+        (!selectedUserId || user.id !== selectedUserId.id)
     );
 
     if (filterValueModal2) {
@@ -2467,8 +2583,314 @@ export default function App() {
     );
   }, [pageModal2, pagesModal2, hasSearchFilterModal2]);
 
+  // View Certification Modal
+  
+  useEffect(() => {
+    if (!viewCertificateModal || !selectedUserId) {
+      setCertificationsModal3([]);
+      return;
+    }
+    (async () => {
+      setIsLoadingModal3(true);
+      try {
+        const allKeys = await loadKeysFromIndexedDB();
+        const certs = await getKeyCertifications(
+          selectedUserId,
+          allKeys
+        );
+        setCertificationsModal3(certs);
+      } catch {
+        setCertificationsModal3([]);
+      } finally {
+        setIsLoadingModal3(false);
+      }
+    })();
+  }, [viewCertificateModal, selectedUserId]);
+
+  const filteredItemsModal3 = useMemo(() => {
+    let items = [...certificationsModal3];
+    if (filterValueModal3) {
+      items = items.filter(
+        (user) =>
+          [
+            "name",
+            "email",
+            "creationdate",
+            "expirydate",
+            "status",
+            "keyid",
+            "fingerprint",
+          ].some((field) =>
+            (user[field] || "")
+              .toLowerCase()
+              .includes(filterValueModal3.toLowerCase())
+          ) ||
+          (user.passwordprotected || "")
+            .toLowerCase()
+            .includes(filterValueModal3.toLowerCase())
+      );
+    }
+    return items;
+  }, [certificationsModal3, filterValueModal3]);
+
+  const pagesModal3 = useMemo(
+    () => Math.ceil(filteredItemsModal3.length / rowsPerPageModal3),
+    [filteredItemsModal3, rowsPerPageModal3]
+  );
+  const hasSearchFilterModal3 = Boolean(filterValueModal3);
+
+  const sortedItemsModal3 = useMemo(() => {
+    const start = (pageModal3 - 1) * rowsPerPageModal3;
+    const end = start + rowsPerPageModal3;
+    return [...filteredItemsModal3]
+      .sort((a, b) => {
+        const aVal = a[sortDescriptorModal3.column];
+        const bVal = b[sortDescriptorModal3.column];
+        const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        return sortDescriptorModal3.direction === "descending" ? -cmp : cmp;
+      })
+      .slice(start, end);
+  }, [
+    filteredItemsModal3,
+    pageModal3,
+    rowsPerPageModal3,
+    sortDescriptorModal3,
+  ]);
+
+  const onNextPageModal3 = useCallback(() => {
+    if (pageModal3 < pagesModal3) setPageModal3(pageModal3 + 1);
+  }, [pageModal3, pagesModal3]);
+
+  const onPreviousPageModal3 = useCallback(() => {
+    if (pageModal3 > 1) setPageModal3(pageModal3 - 1);
+  }, [pageModal3]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("rowsPerPageModal3");
+    if (stored) setRowsPerPageModal3(Number(stored));
+  }, []);
+
+  const onRowsPerPageChangeModal3 = useCallback((e) => {
+    const val = Number(e.target.value);
+    setRowsPerPageModal3(val);
+    setPageModal3(1);
+    localStorage.setItem("rowsPerPageModal3", val);
+  }, []);
+
+  const onSearchChangeModal3 = useCallback((value) => {
+    setFilterValueModal3(value || "");
+    setPageModal3(1);
+  }, []);
+
+  const onClearModal3 = useCallback(() => {
+    setFilterValueModal3("");
+    setPageModal3(1);
+  }, []);
+
+  const headerColumnsModal3 = useMemo(() => {
+    if (visibleColumnsModal3 === "all") return columnsModal3;
+
+    return columnsModal3.filter((column) =>
+      Array.from(visibleColumnsModal3).includes(column.uid)
+    );
+  }, [visibleColumnsModal3]);
+
+  const renderCellModal3 = useCallback((user, columnKey) => {
+    const value = user[columnKey];
+    switch (columnKey) {
+      case "name":
+        return (
+          <User avatarProps={{ radius: "lg", src: user.avatar }} name={value} />
+        );
+      case "status":
+        return (
+          <Chip
+            className="-ms-5 capitalize"
+            color={statusColorMap[user.status]}
+            variant="flat"
+          >
+            {value}
+          </Chip>
+        );
+      case "passwordprotected":
+        return (
+          <Chip
+            className="-ms-6 capitalize"
+            color={passwordprotectedColorMap[user.passwordprotected]}
+            variant="flat"
+          >
+            {value}
+          </Chip>
+        );
+      default:
+        return value;
+    }
+  }, []);
+
+  const topContentModal3 = useMemo(() => {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between gap-3 items-end">
+          <Input
+            isClearable
+            className="w-full sm:max-w-[100%]"
+            placeholder="Search all fields (name, email, dates, status, key ID, fingerprint, etc.)"
+            startContent={<SearchIcon />}
+            value={filterValueModal3}
+            onClear={() => onClearModal3()}
+            onValueChange={onSearchChangeModal3}
+          />
+          <Dropdown>
+            <DropdownTrigger>
+              <Button
+                endContent={<ChevronDownIcon className="text-small" />}
+                variant="faded"
+                className="border-0"
+              >
+                Columns
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu
+              disallowEmptySelection
+              aria-label="Table Columns"
+              closeOnSelect={false}
+              selectedKeys={visibleColumnsModal3}
+              selectionMode="multiple"
+              onSelectionChange={setVisibleColumnsModal3}
+            >
+              {columnsModal3.map((column) => (
+                <DropdownItem key={column.uid} className="capitalize">
+                  {capitalize(column.name)}
+                </DropdownItem>
+              ))}
+            </DropdownMenu>
+          </Dropdown>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-default-400 text-small">
+            Total {certificationsModal3.length} keys
+          </span>
+          <label className="flex items-center text-default-400 text-small">
+            Rows per page:
+            <select
+              className="bg-transparent outline-none text-default-400 text-small"
+              value={rowsPerPageModal3}
+              onChange={onRowsPerPageChangeModal3}
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    );
+  }, [
+    filterValueModal3,
+    onRowsPerPageChangeModal3,
+    rowsPerPageModal3,
+    certificationsModal3.length,
+    visibleColumnsModal3,
+    onSearchChangeModal3,
+    hasSearchFilterModal3,
+  ]);
+
+  const hasUnknownCertifier = useMemo(
+    () =>
+      certificationsModal3.some(
+        (cert) => cert.name === "Unknown" || cert.email === "Unknown"
+      ),
+    [certificationsModal3]
+  );
+
+  const handleSearchUnknownCertifiers = useCallback(() => {
+    const unknownFingerprints = certificationsModal3
+      .filter((cert) => cert.name === "Unknown" || cert.email === "Unknown")
+      .map((cert) => {
+        const fp = (cert.fingerprint || "")
+          .replace(/\s/g, "")
+          .replace(/[^A-F0-9]/gi, "")
+          .toUpperCase();
+        return fp.match(/.{1,4}/g)?.join(" ") || fp;
+      })
+      .filter((fp) => fp.length > 0);
+    const uniqueFingerprints = Array.from(new Set(unknownFingerprints));
+    setKeyserverQuery(uniqueFingerprints.join(","));
+    setkeyServerModal(true);
+  }, [certificationsModal3]);
+
+  const refreshKeys = useCallback(async () => {
+    const refreshedKeys = await loadKeysFromIndexedDB();
+    setUsers(refreshedKeys);
+  }, []);
+
+  const bottomContentModal3 = useMemo(() => {
+    return (
+      <div className="py-2 px-2 flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4 justify-between">
+        <div className="flex-shrink-0">
+          <Pagination
+            isCompact
+            showControls
+            showShadow
+            color="default"
+            page={pageModal3}
+            total={pagesModal3}
+            onChange={setPageModal3}
+          />
+        </div>
+
+        {hasUnknownCertifier && (
+          <div className="flex justify-center sm:min-w-0 order-2 sm:order-none mt-2 sm:mt-0">
+            <Button
+              variant="flat"
+              className="text-wrap p-7 sm:p-4"
+              onPress={handleSearchUnknownCertifiers}
+            >
+              🔍 Search Unknown Certifiers Keys On Key Server
+            </Button>
+          </div>
+        )}
+
+        <div className="flex-shrink-0 flex space-x-2">
+          <Button
+            isDisabled={pagesModal3 === 1}
+            size="sm"
+            variant="flat"
+            onPress={onPreviousPageModal3}
+          >
+            Previous
+          </Button>
+
+          <Button
+            isDisabled={pagesModal3 === 1}
+            size="sm"
+            variant="flat"
+            onPress={onNextPageModal3}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    );
+  }, [
+    pageModal3,
+    pagesModal3,
+    hasSearchFilterModal3,
+    hasUnknownCertifier,
+    handleSearchUnknownCertifiers,
+    keyServerModal,
+    keyserverQuery,
+  ]);
+
   return (
     <>
+      <KeyServer
+        isOpen={keyServerModal}
+        onClose={() => setkeyServerModal(false)}
+        initialSearch={keyserverQuery}
+        onKeyImported={refreshKeys}
+      />
+
       <Table
         isHeaderSticky
         aria-label="Keyrings Table"
@@ -2908,7 +3330,7 @@ export default function App() {
         <ModalContent className="p-8">
           <Table
             isHeaderSticky
-            aria-label="Keyrings Table"
+            aria-label="Certify Table"
             bottomContent={bottomContentModal2}
             bottomContentPlacement="outside"
             sortDescriptor={sortDescriptorModal2}
@@ -2972,6 +3394,86 @@ export default function App() {
                 <TableRow key={item.id}>
                   {(columnKey) => (
                     <TableCell>{renderCellModal2(item, columnKey)}</TableCell>
+                  )}
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </ModalContent>
+      </Modal>
+      <Modal
+        size="5xl"
+        backdrop="blur"
+        isOpen={viewCertificateModal}
+        onClose={() => setviewCertificateModal(false)}
+      >
+        <ModalContent className="p-8">
+          <Table
+            isHeaderSticky
+            aria-label="Certifications Table"
+            bottomContent={bottomContentModal3}
+            bottomContentPlacement="outside"
+            sortDescriptor={sortDescriptorModal3}
+            topContent={topContentModal3}
+            topContentPlacement="outside"
+            onSortChange={setSortDescriptorModal3}
+          >
+            <TableHeader columns={headerColumnsModal3}>
+              {(column) => (
+                <TableColumn
+                  key={column.uid}
+                  align={
+                    [
+                      "email",
+                      "passwordprotected",
+                      "status",
+                      "keyid",
+                      "fingerprint",
+                      "algorithm",
+                      "select",
+                    ].includes(column.uid)
+                      ? "center"
+                      : "start"
+                  }
+                  allowsSorting={column.sortable}
+                  style={{ width: column.width }}
+                >
+                  {column.name}
+                </TableColumn>
+              )}
+            </TableHeader>
+            <TableBody
+              loadingContent={
+                <div className="flex justify-center items-center mt-12">
+                  <Spinner
+                    size="lg"
+                    color="warning"
+                    label={
+                      <div className="text-center">
+                        Loading Certifications...
+                        <br />
+                        <span className="text-gray-300 text-sm">
+                          This may take some time depending{" "}
+                          <br className="block sm:hidden" />
+                          on your device&apos;s performance.
+                        </span>
+                      </div>
+                    }
+                  />
+                </div>
+              }
+              isLoading={isLoadingModal3}
+              emptyContent={
+                <>
+                  <span>No Certifications found</span>
+                </>
+              }
+              items={sortedItemsModal3}
+            >
+              {(item) => (
+                <TableRow key={item.id}>
+                  {(columnKey) => (
+                    <TableCell>{renderCellModal3(item, columnKey)}</TableCell>
                   )}
                 </TableRow>
               )}
