@@ -456,40 +456,44 @@ const KeyServer = ({ isOpen, onClose, initialSearch, onKeyImported }) => {
 
   const topContent = (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-between gap-3 items-end">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
         <Input
           isClearable
-          className="w-full sm:max-w-[100%]"
+          className="w-full"
           placeholder="Enter email, key ID, or fingerprint, or separate by commas to search multiple keys"
           startContent={<SearchIcon />}
           value={inputValue}
           onValueChange={setInputValue}
           onKeyDown={onKeyDown}
         />
-        <Button variant="flat" onPress={doSearch}>
-          Search
-        </Button>
-        <Dropdown>
-          <DropdownTrigger>
-            <Button variant="flat">Columns</Button>
-          </DropdownTrigger>
-          <DropdownMenu
-            disallowEmptySelection
-            aria-label="Table Columns"
-            closeOnSelect={false}
-            selectedKeys={visibleColumns}
-            selectionMode="multiple"
-            onSelectionChange={setVisibleColumns}
-          >
-            {columns
-              .filter((column) => column.uid !== "import")
-              .map((column) => (
-                <DropdownItem key={column.uid} className="capitalize">
-                  {capitalize(column.name)}
-                </DropdownItem>
-              ))}
-          </DropdownMenu>
-        </Dropdown>
+        <div className="flex gap-3 w-full sm:w-auto">
+          <Button variant="flat" onPress={doSearch} className="w-1/2 sm:w-auto">
+            Search
+          </Button>
+          <Dropdown>
+            <DropdownTrigger>
+              <Button variant="flat" className="w-1/2 sm:w-auto">
+                Columns
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu
+              disallowEmptySelection
+              aria-label="Table Columns"
+              closeOnSelect={false}
+              selectedKeys={visibleColumns}
+              selectionMode="multiple"
+              onSelectionChange={setVisibleColumns}
+            >
+              {columns
+                .filter((column) => column.uid !== "import")
+                .map((column) => (
+                  <DropdownItem key={column.uid} className="capitalize">
+                    {capitalize(column.name)}
+                  </DropdownItem>
+                ))}
+            </DropdownMenu>
+          </Dropdown>
+        </div>
       </div>
       <div className="flex justify-between items-center">
         <span className="text-default-400 text-small">

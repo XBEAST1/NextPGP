@@ -9506,6 +9506,7 @@ __metadata:
     prettier: "npm:3.3.3"
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
+    react-schemaorg: "npm:^2.0.0"
     tailwind-variants: "npm:0.1.20"
     tailwindcss: "npm:3.4.16"
     typescript: "npm:5.6.3"
@@ -10217,6 +10218,17 @@ __metadata:
   version: 16.13.1
   resolution: "react-is@npm:16.13.1"
   checksum: 10c0/33977da7a5f1a287936a0c85639fec6ca74f4f15ef1e59a6bc20338fc73dc69555381e211f7a3529b8150a1f71e4225525b41b60b52965bda53ce7d47377ada1
+  languageName: node
+  linkType: hard
+
+"react-schemaorg@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "react-schemaorg@npm:2.0.0"
+  peerDependencies:
+    react: ">=16.3.0"
+    schema-dts: ">=0.7.4"
+    typescript: ">=3.1.6"
+  checksum: 10c0/34dd300c6154a908a26cd8a7c664e60ed30b583d9b4c3afc0de1ca6a8ce139bb5fac2630483639d73bf79089ff699d86d453e81cbbb6a3bd2c485f92506ff3c0
   languageName: node
   linkType: hard
 

@@ -12,6 +12,7 @@ import { NavigationProgress } from "@/components/nprogress";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { VaultProvider } from "@/context/VaultContext";
 import { ToastProvider } from "@heroui/toast";
+import { JsonLd } from "react-schemaorg";
 
 const twittercardimg = `https://nextpgp.vercel.app${Logo.src}`;
 
@@ -19,13 +20,13 @@ export const metadata = {
   manifest: "/manifest.json",
   title: "Next PGP",
   description:
-    "NextPGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
+    "NextPGP is a elegant and powerful, modern online pgp tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
   keywords:
-    "PGP tool, Next.js PGP, online PGP tool, key management, key generation, encrypt message, decrypt message, secure communication, OpenPGP, keyring management, encryption tool, modern PGP tool",
+    "PGP tool, Next.js PGP, online pgp tool, key management, key generation, encrypt message, decrypt message, secure communication, OpenPGP, keyring management, encryption tool, modern PGP tool",
   openGraph: {
     title: "Next PGP",
     description:
-      "NextPGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
+      "NextPGP is a elegant and powerful, modern online pgp tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
     images: [
       {
         url: twittercardimg,
@@ -41,7 +42,7 @@ export const metadata = {
     site: "@NextPGP",
     title: "Next PGP",
     description:
-      "NextPGP is a elegant and powerful, modern online PGP tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
+      "NextPGP is a elegant and powerful, modern online pgp tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
     images: [twittercardimg],
   },
   robots: {
@@ -57,6 +58,22 @@ export const metadata = {
       "max-snippet": -1,
     },
   },
+};
+
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Next PGP",
+  url: "https://nextpgp.vercel.app",
+  description:
+    "NextPGP is a elegant and powerful, modern online pgp tool built with Next.js. It can generate keys, manage keyrings, encrypt and decrypt messages securely and effortlessly.",
+  image: twittercardimg,
+  author: {
+    "@type": "Person",
+    name: "XBEAST",
+  },
+  keywords:
+    "PGP tool, Next.js PGP, online pgp tool, key management, key generation, encrypt message, decrypt message, secure communication, OpenPGP, keyring management, encryption tool, modern PGP tool",
 };
 
 export const viewport = {
@@ -78,6 +95,7 @@ export default async function RootLayout({ children }) {
             fontSans.variable
           )}
         >
+          <JsonLd item={websiteSchema} />
           <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
             <VaultProvider>
               <SpeedInsights />

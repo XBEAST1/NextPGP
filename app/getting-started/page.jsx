@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Button } from "@heroui/react";
 import { motion } from "framer-motion";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -26,9 +27,13 @@ const listItem = {
 };
 
 const Page = () => {
-  const pathname = usePathname();
   const router = useRouter();
-  const showButton = pathname === "/getting-started";
+  const [showButton, setShowButton] = useState(false);
+
+  useEffect(() => {
+    const hasSeen = localStorage.getItem("hasSeenWelcome");
+    setShowButton(!hasSeen);
+  }, []);
 
   const EnterNextPGP = () => {
     localStorage.setItem("hasSeenWelcome", "true");

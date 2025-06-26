@@ -1877,13 +1877,13 @@ export default function App() {
         throw new Error("Failed to publish key on the server.");
       }
       addToast({
-        title: "Key published successfully",
+        title: `${selectedKeyName}'s Key published successfully`,
         color: "success",
       });
     } catch (error) {
       console.error("Error publishing key:", error);
       addToast({
-        title: "Failed to publish key",
+        title: `Failed to publish ${selectedKeyName}'s key`,
         color: "danger",
       });
     }

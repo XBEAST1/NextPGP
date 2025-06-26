@@ -38,60 +38,61 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing search parameter' }, { status: 400 });
   }
 
-  // Split comma-separated searches
   const terms = searchParam.split(',').map(s => s.trim()).filter(Boolean);
 
-  // Helper to fetch keys for a single term
-  const fetchForTerm = async (term: string): Promise<string> => {
-    // Email-based lookup
-    if (term.includes('@')) {
-      const indexPath = `/pks/lookup?op=index&search=${encodeURIComponent(term)}`;
-      try {
-        const text = await tryKeyserver(indexPath);
-        const regex = /0x([A-Fa-f0-9]{16,40})/g;
-        let match;
-        const keyIds: string[] = [];
-        while ((match = regex.exec(text)) !== null) {
-          keyIds.push(match[1].toLowerCase());
-        }
-        const uniqueKeyIds = Array.from(new Set(keyIds));
-        const keys = await Promise.all(
-          uniqueKeyIds.map(async id => {
-            const getPath = `/pks/lookup?op=get&search=0x${id}`;
-            const keyText = await tryKeyserver(getPath);
-            return keyText.replace(/^(Comment|Version):.*$/gm, '').trim();
-          })
-        );
-        return Array.from(new Set(keys)).join('\n');
-      } catch (err) {
-        console.warn(`Error fetching email keys for ${term}:`, err);
-        return `Error fetching email keys for ${term}`;
+  const seenKeyIds = new Set<string>();
+  const seenKeyBlocks = new Set<string>();
+  const orderedKeyBlocks: string[] = [];
+
+  const fetchKey = async (keyId: string): Promise<string | null> => {
+    const lowerId = keyId.toLowerCase();
+    if (seenKeyIds.has(lowerId)) return null;
+
+    try {
+      const keyText = await tryKeyserver(`/pks/lookup?op=get&search=0x${lowerId}`);
+      const cleaned = keyText.replace(/^(Comment|Version):.*$/gm, '').trim();
+      if (cleaned && !seenKeyBlocks.has(cleaned)) {
+        seenKeyIds.add(lowerId);
+        seenKeyBlocks.add(cleaned);
+        return cleaned;
       }
+    } catch (err) {
+      console.warn(`Error fetching key 0x${keyId}:`, err);
     }
 
-    // Fingerprint or key-ID lookup
-    const rawHex = term.replace(/[^a-fA-F0-9]/g, '');
-    if (![16, 32, 40].includes(rawHex.length)) {
-      return `Invalid key ID or fingerprint: ${term}`;
-    }
-    try {
-      let text = await tryKeyserver(`/pks/lookup?op=get&search=0x${rawHex}`);
-      return text.replace(/^(Comment|Version):.*$/gm, '').trim();
-    } catch (err) {
-      console.warn(`Error fetching PGP key for ${term}:`, err);
-      return `Error fetching PGP key for ${term}`;
-    }
+    return null;
   };
 
-  // Fetch all terms in parallel
-  const outputs = await Promise.all(terms.map(fetchForTerm));
-  const body = outputs.join('\n\n');
+  for (const term of terms) {
+    if (term.includes('@')) {
+      try {
+        const text = await tryKeyserver(`/pks/lookup?op=index&search=${encodeURIComponent(term)}`);
+        const regex = /0x([A-Fa-f0-9]{16,40})/g;
+        const matches = Array.from(text.matchAll(regex)).map(m => m[1].toLowerCase());
+        const uniqueKeyIds = Array.from(new Set(matches));
 
-  return new NextResponse(body, {
-    headers: { 'Content-Type': 'text/plain' }
+        for (const id of uniqueKeyIds) {
+          const key = await fetchKey(id);
+          if (key) {
+            orderedKeyBlocks.push(key);
+            break;
+          }
+        }
+      } catch (err) {
+        console.warn(`Error fetching keys for email ${term}:`, err);
+      }
+    } else {
+      const rawHex = term.replace(/[^a-fA-F0-9]/g, '');
+      if (![16, 32, 40].includes(rawHex.length)) continue;
+      const key = await fetchKey(rawHex);
+      if (key) orderedKeyBlocks.push(key);
+    }
+  }
+
+  return new NextResponse(orderedKeyBlocks.join('\n\n'), {
+    headers: { 'Content-Type': 'text/plain' },
   });
 }
-
 
 export async function POST(request: NextRequest) {
   try {
