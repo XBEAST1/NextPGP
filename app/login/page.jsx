@@ -4,8 +4,22 @@ import { Button, Card, CardHeader, CardBody, Image } from "@heroui/react";
 import { login } from "@/actions/auth";
 import ConnectivityCheck from "@/components/connectivity-check";
 import Logo from "@/assets/Logo2.jpg";
+import { useEffect } from "react";
 
-const page = () => {
+const Page = () => {
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.location.pathname.startsWith("/vault")
+    ) {
+      setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.set("forceReload", Date.now().toString());
+        window.location.replace(url.toString());
+      }, 500);
+    }
+  }, []);
+
   return (
     <div className="mt-20 flex justify-center gap-4">
       <ConnectivityCheck />
@@ -66,4 +80,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default Page;

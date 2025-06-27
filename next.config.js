@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 
+const webpack = require("webpack");
 const buildTimestamp = Date.now().toString();
 
 const withPWA = require("@ducanh2912/next-pwa").default({
@@ -73,6 +74,14 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 const nextConfig = {
   turbopack: {
     resolveExtensions: [".mdx", ".tsx", ".ts", ".jsx", ".js", ".json"],
+  },
+  webpack(config) {
+    config.plugins.push(
+      new webpack.DefinePlugin({
+        __BUILD_TIMESTAMP__: JSON.stringify(buildTimestamp),
+      })
+    );
+    return config;
   },
 };
 

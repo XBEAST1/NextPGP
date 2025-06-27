@@ -1,6 +1,7 @@
 import "@/styles/globals.css";
 import clsx from "clsx";
 import Logo from "@/assets/Logo2.jpg";
+import ClearCacheOnUpdate from "@/components/clear-cache-on-update";
 import { Providers } from "./providers";
 import { fontSans } from "@/config/fonts";
 import { Navbar } from "@/components/navbar";
@@ -97,6 +98,7 @@ export default async function RootLayout({ children }) {
         >
           <JsonLd item={websiteSchema} />
           <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
+            <ClearCacheOnUpdate />
             <VaultProvider>
               <SpeedInsights />
               <NavigationProgress />

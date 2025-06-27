@@ -63,14 +63,12 @@ const Page = () => {
         return;
       }
 
-      const decrypted = await workerPool(
-        {
-          type: "decrypt",
-          responseType: "decryptResponse",
-          encryptedBase64: verificationCipher,
-          password,
-        },
-      );
+      const decrypted = await workerPool({
+        type: "decrypt",
+        responseType: "decryptResponse",
+        encryptedBase64: verificationCipher,
+        password,
+      });
 
       // Check if the decrypted text starts with "VERIFY:"
       if (!decrypted.startsWith("VERIFY:")) {
