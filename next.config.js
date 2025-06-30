@@ -14,20 +14,6 @@ const withPWA = require("@ducanh2912/next-pwa").default({
     skipWaiting: true,
     clientsClaim: true,
     offlineGoogleAnalytics: true,
-    additionalManifestEntries: [
-      { url: "/", revision: buildTimestamp },
-      { url: "/generate", revision: buildTimestamp },
-      { url: "/import", revision: buildTimestamp },
-      { url: "/encrypt", revision: buildTimestamp },
-      { url: "/decrypt", revision: buildTimestamp },
-      { url: "/login", revision: buildTimestamp },
-      { url: "/create-vault", revision: buildTimestamp },
-      { url: "/vault", revision: buildTimestamp },
-      { url: "/cloud-backup", revision: buildTimestamp },
-      { url: "/cloud-manage", revision: buildTimestamp },
-      { url: "/about", revision: buildTimestamp },
-      { url: "/offline", revision: buildTimestamp },
-    ],
     runtimeCaching: [
       // Cache all main pages permanently
       {
@@ -47,7 +33,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       {
         urlPattern: ({ request }) =>
           ["style", "script", "worker"].includes(request.destination),
-        handler: "StaleWhileRevalidate",
+        handler: "NetworkFirst",
         options: {
           cacheName: "static-resources",
           expiration: {
