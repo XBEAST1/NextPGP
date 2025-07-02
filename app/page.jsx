@@ -28,6 +28,8 @@ import {
   Radio,
   RadioGroup,
   Snippet,
+  Autocomplete,
+  AutocompleteItem,
 } from "@heroui/react";
 import {
   EyeFilledIcon,
@@ -229,6 +231,67 @@ const columnsModal3 = [
   { name: "FINGERPRINT", uid: "fingerprint", align: "center" },
   { name: "ALGORITHM", uid: "algorithm", align: "center" },
 ];
+
+const keyalgorithms = [
+  {
+    label: "Curve25519 (EdDSA/ECDH) - Recommended",
+    key: "curve25519",
+  },
+  {
+    label: "NIST P-256 (ECDSA/ECDH)",
+    key: "nistP256",
+  },
+  {
+    label: "NIST P-521 (ECDSA/ECDH)",
+    key: "nistP521",
+  },
+  {
+    label: "Brainpool P-256r1 (ECDSA/ECDH)",
+    key: "brainpoolP256r1",
+  },
+  {
+    label: "Brainpool P-512r1 (ECDSA/ECDH)",
+    key: "brainpoolP512r1",
+  },
+  {
+    label: "RSA 2048",
+    key: "rsa2048",
+  },
+  {
+    label: "RSA 3072",
+    key: "rsa3072",
+  },
+  {
+    label: "RSA 4096",
+    key: "rsa4096",
+  },
+];
+
+const parseExpiryToCalendarDate = (expiryStr) => {
+  if (
+    !expiryStr ||
+    expiryStr === "No Expiry" ||
+    expiryStr === "Revoked" ||
+    expiryStr === "Error"
+  )
+    return null;
+  const [day, monthStr, year] = expiryStr.split("-");
+  const monthMap = {
+    Jan: 1,
+    Feb: 2,
+    Mar: 3,
+    Apr: 4,
+    May: 5,
+    Jun: 6,
+    Jul: 7,
+    Aug: 8,
+    Sep: 9,
+    Oct: 10,
+    Nov: 11,
+    Dec: 12,
+  };
+  return new CalendarDate(Number(year), monthMap[monthStr], Number(day));
+};
 
 const capitalize = (s) => {
   if (!s) return "";
@@ -459,6 +522,9 @@ export default function App() {
   const [modalUserIDs, setModalUserIDs] = useState([]);
   const [userIDToDelete, setUserIDToDelete] = useState(null);
   const [deleteUserIDModal, setdeleteUserIDModal] = useState(false);
+  const [addSubkeyModal, setaddSubkeyModal] = useState(false);
+  const [subkeyOption, setsubkeyOption] = useState("1");
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState("curve25519");
   const [certifyUserModal, setcertifyUserModal] = useState(false);
   const [viewCertificateModal, setviewCertificateModal] = useState(false);
   const [keyServerModal, setkeyServerModal] = useState(false);
@@ -586,7 +652,7 @@ export default function App() {
               Export Public Key
             </DropdownItem>
 
-            {user.privateKey?.trim() && isProtected !== null && (
+            {user.privateKey?.trim() && (
               <>
                 <DropdownItem
                   key="backup-keyring"
@@ -669,7 +735,7 @@ export default function App() {
                     </>
                   ))}
 
-                {user.status !== "revoked" && user.status !== "expired" && (
+                {user.status !== "revoked" && (
                   <DropdownItem
                     key="add-userid"
                     onPress={() => {
@@ -681,19 +747,29 @@ export default function App() {
                   </DropdownItem>
                 )}
 
-                {user.userIdCount > 1 &&
-                  user.status !== "revoked" &&
-                  user.status !== "expired" && (
-                    <DropdownItem
-                      key="manage-userids"
-                      onPress={() => {
-                        setSelectedUserId(user);
-                        setmanageUserIDsModal(true);
-                      }}
-                    >
-                      Manage User IDs
-                    </DropdownItem>
-                  )}
+                {user.userIdCount > 1 && user.status !== "revoked" && (
+                  <DropdownItem
+                    key="manage-userids"
+                    onPress={() => {
+                      setSelectedUserId(user);
+                      setmanageUserIDsModal(true);
+                    }}
+                  >
+                    Manage User IDs
+                  </DropdownItem>
+                )}
+
+                {user.status !== "revoked" && user.status !== "expired" && (
+                  <DropdownItem
+                    key="add-subkey"
+                    onPress={() => {
+                      setSelectedUserId(user);
+                      setaddSubkeyModal(true);
+                    }}
+                  >
+                    Add Subkey
+                  </DropdownItem>
+                )}
               </>
             )}
 
@@ -721,7 +797,7 @@ export default function App() {
               </>
             )}
 
-            {user.privateKey?.trim() && isProtected !== null && (
+            {user.privateKey?.trim() && (
               <>
                 {user.status === "revoked" ? null : (
                   <>
@@ -1146,9 +1222,11 @@ export default function App() {
       let privateKey = await openpgp.readKey({
         armoredKey: selectedValidityKey.privateKey,
       });
+
+      let currentPassword = null;
+
       if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
-        const currentPassword =
-          await triggerKeyPasswordModal(selectedValidityKey);
+        currentPassword = await triggerKeyPasswordModal(selectedValidityKey);
         privateKey = await openpgp.decryptKey({
           privateKey,
           passphrase: currentPassword,
@@ -1174,6 +1252,17 @@ export default function App() {
         format: "armored",
         userIDs: existingUserIDs,
       });
+
+      if (currentPassword) {
+        const decryptedKey = await openpgp.readPrivateKey({
+          armoredKey: updatedKeyPair.privateKey,
+        });
+        const reEncryptedKey = await openpgp.encryptKey({
+          privateKey: decryptedKey,
+          passphrase: currentPassword,
+        });
+        updatedKeyPair.privateKey = reEncryptedKey.armor();
+      }
 
       await updateKeyInIndexeddb(selectedValidityKey.id, {
         privateKey: updatedKeyPair.privateKey,
@@ -1426,8 +1515,10 @@ export default function App() {
     setaddUserIDModal(false);
     try {
       let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+      let currentPassword = null;
+
       if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
-        const currentPassword = await triggerKeyPasswordModal(user);
+        currentPassword = await triggerKeyPasswordModal(user);
         privateKey = await openpgp.decryptKey({
           privateKey,
           passphrase: currentPassword,
@@ -1453,12 +1544,30 @@ export default function App() {
 
       const updatedUserIDs = [...formattedUserIDs, newUserID];
 
+      const creationTime = privateKey.getCreationTime();
+      const expirationTime = await privateKey.getExpirationTime();
+      const expirationSeconds = expirationTime
+        ? Math.floor((expirationTime.getTime() - creationTime.getTime()) / 1000)
+        : undefined;
+
       const updatedKeyPair = await openpgp.reformatKey({
         privateKey,
         userIDs: updatedUserIDs,
-        date: new Date(),
+        date: creationTime,
+        keyExpirationTime: expirationSeconds,
         format: "armored",
       });
+
+      if (currentPassword) {
+        const decryptedKey = await openpgp.readPrivateKey({
+          armoredKey: updatedKeyPair.privateKey,
+        });
+        const reEncryptedKey = await openpgp.encryptKey({
+          privateKey: decryptedKey,
+          passphrase: currentPassword,
+        });
+        updatedKeyPair.privateKey = reEncryptedKey.armor();
+      }
 
       await updateKeyInIndexeddb(user.id, {
         privateKey: updatedKeyPair.privateKey,
@@ -1506,8 +1615,11 @@ export default function App() {
       let privateKey = await openpgp.readKey({
         armoredKey: currentUserObj.privateKey,
       });
+
+      let currentPassword = null;
+
       if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
-        const currentPassword = await triggerKeyPasswordModal(user);
+        currentPassword = await triggerKeyPasswordModal(user);
         privateKey = await openpgp.decryptKey({
           privateKey,
           passphrase: currentPassword,
@@ -1532,12 +1644,30 @@ export default function App() {
           : { name: u.name }
       );
 
+      const creationTime = privateKey.getCreationTime();
+      const expirationTime = await privateKey.getExpirationTime();
+      const expirationSeconds = expirationTime
+        ? Math.floor((expirationTime.getTime() - creationTime.getTime()) / 1000)
+        : undefined;
+
       const updatedKeyPair = await openpgp.reformatKey({
         privateKey,
         userIDs: reorderedUserIDs,
-        date: new Date(),
+        date: creationTime,
+        keyExpirationTime: expirationSeconds,
         format: "armored",
       });
+
+      if (currentPassword) {
+        const decryptedKey = await openpgp.readPrivateKey({
+          armoredKey: updatedKeyPair.privateKey,
+        });
+        const reEncryptedKey = await openpgp.encryptKey({
+          privateKey: decryptedKey,
+          passphrase: currentPassword,
+        });
+        updatedKeyPair.privateKey = reEncryptedKey.armor();
+      }
 
       await updateKeyInIndexeddb(user.id, {
         privateKey: updatedKeyPair.privateKey,
@@ -1570,8 +1700,11 @@ export default function App() {
   const deleteUserID = async (user, targetUserIDObj, showToast = true) => {
     try {
       let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+
+      let currentPassword = null;
+
       if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
-        const currentPassword = await triggerKeyPasswordModal(user);
+        currentPassword = await triggerKeyPasswordModal(user);
         privateKey = await openpgp.decryptKey({
           privateKey,
           passphrase: currentPassword,
@@ -1593,17 +1726,34 @@ export default function App() {
           : { name: u.name }
       );
 
-      const { privateKey: newArmoredPrivate, publicKey: newArmoredPublic } =
-        await openpgp.reformatKey({
-          privateKey,
-          userIDs: userIDsForKey,
-          date: new Date(),
-          format: "armored",
+      const creationTime = privateKey.getCreationTime();
+      const expirationTime = await privateKey.getExpirationTime();
+      const expirationSeconds = expirationTime
+        ? Math.floor((expirationTime.getTime() - creationTime.getTime()) / 1000)
+        : undefined;
+
+      let updatedKeyPair = await openpgp.reformatKey({
+        privateKey,
+        userIDs: userIDsForKey,
+        date: creationTime,
+        keyExpirationTime: expirationSeconds,
+        format: "armored",
+      });
+
+      if (currentPassword) {
+        const decryptedKey = await openpgp.readPrivateKey({
+          armoredKey: updatedKeyPair.privateKey,
         });
+        const reEncryptedKey = await openpgp.encryptKey({
+          privateKey: decryptedKey,
+          passphrase: currentPassword,
+        });
+        updatedKeyPair.privateKey = reEncryptedKey.armor();
+      }
 
       await updateKeyInIndexeddb(user.id, {
-        privateKey: newArmoredPrivate,
-        publicKey: newArmoredPublic,
+        privateKey: updatedKeyPair.privateKey,
+        publicKey: updatedKeyPair.publicKey,
       });
 
       if (showToast) {
@@ -1636,6 +1786,94 @@ export default function App() {
     setSelectedKeyName(user.name);
     setUserIDToDelete(targetUserIDObj);
     setdeleteUserIDModal(true);
+  };
+
+  const addSubkey = async (user) => {
+    if (!user || !user.privateKey) return;
+
+    try {
+      let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+      let currentPassword = null;
+
+      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+        currentPassword = await triggerKeyPasswordModal(user);
+        privateKey = await openpgp.decryptKey({ privateKey, currentPassword });
+      }
+
+      const opt = String(subkeyOption);
+      const isSign = opt === "0";
+      const isEncrypt = opt === "1";
+
+      let subkeyOpts = {
+        date: new Date(),
+        sign: isSign,
+        encrypt: isEncrypt,
+      };
+
+      if (!isNoExpiryChecked && expiryDate) {
+        const now = Date.now();
+        const sel = new Date(expiryDate);
+        const midnightAfter = new Date(
+          sel.getFullYear(),
+          sel.getMonth(),
+          sel.getDate() + 1
+        ).getTime();
+        subkeyOpts.keyExpirationTime = Math.floor((midnightAfter - now) / 1000);
+      }
+
+      if (selectedAlgorithm.startsWith("rsa")) {
+        subkeyOpts.type = "rsa";
+        subkeyOpts.rsaBits = parseInt(selectedAlgorithm.replace("rsa", ""), 10);
+      } else if (selectedAlgorithm === "curve25519") {
+        subkeyOpts.type = "ecc";
+        subkeyOpts.curve = "curve25519Legacy";
+      } else if (selectedAlgorithm === "ed25519") {
+        subkeyOpts.type = "ecc";
+        subkeyOpts.curve = "ed25519Legacy";
+      } else {
+        subkeyOpts.type = "ecc";
+        subkeyOpts.curve = selectedAlgorithm;
+      }
+
+      privateKey = await privateKey.addSubkey(subkeyOpts);
+
+      const creationTime = privateKey.getCreationTime();
+      const expirationTime = await privateKey.getExpirationTime();
+      const expirationSeconds = expirationTime
+        ? Math.floor((expirationTime.getTime() - creationTime.getTime()) / 1000)
+        : undefined;
+
+      let updatedPrivate = await openpgp.reformatKey({
+        privateKey,
+        userIDs: privateKey.getUserIDs().map((uid) => ({ name: uid })),
+        date: creationTime,
+        keyExpirationTime: expirationSeconds,
+        format: "armored",
+      });
+
+      if (currentPassword) {
+        const decryptedKey = await openpgp.readPrivateKey({
+          armoredKey: updatedPrivate.privateKey,
+        });
+        const reEncryptedKey = await openpgp.encryptKey({
+          privateKey: decryptedKey,
+          passphrase: currentPassword,
+        });
+        updatedPrivate.privateKey = reEncryptedKey.armor();
+      }
+
+      await updateKeyInIndexeddb(user.id, {
+        privateKey: updatedPrivate.privateKey,
+        publicKey: updatedPrivate.publicKey,
+      });
+
+      addToast({ title: "Subkey added successfully", color: "success" });
+      setaddSubkeyModal(false);
+      setUsers(await loadKeysFromIndexedDB());
+    } catch (err) {
+      console.error(err);
+      addToast({ title: "Failed to add subkey", color: "danger" });
+    }
   };
 
   const GenerateRevocationCertificate = async (user) => {
@@ -1826,7 +2064,7 @@ export default function App() {
       link.download = `${user.name}_0x${keyid}_PUBLIC_REVOKED.asc`;
       link.click();
       URL.revokeObjectURL(objectUrl);
-      
+
       addToast({
         title: "Key Revoked Successfully",
         color: "success",
@@ -2584,7 +2822,7 @@ export default function App() {
   }, [pageModal2, pagesModal2, hasSearchFilterModal2]);
 
   // View Certification Modal
-  
+
   useEffect(() => {
     if (!viewCertificateModal || !selectedUserId) {
       setCertificationsModal3([]);
@@ -2594,10 +2832,7 @@ export default function App() {
       setIsLoadingModal3(true);
       try {
         const allKeys = await loadKeysFromIndexedDB();
-        const certs = await getKeyCertifications(
-          selectedUserId,
-          allKeys
-        );
+        const certs = await getKeyCertifications(selectedUserId, allKeys);
         setCertificationsModal3(certs);
       } catch {
         setCertificationsModal3([]);
@@ -3317,6 +3552,96 @@ export default function App() {
               }}
             >
               Yes
+            </Button>
+          </div>
+        </ModalContent>
+      </Modal>
+      <Modal
+        backdrop="blur"
+        isOpen={addSubkeyModal}
+        onClose={() => setaddSubkeyModal(false)}
+      >
+        <ModalContent className="p-8">
+          <Autocomplete
+            className="max-w-md"
+            defaultItems={keyalgorithms}
+            defaultSelectedKey="curve25519"
+            label="Select Key Algorithm"
+            onSelectionChange={(selectedItem) => {
+              const selectedKey =
+                typeof selectedItem === "object" && selectedItem !== null
+                  ? selectedItem.key
+                  : selectedItem;
+              if (selectedKey) {
+                setSelectedAlgorithm(selectedKey);
+              }
+            }}
+          >
+            {(item) => (
+              <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>
+            )}
+          </Autocomplete>
+
+          <br />
+
+          <RadioGroup
+            label="Subkey Usage"
+            className="mb-4"
+            size="sm"
+            color="success"
+            value={subkeyOption}
+            onValueChange={setsubkeyOption}
+          >
+            <Radio value="0">Signing</Radio>
+            <Radio value="1">Encryption</Radio>
+          </RadioGroup>
+
+          <Checkbox
+            defaultSelected={isNoExpiryChecked}
+            color="default"
+            onChange={(e) => setIsNoExpiryChecked(e.target.checked)}
+          >
+            No Expiry
+          </Checkbox>
+
+          <br />
+
+          <DatePicker
+            minValue={today(getLocalTimeZone()).add({ days: 1 })}
+            maxValue={(() => {
+              const calDate = parseExpiryToCalendarDate(
+                selectedUserId?.expirydate
+              );
+              return calDate ? calDate : undefined;
+            })()}
+            isDisabled={isNoExpiryChecked}
+            className="max-w-[284px]"
+            label="Expiry date"
+            value={expiryDate}
+            onChange={(date) => setExpiryDate(date)}
+          />
+
+          <br />
+
+          <div className="mb-2">
+            <span className="font-semibold">Primary Key Expiry:&nbsp;</span>
+            <span>{selectedUserId?.expirydate || "Unknown"}</span>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
+              onPress={() => setaddSubkeyModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="w-full mt-4 px-4 py-2 text-white rounded-full"
+              color="success"
+              variant="flat"
+              onPress={() => addSubkey(selectedUserId)}
+            >
+              Add
             </Button>
           </div>
         </ModalContent>
