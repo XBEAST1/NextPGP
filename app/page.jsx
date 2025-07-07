@@ -92,6 +92,14 @@ const INITIAL_VISIBLE_COLUMNS_MODAL3 = [
   "passwordprotected",
 ];
 
+const INITIAL_VISIBLE_COLUMNS_MODAL4 = [
+  "usage",
+  "creationdate",
+  "expirydate",
+  "status",
+  "actions",
+];
+
 const columns = [
   { name: "NAME", uid: "name", width: "15%", sortable: true },
   {
@@ -230,6 +238,33 @@ const columnsModal3 = [
   { name: "KEY ID", uid: "keyid", align: "center" },
   { name: "FINGERPRINT", uid: "fingerprint", align: "center" },
   { name: "ALGORITHM", uid: "algorithm", align: "center" },
+];
+
+const columnsModal4 = [
+  { name: "USAGE", uid: "usage", width: "25%", sortable: true },
+  {
+    name: "CREATION DATE",
+    uid: "creationdate",
+    width: "25%",
+    sortable: true,
+  },
+  {
+    name: "EXPIRY DATE",
+    uid: "expirydate",
+    width: "18%",
+    sortable: true,
+  },
+  {
+    name: "STATUS",
+    uid: "status",
+    width: "20%",
+    align: "center",
+    sortable: true,
+  },
+  { name: "KEY ID", uid: "keyid", align: "center" },
+  { name: "FINGERPRINT", uid: "fingerprint", align: "center" },
+  { name: "ALGORITHM", uid: "algorithm", align: "center" },
+  { name: "ACTIONS", uid: "actions", align: "center" },
 ];
 
 const keyalgorithms = [
@@ -487,26 +522,28 @@ export default function App() {
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
   const [filterValueModal, setFilterValueModal] = useState("");
-  const [rowsPerPageModal, setRowsPerPageModal] = useState(5);
   const [sortDescriptorModal, setSortDescriptorModal] = useState({});
   const [pageModal, setPageModal] = useState(1);
   const [isLoadingModal2, setIsLoadingModal2] = useState(false);
   const [usersModal2, setUsersModal2] = useState([]);
-  const [rowsPerPageModal2, setRowsPerPageModal2] = useState(5);
   const [filterValueModal2, setFilterValueModal2] = useState("");
   const [pageModal2, setPageModal2] = useState(1);
   const [sortDescriptorModal2, setSortDescriptorModal2] = useState({});
   const [isLoadingModal3, setIsLoadingModal3] = useState(false);
   const [certificationsModal3, setCertificationsModal3] = useState([]);
-  const [rowsPerPageModal3, setRowsPerPageModal3] = useState(5);
   const [filterValueModal3, setFilterValueModal3] = useState("");
   const [pageModal3, setPageModal3] = useState(1);
   const [sortDescriptorModal3, setSortDescriptorModal3] = useState({});
+  const [usersModal4, setUsersModal4] = useState([]);
+  const [isLoadingModal4, setIsLoadingModal4] = useState(false);
+  const [filterValueModal4, setFilterValueModal4] = useState("");
+  const [pageModal4, setPageModal4] = useState(1);
+  const [sortDescriptorModal4, setSortDescriptorModal4] = useState({});
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedKeyName, setSelectedKeyName] = useState("");
+  const [selectedKeyId, setSelectedKeyId] = useState("");
   const [isNoExpiryChecked, setIsNoExpiryChecked] = useState(true);
   const [validityModal, setvalidityModal] = useState(false);
-  const [selectedValidityKey, setSelectedValidityKey] = useState(null);
   const [expiryDate, setExpiryDate] = useState(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -523,6 +560,7 @@ export default function App() {
   const [userIDToDelete, setUserIDToDelete] = useState(null);
   const [deleteUserIDModal, setdeleteUserIDModal] = useState(false);
   const [addSubkeyModal, setaddSubkeyModal] = useState(false);
+  const [manageSubkeyModal, setmanageSubkeyModal] = useState(false);
   const [subkeyOption, setsubkeyOption] = useState("1");
   const [selectedAlgorithm, setSelectedAlgorithm] = useState("curve25519");
   const [certifyUserModal, setcertifyUserModal] = useState(false);
@@ -552,6 +590,9 @@ export default function App() {
   const [visibleColumnsModal3, setVisibleColumnsModal3] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS_MODAL3)
   );
+  const [visibleColumnsModal4, setVisibleColumnsModal4] = useState(
+    new Set(INITIAL_VISIBLE_COLUMNS_MODAL4)
+  );
 
   useEffect(() => {
     openDB();
@@ -561,7 +602,7 @@ export default function App() {
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   const UserActionsDropdown = ({ user }) => {
-    const [isProtected, setIsProtected] = useState(null);
+  const [isProtected, setIsProtected] = useState(null);
 
     useEffect(() => {
       let mounted = true;
@@ -665,7 +706,7 @@ export default function App() {
                   <DropdownItem
                     key="change-validity"
                     onPress={() => {
-                      setSelectedValidityKey(user);
+                      setSelectedUserId(user);
                       if (user.expirydate === "No Expiry") {
                         setIsNoExpiryChecked(true);
                         setExpiryDate(null);
@@ -760,15 +801,28 @@ export default function App() {
                 )}
 
                 {user.status !== "revoked" && user.status !== "expired" && (
-                  <DropdownItem
-                    key="add-subkey"
-                    onPress={() => {
-                      setSelectedUserId(user);
-                      setaddSubkeyModal(true);
-                    }}
-                  >
-                    Add Subkey
-                  </DropdownItem>
+                  <>
+                    <DropdownItem
+                      key="add-subkey"
+                      onPress={() => {
+                        setSelectedUserId(user);
+                        setaddSubkeyModal(true);
+                      }}
+                    >
+                      Add Subkey
+                    </DropdownItem>
+                    <DropdownItem
+                      key="manage-subkey"
+                      onPress={() => {
+                        setSelectedUserId(user);
+                        setSelectedKeyName(user.name);
+                        setSelectedKeyId(user.keyid);
+                        setmanageSubkeyModal(true);
+                      }}
+                    >
+                      Manage Subkey
+                    </DropdownItem>
+                  </>
                 )}
               </>
             )}
@@ -841,6 +895,90 @@ export default function App() {
               onPress={() => triggerdeleteModal(user.id, user.name)}
             >
               Delete
+            </DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
+      </div>
+    );
+  };
+
+  const UserActionsDropdownSubkey = ({ subkey }) => {
+    const [armoredSubkey, setArmoredSubkey] = useState([]);
+
+    useEffect(() => {
+      const extractArmoredSubkeysFromMasterKey = async () => {
+        try {
+          if (!selectedUserId?.privateKey?.trim()) return;
+
+          const privateKey = await openpgp.readPrivateKey({
+            armoredKey: selectedUserId.privateKey,
+          });
+
+          const primaryPacket = privateKey.keyPacket;
+          const subkeys = privateKey.getSubkeys();
+
+          const packetList = privateKey.toPacketList();
+          const userIDPackets = packetList.filterByTag(
+            openpgp.enums.packet.userID
+          );
+          const userIDSigs = packetList
+            .filterByTag(openpgp.enums.packet.signature)
+            .filter(
+              (sig) =>
+                sig.signatureType === openpgp.enums.signature.certPositive
+            );
+
+          if (userIDPackets.length === 0 || userIDSigs.length === 0) {
+            console.warn(
+              "No User IDs or certifications found in the original key."
+            );
+            return;
+          }
+
+          const allSubkeys = [];
+
+          subkeys.forEach((subkey) => {
+            const standalone = new openpgp.PacketList();
+
+            standalone.push(primaryPacket);
+            userIDPackets.forEach((uid) => standalone.push(uid));
+            userIDSigs.forEach((sig) => standalone.push(sig));
+            standalone.push(subkey.keyPacket);
+            subkey.bindingSignatures?.forEach((sig) => standalone.push(sig));
+
+            const armored = openpgp.armor(
+              openpgp.enums.armor.privateKey,
+              standalone.write()
+            );
+
+            allSubkeys.push(armored);
+          });
+
+          setArmoredSubkey(allSubkeys);
+        } catch (err) {
+          console.error("Failed to export standalone subkeys", err);
+        }
+      };
+
+      extractArmoredSubkeysFromMasterKey();
+    }, []);
+
+    return (
+      <div className="relative flex justify-end items-center gap-2 me-8">
+        <Dropdown>
+          <DropdownTrigger>
+            <Button isIconOnly size="sm" variant="light">
+              <VerticalDotsIcon className="text-default-300" />
+            </Button>
+          </DropdownTrigger>
+          <DropdownMenu>
+            <DropdownItem
+              onPress={() => {
+                const subkeyIndex = parseInt(subkey.id.split("-subkey-")[1]);
+                backupSubkey(subkey, armoredSubkey[subkeyIndex]);
+              }}
+            >
+              Backup Subkey
             </DropdownItem>
           </DropdownMenu>
         </Dropdown>
@@ -1022,6 +1160,43 @@ export default function App() {
     }
   };
 
+  const backupSubkey = async (subkey, armoredSubkey) => {
+    try {
+      let privateKey = await openpgp.readPrivateKey({
+        armoredKey: selectedUserId.privateKey,
+      });
+
+      let currentPassword = null;
+
+      if (!privateKey.isDecrypted()) {
+        currentPassword = await triggerKeyPasswordModal(selectedUserId);
+
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+
+      const mainkeyid = selectedKeyId.replace(/\s/g, "");
+      const keyid = subkey.keyid.replace(/\s/g, "");
+      const label =
+        subkey.usage.toLowerCase() === "signing" ? "SIGN" : "ENCRYPT";
+
+      const blob = new Blob([armoredSubkey], { type: "text/plain" });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `${selectedKeyName}_0x${mainkeyid}_SECRET_SUBKEY_0x${keyid}_${label}.asc`;
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      addToast({
+        title: "Failed to process or export the subkey.",
+        color: "danger",
+      });
+    }
+  };
+
   const updateKeyInIndexeddb = async (keyId, updatedKeys) => {
     const db = await openDB();
     const encryptionKey = await getEncryptionKey();
@@ -1089,7 +1264,7 @@ export default function App() {
         armoredKey: targetUser.publicKey,
       });
 
-      // 4. Check for existing certification by this signer (using key ID)
+      // Check for existing certification by this signer (using key ID)
       const signerKeyId = signerPriv.getKeyIDs()[0].toHex().toLowerCase();
 
       const existingKeyIds = theirPub.users.flatMap((user) =>
@@ -1198,8 +1373,8 @@ export default function App() {
     }
   };
 
-  const handleUpdateValidity = async () => {
-    if (!selectedValidityKey) return;
+  const ChangeKeyValidity = async () => {
+    if (!selectedUserId) return;
     try {
       const now = new Date();
       let keyExpirationTime;
@@ -1219,14 +1394,14 @@ export default function App() {
         keyExpirationTime = Math.floor((expiry - now) / 1000);
       }
 
-      let privateKey = await openpgp.readKey({
-        armoredKey: selectedValidityKey.privateKey,
+      let privateKey = await openpgp.readPrivateKey({
+        armoredKey: selectedUserId.privateKey,
       });
 
       let currentPassword = null;
 
-      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
-        currentPassword = await triggerKeyPasswordModal(selectedValidityKey);
+      if (!privateKey.isDecrypted()) {
+        currentPassword = await triggerKeyPasswordModal(selectedUserId);
         privateKey = await openpgp.decryptKey({
           privateKey,
           passphrase: currentPassword,
@@ -1234,7 +1409,7 @@ export default function App() {
       }
 
       const fullPublicKey = await openpgp.readKey({
-        armoredKey: selectedValidityKey.publicKey,
+        armoredKey: selectedUserId.publicKey,
       });
       const existingUserIDs = fullPublicKey
         .getUserIDs()
@@ -1264,7 +1439,7 @@ export default function App() {
         updatedKeyPair.privateKey = reEncryptedKey.armor();
       }
 
-      await updateKeyInIndexeddb(selectedValidityKey.id, {
+      await updateKeyInIndexeddb(selectedUserId.id, {
         privateKey: updatedKeyPair.privateKey,
         publicKey: updatedKeyPair.publicKey,
       });
@@ -1277,7 +1452,7 @@ export default function App() {
       setUsers(refreshedKeys);
 
       setvalidityModal(false);
-      setSelectedValidityKey(null);
+      setSelectedUserId(null);
     } catch (error) {
       addToast({
         title: "Failed to update validity",
@@ -1514,10 +1689,12 @@ export default function App() {
     const validEmail = email.trim();
     setaddUserIDModal(false);
     try {
-      let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+      let privateKey = await openpgp.readPrivateKey({
+        armoredKey: user.privateKey,
+      });
       let currentPassword = null;
 
-      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+      if (!privateKey.isDecrypted()) {
         currentPassword = await triggerKeyPasswordModal(user);
         privateKey = await openpgp.decryptKey({
           privateKey,
@@ -1612,13 +1789,13 @@ export default function App() {
         return;
       }
 
-      let privateKey = await openpgp.readKey({
+      let privateKey = await openpgp.readPrivateKey({
         armoredKey: currentUserObj.privateKey,
       });
 
       let currentPassword = null;
 
-      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+      if (!privateKey.isDecrypted()) {
         currentPassword = await triggerKeyPasswordModal(user);
         privateKey = await openpgp.decryptKey({
           privateKey,
@@ -1699,11 +1876,13 @@ export default function App() {
 
   const deleteUserID = async (user, targetUserIDObj, showToast = true) => {
     try {
-      let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+      let privateKey = await openpgp.readPrivateKey({
+        armoredKey: user.privateKey,
+      });
 
       let currentPassword = null;
 
-      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+      if (!privateKey.isDecrypted()) {
         currentPassword = await triggerKeyPasswordModal(user);
         privateKey = await openpgp.decryptKey({
           privateKey,
@@ -1792,12 +1971,17 @@ export default function App() {
     if (!user || !user.privateKey) return;
 
     try {
-      let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
+      let privateKey = await openpgp.readPrivateKey({
+        armoredKey: user.privateKey,
+      });
       let currentPassword = null;
 
-      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+      if (!privateKey.isDecrypted()) {
         currentPassword = await triggerKeyPasswordModal(user);
-        privateKey = await openpgp.decryptKey({ privateKey, currentPassword });
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
       }
 
       const opt = String(subkeyOption);
@@ -1840,7 +2024,7 @@ export default function App() {
       const creationTime = privateKey.getCreationTime();
       const expirationTime = await privateKey.getExpirationTime();
       const expirationSeconds = expirationTime
-        ? Math.floor((expirationTime.getTime() - creationTime.getTime()) / 1000)
+        ? Math.floor((expirationTime - creationTime.getTime()) / 1000)
         : undefined;
 
       let updatedPrivate = await openpgp.reformatKey({
@@ -1873,6 +2057,146 @@ export default function App() {
     } catch (err) {
       console.error(err);
       addToast({ title: "Failed to add subkey", color: "danger" });
+    }
+  };
+
+  const manageSubkeys = async (user) => {
+    if (!user || !user.publicKey) return [];
+
+    try {
+      const key = await openpgp.readKey({ armoredKey: user.publicKey });
+
+      const formatDate = (isoDate) => {
+        const date = new Date(isoDate);
+        if (!(date instanceof Date) || isNaN(date.getTime())) return "Unknown";
+        const monthNames = [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ];
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = monthNames[date.getMonth()];
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+      };
+
+      const getSubkeyExpiryInfo = async (subkey) => {
+        try {
+          const isRevoked = await subkey.isRevoked();
+          if (isRevoked) return { expirydate: "Revoked", status: "revoked" };
+
+          const expirationTime = await subkey.getExpirationTime();
+          const now = new Date();
+
+          if (!expirationTime || expirationTime === Infinity) {
+            return { expirydate: "No Expiry", status: "active" };
+          } else if (expirationTime < now) {
+            return {
+              expirydate: formatDate(expirationTime),
+              status: "expired",
+            };
+          } else {
+            return { expirydate: formatDate(expirationTime), status: "active" };
+          }
+        } catch {
+          return { expirydate: "Error", status: "unknown" };
+        }
+      };
+
+      const getSubkeyUsage = (subkey) => {
+        const usage = [];
+        for (const sig of subkey.bindingSignatures) {
+          const flagsArray = sig.keyFlags || sig.parsedKeyFlags || [];
+          for (const f of flagsArray) {
+            if (f & openpgp.enums.keyFlags.signData) {
+              usage.push("Signing");
+            }
+            if (
+              f &
+              (openpgp.enums.keyFlags.encryptCommunication |
+                openpgp.enums.keyFlags.encryptStorage)
+            ) {
+              usage.push("Encryption");
+            }
+          }
+        }
+        return [...new Set(usage)].join(", ") || "Unknown";
+      };
+
+      const subkeyInfos = await Promise.all(
+        key.subkeys.map(async (subkey, idx) => {
+          const algoInfo = subkey.getAlgorithmInfo();
+          const { expirydate, status } = await getSubkeyExpiryInfo(subkey);
+
+          return {
+            id: `${user.id}-subkey-${idx}`,
+            name: user.name,
+            email: user.email,
+            creationdate: formatDate(subkey.getCreationTime()),
+            expirydate,
+            status,
+            usage: getSubkeyUsage(subkey),
+            keyid: subkey
+              .getKeyID()
+              .toHex()
+              .toUpperCase()
+              .match(/.{1,4}/g)
+              .join(" "),
+            fingerprint: subkey
+              .getFingerprint()
+              .toUpperCase()
+              .match(/.{1,4}/g)
+              .join(" "),
+            algorithm: (() => {
+              const labelMap = {
+                curve25519: "Curve25519 (EdDSA/ECDH)",
+                nistP256: "NIST P-256 (ECDSA/ECDH)",
+                nistP521: "NIST P-521 (ECDSA/ECDH)",
+                brainpoolP256r1: "Brainpool P-256r1 (ECDSA/ECDH)",
+                brainpoolP512r1: "Brainpool P-512r1 (ECDSA/ECDH)",
+              };
+              if (
+                ["eddsa", "ecdh" , "eddsaLegacy", "curve25519"].includes(
+                  algoInfo.algorithm
+                )
+              ) {
+                return labelMap.curve25519;
+              }
+              if (algoInfo.curve && labelMap[algoInfo.curve]) {
+                return labelMap[algoInfo.curve];
+              }
+              if (/^rsa/i.test(algoInfo.algorithm)) {
+                switch (algoInfo.bits) {
+                  case 2048:
+                    return "RSA 2048";
+                  case 3072:
+                    return "RSA 3072";
+                  case 4096:
+                    return "RSA 4096";
+                  default:
+                    return `RSA (${algoInfo.bits || "?"} bits)`;
+                }
+              }
+              return algoInfo.algorithm || "Unknown";
+            })(),
+            avatar: Keyring.src,
+          };
+        })
+      );
+
+      return subkeyInfos;
+    } catch (e) {
+      console.error("Error extracting subkeys:", e);
+      return [];
     }
   };
 
@@ -2356,14 +2680,13 @@ export default function App() {
     return filtered;
   }, [modalUserIDs, filterValueModal]);
 
-  const pagesModal =
-    Math.ceil(filteredItemsModal.length / rowsPerPageModal) || 1;
+  const pagesModal = Math.ceil(filteredItemsModal.length / 5) || 1;
 
   const itemsModal = useMemo(() => {
-    const start = (pageModal - 1) * rowsPerPageModal;
-    const end = start + rowsPerPageModal;
+    const start = (pageModal - 1) * 5;
+    const end = start + 5;
     return filteredItemsModal.slice(start, end);
-  }, [pageModal, filteredItemsModal, rowsPerPageModal]);
+  }, [pageModal, filteredItemsModal]);
 
   const sortedItemsModal = useMemo(() => {
     return [...itemsModal].sort((a, b) => {
@@ -2459,11 +2782,6 @@ export default function App() {
     }
   }, [pageModal]);
 
-  const onRowsPerPageChangeModal = useCallback((e) => {
-    setRowsPerPageModal(Number(e.target.value));
-    setPageModal(1);
-  }, []);
-
   const onSearchChangeModal = useCallback((value) => {
     if (value) {
       setFilterValueModal(value);
@@ -2496,23 +2814,11 @@ export default function App() {
           <span className="text-default-400 text-small">
             Total {modalUserIDs.length} User IDs
           </span>
-          <label className="flex items-center text-default-400 text-small">
-            Rows per page:
-            <select
-              className="bg-transparent outline-none text-default-400 text-small"
-              onChange={onRowsPerPageChangeModal}
-            >
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="15">20</option>
-            </select>
-          </label>
         </div>
       </div>
     );
   }, [
     filterValueModal,
-    onRowsPerPageChangeModal,
     modalUserIDs.length,
     onSearchChangeModal,
     hasSearchFilterModal,
@@ -2607,14 +2913,15 @@ export default function App() {
   }, [usersModal2, filterValueModal2]);
 
   const pagesModal2 = useMemo(
-    () => Math.ceil(filteredItemsModal2.length / rowsPerPageModal2),
-    [filteredItemsModal2, rowsPerPageModal2]
+    () => Math.ceil(filteredItemsModal2.length / 5),
+    [filteredItemsModal2]
   );
+
   const hasSearchFilterModal2 = Boolean(filterValueModal2);
 
   const sortedItemsModal2 = useMemo(() => {
-    const start = (pageModal2 - 1) * rowsPerPageModal2;
-    const end = start + rowsPerPageModal2;
+    const start = (pageModal2 - 1) * 5;
+    const end = start + 5;
     return [...filteredItemsModal2]
       .sort((a, b) => {
         const aVal = a[sortDescriptorModal2.column];
@@ -2623,12 +2930,7 @@ export default function App() {
         return sortDescriptorModal2.direction === "descending" ? -cmp : cmp;
       })
       .slice(start, end);
-  }, [
-    filteredItemsModal2,
-    pageModal2,
-    rowsPerPageModal2,
-    sortDescriptorModal2,
-  ]);
+  }, [filteredItemsModal2, pageModal2, sortDescriptorModal2]);
 
   const onNextPageModal2 = useCallback(() => {
     if (pageModal2 < pagesModal2) setPageModal2(pageModal2 + 1);
@@ -2637,18 +2939,6 @@ export default function App() {
   const onPreviousPageModal2 = useCallback(() => {
     if (pageModal2 > 1) setPageModal2(pageModal2 - 1);
   }, [pageModal2]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("rowsPerPageModal2");
-    if (stored) setRowsPerPageModal2(Number(stored));
-  }, []);
-
-  const onRowsPerPageChangeModal2 = useCallback((e) => {
-    const val = Number(e.target.value);
-    setRowsPerPageModal2(val);
-    setPageModal2(1);
-    localStorage.setItem("rowsPerPageModal2", val);
-  }, []);
 
   const onSearchChangeModal2 = useCallback((value) => {
     setFilterValueModal2(value || "");
@@ -2762,25 +3052,11 @@ export default function App() {
           <span className="text-default-400 text-small">
             Total {usersModal2.length} keys
           </span>
-          <label className="flex items-center text-default-400 text-small">
-            Rows per page:
-            <select
-              className="bg-transparent outline-none text-default-400 text-small"
-              value={rowsPerPageModal2}
-              onChange={onRowsPerPageChangeModal2}
-            >
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="20">20</option>
-            </select>
-          </label>
         </div>
       </div>
     );
   }, [
     filterValueModal2,
-    onRowsPerPageChangeModal2,
-    rowsPerPageModal2,
     usersModal2.length,
     visibleColumnsModal2,
     onSearchChangeModal2,
@@ -2869,14 +3145,15 @@ export default function App() {
   }, [certificationsModal3, filterValueModal3]);
 
   const pagesModal3 = useMemo(
-    () => Math.ceil(filteredItemsModal3.length / rowsPerPageModal3),
-    [filteredItemsModal3, rowsPerPageModal3]
+    () => Math.ceil(filteredItemsModal3.length / 5),
+    [filteredItemsModal3]
   );
+
   const hasSearchFilterModal3 = Boolean(filterValueModal3);
 
   const sortedItemsModal3 = useMemo(() => {
-    const start = (pageModal3 - 1) * rowsPerPageModal3;
-    const end = start + rowsPerPageModal3;
+    const start = (pageModal3 - 1) * 5;
+    const end = start + 5;
     return [...filteredItemsModal3]
       .sort((a, b) => {
         const aVal = a[sortDescriptorModal3.column];
@@ -2885,12 +3162,7 @@ export default function App() {
         return sortDescriptorModal3.direction === "descending" ? -cmp : cmp;
       })
       .slice(start, end);
-  }, [
-    filteredItemsModal3,
-    pageModal3,
-    rowsPerPageModal3,
-    sortDescriptorModal3,
-  ]);
+  }, [filteredItemsModal3, pageModal3, sortDescriptorModal3]);
 
   const onNextPageModal3 = useCallback(() => {
     if (pageModal3 < pagesModal3) setPageModal3(pageModal3 + 1);
@@ -2899,18 +3171,6 @@ export default function App() {
   const onPreviousPageModal3 = useCallback(() => {
     if (pageModal3 > 1) setPageModal3(pageModal3 - 1);
   }, [pageModal3]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("rowsPerPageModal3");
-    if (stored) setRowsPerPageModal3(Number(stored));
-  }, []);
-
-  const onRowsPerPageChangeModal3 = useCallback((e) => {
-    const val = Number(e.target.value);
-    setRowsPerPageModal3(val);
-    setPageModal3(1);
-    localStorage.setItem("rowsPerPageModal3", val);
-  }, []);
 
   const onSearchChangeModal3 = useCallback((value) => {
     setFilterValueModal3(value || "");
@@ -3005,25 +3265,11 @@ export default function App() {
           <span className="text-default-400 text-small">
             Total {certificationsModal3.length} keys
           </span>
-          <label className="flex items-center text-default-400 text-small">
-            Rows per page:
-            <select
-              className="bg-transparent outline-none text-default-400 text-small"
-              value={rowsPerPageModal3}
-              onChange={onRowsPerPageChangeModal3}
-            >
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="20">20</option>
-            </select>
-          </label>
         </div>
       </div>
     );
   }, [
     filterValueModal3,
-    onRowsPerPageChangeModal3,
-    rowsPerPageModal3,
     certificationsModal3.length,
     visibleColumnsModal3,
     onSearchChangeModal3,
@@ -3116,6 +3362,220 @@ export default function App() {
     keyServerModal,
     keyserverQuery,
   ]);
+
+  // Manage Subkey Modal Table
+
+  useEffect(() => {
+    if (!manageSubkeyModal || !selectedUserId) return;
+    setIsLoadingModal4(true);
+    manageSubkeys(selectedUserId)
+      .then(setUsersModal4)
+      .catch((e) => {
+        setUsersModal4([]);
+        console.error("Error loading subkeys for modal4:", e);
+      })
+      .finally(() => setIsLoadingModal4(false));
+  }, [manageSubkeyModal, selectedUserId]);
+
+  const filteredItemsModal4 = useMemo(() => {
+    let items = [...usersModal4];
+
+    if (filterValueModal4) {
+      items = items.filter(
+        (user) =>
+          [
+            "usage",
+            "creationdate",
+            "expirydate",
+            "status",
+            "keyid",
+            "fingerprint",
+          ].some((field) =>
+            user[field].toLowerCase().includes(filterValueModal4.toLowerCase())
+          ) ||
+          user.passwordprotected
+            .toLowerCase()
+            .includes(filterValueModal4.toLowerCase())
+      );
+    }
+    return items;
+  }, [usersModal4, filterValueModal4]);
+
+  const pagesModal4 = useMemo(
+    () => Math.ceil(filteredItemsModal4.length / 5),
+    [filteredItemsModal4]
+  );
+
+  const hasSearchFilterModal4 = Boolean(filterValueModal4);
+
+  const sortedItemsModal4 = useMemo(() => {
+    const start = (pageModal4 - 1) * 5;
+    const end = start + 5;
+    return [...filteredItemsModal4]
+      .sort((a, b) => {
+        const aVal = a[sortDescriptorModal4.column];
+        const bVal = b[sortDescriptorModal4.column];
+        const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        return sortDescriptorModal4.direction === "descending" ? -cmp : cmp;
+      })
+      .slice(start, end);
+  }, [filteredItemsModal4, pageModal4, sortDescriptorModal4]);
+
+  const onNextPageModal4 = useCallback(() => {
+    if (pageModal4 < pagesModal4) setPageModal4(pageModal4 + 1);
+  }, [pageModal4, pagesModal4]);
+
+  const onPreviousPageModal4 = useCallback(() => {
+    if (pageModal4 > 1) setPageModal4(pageModal4 - 1);
+  }, [pageModal4]);
+
+  const onSearchChangeModal4 = useCallback((value) => {
+    setFilterValueModal4(value || "");
+    setPageModal4(1);
+  }, []);
+
+  const onClearModal4 = useCallback(() => {
+    setFilterValueModal4("");
+    setPageModal4(1);
+  }, []);
+
+  const headerColumnsModal4 = useMemo(() => {
+    if (visibleColumnsModal4 === "all") return columnsModal4;
+
+    return columnsModal4.filter((column) =>
+      Array.from(visibleColumnsModal4).includes(column.uid)
+    );
+  }, [visibleColumnsModal4]);
+
+  const renderCellModal4 = useCallback(
+    (user, columnKey) => {
+      const value = user[columnKey];
+      switch (columnKey) {
+        case "usage":
+          return (
+            <User
+              avatarProps={{ radius: "lg", src: user.avatar }}
+              name={value}
+            />
+          );
+        case "status":
+          return (
+            <Chip
+              className="-ms-5 capitalize"
+              color={statusColorMap[user.status]}
+              variant="flat"
+            >
+              {value}
+            </Chip>
+          );
+        case "passwordprotected":
+          return (
+            <Chip
+              className="-ms-6 capitalize"
+              color={passwordprotectedColorMap[user.passwordprotected]}
+              variant="flat"
+            >
+              {value}
+            </Chip>
+          );
+        case "actions":
+          return <UserActionsDropdownSubkey subkey={user} />;
+        default:
+          return value;
+      }
+    },
+    [selectedUserId]
+  );
+
+  const topContentModal4 = useMemo(() => {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between gap-3 items-end">
+          <Input
+            isClearable
+            className="w-full sm:max-w-[100%]"
+            placeholder="Search all fields (usage, dates, status, key ID, fingerprint, algorithm)"
+            startContent={<SearchIcon />}
+            value={filterValueModal4}
+            onClear={() => onClearModal4()}
+            onValueChange={onSearchChangeModal4}
+          />
+          <Dropdown>
+            <DropdownTrigger>
+              <Button
+                endContent={<ChevronDownIcon className="text-small" />}
+                variant="faded"
+                className="border-0"
+              >
+                Columns
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu
+              disallowEmptySelection
+              aria-label="Table Columns"
+              closeOnSelect={false}
+              selectedKeys={visibleColumnsModal4}
+              selectionMode="multiple"
+              onSelectionChange={setVisibleColumnsModal4}
+            >
+              {columnsModal4
+                .filter((column) => column.uid !== "actions")
+                .map((column) => (
+                  <DropdownItem key={column.uid} className="capitalize">
+                    {capitalize(column.name)}
+                  </DropdownItem>
+                ))}
+            </DropdownMenu>
+          </Dropdown>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-default-400 text-small">
+            Total {usersModal4.length} keys
+          </span>
+        </div>
+      </div>
+    );
+  }, [
+    filterValueModal4,
+    usersModal4.length,
+    visibleColumnsModal4,
+    onSearchChangeModal4,
+    hasSearchFilterModal4,
+  ]);
+
+  const bottomContentModal4 = useMemo(() => {
+    return (
+      <div className="py-2 px-2 flex justify-between items-center">
+        <Pagination
+          isCompact
+          showControls
+          showShadow
+          color="default"
+          page={pageModal4}
+          total={pagesModal4}
+          onChange={setPageModal4}
+        />
+        <div className="hidden sm:flex w-[30%] justify-end gap-4">
+          <Button
+            isDisabled={pagesModal4 === 1}
+            size="sm"
+            variant="flat"
+            onPress={onPreviousPageModal4}
+          >
+            Previous
+          </Button>
+          <Button
+            isDisabled={pagesModal4 === 1}
+            size="sm"
+            variant="flat"
+            onPress={onNextPageModal4}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    );
+  }, [pageModal4, pagesModal4, hasSearchFilterModal4]);
 
   return (
     <>
@@ -3218,7 +3678,6 @@ export default function App() {
         isOpen={validityModal}
         onClose={() => {
           setvalidityModal(false);
-          setSelectedValidityKey(null);
           setIsNoExpiryChecked(true);
           setExpiryDate(null);
         }}
@@ -3242,7 +3701,7 @@ export default function App() {
           />
           <Button
             className="mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
-            onPress={handleUpdateValidity}
+            onPress={ChangeKeyValidity}
           >
             Confirm
           </Button>
@@ -3719,6 +4178,86 @@ export default function App() {
                 <TableRow key={item.id}>
                   {(columnKey) => (
                     <TableCell>{renderCellModal2(item, columnKey)}</TableCell>
+                  )}
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </ModalContent>
+      </Modal>
+      <Modal
+        size="5xl"
+        backdrop="blur"
+        isOpen={manageSubkeyModal}
+        onClose={() => setmanageSubkeyModal(false)}
+      >
+        <ModalContent className="p-8">
+          <Table
+            isHeaderSticky
+            aria-label="Manage Subkey Table"
+            bottomContent={bottomContentModal4}
+            bottomContentPlacement="outside"
+            sortDescriptor={sortDescriptorModal4}
+            topContent={topContentModal4}
+            topContentPlacement="outside"
+            onSortChange={setSortDescriptorModal4}
+          >
+            <TableHeader columns={headerColumnsModal4}>
+              {(column) => (
+                <TableColumn
+                  key={column.uid}
+                  align={
+                    [
+                      "email",
+                      "passwordprotected",
+                      "status",
+                      "keyid",
+                      "fingerprint",
+                      "algorithm",
+                      "actions",
+                    ].includes(column.uid)
+                      ? "center"
+                      : "start"
+                  }
+                  allowsSorting={column.sortable}
+                  style={{ width: column.width }}
+                >
+                  {column.name}
+                </TableColumn>
+              )}
+            </TableHeader>
+            <TableBody
+              loadingContent={
+                <div className="flex justify-center items-center mt-12">
+                  <Spinner
+                    size="lg"
+                    color="warning"
+                    label={
+                      <div className="text-center">
+                        Loading Subkeys...
+                        <br />
+                        <span className="text-gray-300 text-sm">
+                          This may take some time depending{" "}
+                          <br className="block sm:hidden" />
+                          on your device&apos;s performance.
+                        </span>
+                      </div>
+                    }
+                  />
+                </div>
+              }
+              isLoading={isLoadingModal4}
+              emptyContent={
+                <>
+                  <span>No Subkeys found</span>
+                </>
+              }
+              items={sortedItemsModal4}
+            >
+              {(item) => (
+                <TableRow key={item.id}>
+                  {(columnKey) => (
+                    <TableCell>{renderCellModal4(item, columnKey)}</TableCell>
                   )}
                 </TableRow>
               )}
