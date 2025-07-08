@@ -41,6 +41,7 @@ export default function AppUpdater() {
 
         // Check all caches that start with "workbox-precache"
         let foundWorkboxCache = false;
+        await new Promise((res) => setTimeout(res, 4000));
         const cacheNames = await caches.keys();
         for (const cacheName of cacheNames) {
           if (cacheName.startsWith("workbox-precache")) {

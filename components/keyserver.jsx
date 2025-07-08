@@ -244,6 +244,11 @@ const KeyServer = ({ isOpen, onClose, initialSearch, onKeyImported }) => {
 
     setLoading(true);
     try {
+      const emailList = trimmed
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+
       const params = new URLSearchParams({ search: trimmed });
       const apiUrl = `/api/keyserver?${params.toString()}`;
 
@@ -253,19 +258,38 @@ const KeyServer = ({ isOpen, onClose, initialSearch, onKeyImported }) => {
         .split(/(?=-----BEGIN PGP PUBLIC KEY BLOCK-----)/g)
         .filter(Boolean);
 
-      const processed = await Promise.all(
-        blocks.map(async (armored, index) => {
-          try {
-            return await processKey({ id: index, publicKey: armored });
-          } catch (e) {
-            console.error("processKey error", e);
-            return null;
-          }
-        })
-      );
-      setRows(processed.filter(Boolean));
-    } catch (e) {
-      console.error(e);
+      // 2) Process all the blocks
+      const processed = (
+        await Promise.all(
+          blocks.map(async (armored, index) => {
+            try {
+              return await processKey({ id: index, publicKey: armored });
+            } catch (err) {
+              console.error("processKey error", err);
+              return null;
+            }
+          })
+        )
+      ).filter(Boolean);
+
+      const certifierNames = processed
+        .filter((k) => emailList.includes(k.email.toLowerCase()))
+        .map((k) => k.name);
+
+      const decorated = processed.map((k) => {
+        if (
+          certifierNames.length > 0 &&
+          !emailList.includes(k.email.toLowerCase())
+        ) {
+          const suffix = ` (Certified By ${certifierNames.join(", ")})`;
+          return { ...k, name: k.name + suffix };
+        }
+        return k;
+      });
+
+      setRows(decorated);
+    } catch (err) {
+      console.error(err);
       addToast({ title: "Error fetching keys", color: "danger" });
     } finally {
       setLoading(false);

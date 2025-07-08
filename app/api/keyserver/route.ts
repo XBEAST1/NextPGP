@@ -75,7 +75,6 @@ export async function GET(request: NextRequest) {
           const key = await fetchKey(id);
           if (key) {
             orderedKeyBlocks.push(key);
-            break;
           }
         }
       } catch (err) {

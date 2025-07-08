@@ -52,6 +52,13 @@ export default function App() {
     setFiles(selectedFiles);
   };
 
+  const appendDetail = (payload) => {
+    setDetails((prev) => {
+      const combined = prev ? prev + "\n" + payload : payload;
+      return removeDuplicateDetails(combined);
+    });
+  };
+
   const handleDecrypt = async () => {
     setDecrypting(true);
     setDetails("");
@@ -59,194 +66,195 @@ export default function App() {
 
     if (!inputMessage && !files) {
       addToast({
-        title: "Please enter a PGP message or Select a File",
+        title: "Please enter a PGP message or select a file",
         color: "danger",
       });
       setDecrypting(false);
       return;
     }
 
-    const downloadedFiles = new Set();
-
     try {
-      const tasks = [];
-
       if (inputMessage) {
-        tasks.push(
-          new Promise((resolve, reject) => {
-            workerPool({
-              type: "messageDecrypt",
-              inputMessage,
-              pgpKeys,
-              password,
-              currentPrivateKey,
-              responseType: "setDecryptedMessage",
-              onDecryptedMessage: (payload) => {
-                setDecryptedMessage(payload);
-                resolve();
-              },
-              onError: () => setDecrypting(false),
-              onDetails: (payload) =>
-                setDetails((prev) => (prev ? prev + "\n" + payload : payload)),
-              onToast: (payload) => addToast(payload),
-              onModal: (payload) => setIsPasswordModalOpen(payload),
-              onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
-            }).catch(reject);
-          })
-        );
+        await new Promise((resolve, reject) => {
+          workerPool({
+            type: "messageDecrypt",
+            inputMessage,
+            pgpKeys,
+            password,
+            currentPrivateKey,
+            responseType: "setDecryptedMessage",
+            onDecryptedMessage: (payload) => {
+              setDecryptedMessage(payload);
+              resolve();
+            },
+            onError: () => {
+              setDecrypting(false);
+            },
+            onDetails: appendDetail,
+            onToast: addToast,
+            onModal: setIsPasswordModalOpen,
+            onCurrentPrivateKey: setCurrentPrivateKey,
+          }).catch(reject);
+        });
       }
 
-      if (files) {
-        const uniqueFiles = Array.from(
-          new Map(files.map((file) => [file.name, file])).values()
-        );
-        const fileTasks = uniqueFiles.map(
-          (file) =>
-            new Promise((resolve, reject) => {
-              workerPool({
-                type: "fileDecrypt",
-                files: [file],
-                pgpKeys,
-                password,
-                currentPrivateKey,
-                responseType: "downloadFile",
-                onDecryptedFile: (payload) => {
-                  if (
-                    payload &&
-                    payload.fileName &&
-                    payload.decrypted &&
-                    !downloadedFiles.has(payload.fileName)
-                  ) {
-                    downloadedFiles.add(payload.fileName);
-                    const blob = new Blob([payload.decrypted]);
-                    saveAs(blob, payload.fileName);
-                  }
-                  resolve();
-                },
-                onError: () => setDecrypting(false),
-                onDetails: (payload) =>
-                  setDetails((prev) =>
-                    prev ? prev + "\n" + payload : payload
-                  ),
-                onToast: (payload) => addToast(payload),
-                onModal: (payload) => setIsPasswordModalOpen(payload),
-                onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
-              }).catch(reject);
-            })
-        );
-        tasks.push(...fileTasks);
+      // De duplicate files before decrypting
+      let uniqueFiles = [];
+      if (files && files.length) {
+        const seenInputHashes = new Set();
+
+        for (const file of files) {
+          const buf = await file.arrayBuffer();
+          const hashBuf = await crypto.subtle.digest("SHA-256", buf);
+          const hashHex = Array.from(new Uint8Array(hashBuf))
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("");
+
+          if (!seenInputHashes.has(hashHex)) {
+            seenInputHashes.add(hashHex);
+            uniqueFiles.push(file);
+          }
+        }
       }
-      await Promise.all(tasks);
+
+      for (const file of uniqueFiles) {
+        try {
+
+        const payload = await new Promise((resolve, reject) => {
+          workerPool({
+            type: "fileDecrypt",
+            files: [file],
+            pgpKeys,
+            password,
+            currentPrivateKey,
+            responseType: "downloadFile",
+            onDecryptedFile: resolve,
+            onError: () => {
+              setDecrypting(false);
+            },
+            onDetails: appendDetail,
+            onToast: addToast,
+            onModal: setIsPasswordModalOpen,
+            onCurrentPrivateKey: setCurrentPrivateKey,
+          }).catch(reject);
+        });
+
+        if (payload?.fileName && payload.decrypted) {
+          saveAs(new Blob([payload.decrypted]), payload.fileName);
+        }
+      } catch  {}
+      }
     } catch (error) {
       console.error("Decryption error:", error);
+      addToast({ title: "Decryption failed", color: "danger" });
+    } finally {
+      setDecrypting(false);
     }
-    setDecrypting(false);
-  };
-
-  const removeDuplicateDetails = (detailsStr) => {
-    if (!detailsStr) return "";
-    const blocks = detailsStr
-      .split(/(?=👥 (?:Recipients:|No recipients found))/)
-      .map((b) => b.trim());
-    const seen = new Set();
-    const uniqueBlocks = [];
-    blocks.forEach((block) => {
-      if (!seen.has(block)) {
-        seen.add(block);
-        uniqueBlocks.push(block);
-      }
-    });
-    return uniqueBlocks.join("\n\n");
   };
 
   const handlePasswordDecrypt = async () => {
     if (!password) {
-      addToast({
-        title: "Please enter a password",
-        color: "danger",
-      });
+      addToast({ title: "Please enter a password", color: "danger" });
       return;
     }
 
     setDecrypting(true);
+    setDetails("");
+    setDecryptedMessage("");
 
-    const downloadedFiles = new Set();
-    
     try {
-      const tasks = [];
-
       if (inputMessage) {
-        tasks.push(
-          new Promise((resolve, reject) => {
+        await new Promise((resolve, reject) => {
+          workerPool({
+            type: "messagePasswordDecrypt",
+            inputMessage,
+            pgpKeys,
+            password,
+            currentPrivateKey,
+            responseType: "setDecryptedMessage",
+            onDecryptedMessage: (payload) => {
+              setDecryptedMessage(payload);
+              resolve();
+            },
+            onError: () => {
+              setDecrypting(false);
+            },
+            onDetails: appendDetail,
+            onToast: addToast,
+            onModal: setIsPasswordModalOpen,
+            onCurrentPrivateKey: setCurrentPrivateKey,
+          }).catch(reject);
+        });
+      }
+
+      // De duplicate files before decrypting
+      let uniqueFiles = [];
+      if (files && files.length) {
+        const seenInputHashes = new Set();
+
+        for (const file of files) {
+          const buf = await file.arrayBuffer();
+          const hashBuf = await crypto.subtle.digest("SHA-256", buf);
+          const hashHex = Array.from(new Uint8Array(hashBuf))
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("");
+
+          if (!seenInputHashes.has(hashHex)) {
+            seenInputHashes.add(hashHex);
+            uniqueFiles.push(file);
+          }
+        }
+      }
+
+      for (const file of uniqueFiles) {
+        try {
+          const payload = await new Promise((resolve, reject) => {
             workerPool({
-              type: "messagePasswordDecrypt",
-              inputMessage,
+              type: "filePasswordDecrypt",
+              files: [file],
               pgpKeys,
               password,
               currentPrivateKey,
-              responseType: "setDecryptedMessage",
-              onDecryptedMessage: (payload) => {
-                setDecryptedMessage(payload);
-                resolve();
+              responseType: "downloadFile",
+              onDecryptedFile: resolve,
+              onError: () => {
+                setDecrypting(false);
               },
-              onDetails: (payload) =>
-                setDetails((prev) =>
-                  removeDuplicateDetails(prev ? prev + "\n" + payload : payload)
-                ),
-              onToast: (payload) => addToast(payload),
-              onModal: (payload) => setIsPasswordModalOpen(payload),
-              onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
+              onDetails: appendDetail,
+              onToast: addToast,
+              onModal: setIsPasswordModalOpen,
+              onCurrentPrivateKey: setCurrentPrivateKey,
             }).catch(reject);
-          })
-        );
-      }
+          });
 
-      if (files) {
-        const uniqueFiles = Array.from(
-          new Map(files.map((file) => [file.name, file])).values()
-        );
-        const fileTasks = uniqueFiles.map(
-          (file) =>
-            new Promise((resolve, reject) => {
-              workerPool({
-                type: "filePasswordDecrypt",
-                files: [file],
-                pgpKeys,
-                password,
-                currentPrivateKey,
-                responseType: "downloadFile",
-                onDecryptedFile: (payload) => {
-                  if (
-                    payload &&
-                    payload.fileName &&
-                    payload.decrypted &&
-                    !downloadedFiles.has(payload.fileName)
-                  ) {
-                    downloadedFiles.add(payload.fileName);
-                    const blob = new Blob([payload.decrypted]);
-                    saveAs(blob, payload.fileName);
-                  }
-                  resolve();
-                },
-                onDetails: (payload) =>
-                  setDetails((prev) =>
-                    removeDuplicateDetails(
-                      prev ? prev + "\n" + payload : payload
-                    )
-                  ),
-                onToast: (payload) => addToast(payload),
-                onModal: (payload) => setIsPasswordModalOpen(payload),
-                onCurrentPrivateKey: (payload) => setCurrentPrivateKey(payload),
-              }).catch(reject);
-            })
-        );
-        tasks.push(...fileTasks);
+          if (payload?.fileName && payload.decrypted) {
+            saveAs(new Blob([payload.decrypted]), payload.fileName);
+          }
+        } catch {}
       }
-      await Promise.all(tasks);
     } catch (error) {
       console.error("Password decryption error:", error);
+      addToast({ title: "Decryption failed", color: "danger" });
+    } finally {
+      setDecrypting(false);
     }
-    setDecrypting(false);
+  };
+
+  const removeDuplicateDetails = (detailsStr) => {
+    if (!detailsStr) return "";
+    const blockRegex = /👥 Recipients:[\s\S]*?(?=👥 Recipients:|$)/g;
+    const blocks = detailsStr.match(blockRegex) || [];
+    const seen = new Set();
+    return blocks
+      .map((b) => b.trim())
+      .filter((block) => {
+        const match = block.match(/⏱️ Signature created on:\s*(.+)$/m);
+        const key = match ? match[1].trim() : block;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .join("\n\n");
   };
 
   const SearchSignerOnKeyserver = () => {
