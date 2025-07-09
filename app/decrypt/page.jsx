@@ -119,30 +119,29 @@ export default function App() {
 
       for (const file of uniqueFiles) {
         try {
+          const payload = await new Promise((resolve, reject) => {
+            workerPool({
+              type: "fileDecrypt",
+              files: [file],
+              pgpKeys,
+              password,
+              currentPrivateKey,
+              responseType: "downloadFile",
+              onDecryptedFile: resolve,
+              onError: () => {
+                setDecrypting(false);
+              },
+              onDetails: appendDetail,
+              onToast: addToast,
+              onModal: setIsPasswordModalOpen,
+              onCurrentPrivateKey: setCurrentPrivateKey,
+            }).catch(reject);
+          });
 
-        const payload = await new Promise((resolve, reject) => {
-          workerPool({
-            type: "fileDecrypt",
-            files: [file],
-            pgpKeys,
-            password,
-            currentPrivateKey,
-            responseType: "downloadFile",
-            onDecryptedFile: resolve,
-            onError: () => {
-              setDecrypting(false);
-            },
-            onDetails: appendDetail,
-            onToast: addToast,
-            onModal: setIsPasswordModalOpen,
-            onCurrentPrivateKey: setCurrentPrivateKey,
-          }).catch(reject);
-        });
-
-        if (payload?.fileName && payload.decrypted) {
-          saveAs(new Blob([payload.decrypted]), payload.fileName);
-        }
-      } catch  {}
+          if (payload?.fileName && payload.decrypted) {
+            saveAs(new Blob([payload.decrypted]), payload.fileName);
+          }
+        } catch {}
       }
     } catch (error) {
       console.error("Decryption error:", error);
@@ -207,6 +206,8 @@ export default function App() {
       }
 
       for (const file of uniqueFiles) {
+        let resolved = false;
+
         try {
           const payload = await new Promise((resolve, reject) => {
             workerPool({
@@ -221,7 +222,18 @@ export default function App() {
                 setDecrypting(false);
               },
               onDetails: appendDetail,
-              onToast: addToast,
+              // Resolve here to avoid breaking the loop if password is incorrect,
+              // since onError doesn't always trigger so we're calling resolve(null) here
+              onToast: (toast) => {
+                addToast(toast);
+                if (
+                  !resolved &&
+                  toast.title?.toLowerCase().includes("incorrect password")
+                ) {
+                  resolved = true;
+                  resolve(null);
+                }
+              },
               onModal: setIsPasswordModalOpen,
               onCurrentPrivateKey: setCurrentPrivateKey,
             }).catch(reject);
@@ -242,11 +254,27 @@ export default function App() {
 
   const removeDuplicateDetails = (detailsStr) => {
     if (!detailsStr) return "";
-    const blockRegex = /👥 Recipients:[\s\S]*?(?=👥 Recipients:|$)/g;
-    const blocks = detailsStr.match(blockRegex) || [];
+
+    const blockRegex = /(👥 Recipients:[\s\S]*?)(?=👥 Recipients:|$)/g;
+    const blocks = [];
+    let match;
+
+    const firstRecipientsIndex = detailsStr.indexOf("👥 Recipients:");
+    if (firstRecipientsIndex > 0) {
+      const initialBlock = detailsStr.slice(0, firstRecipientsIndex).trim();
+      if (initialBlock) {
+        blocks.push(initialBlock);
+      }
+    } else if (firstRecipientsIndex === -1 && detailsStr.trim() !== "") {
+      blocks.push(detailsStr.trim());
+    }
+
+    while ((match = blockRegex.exec(detailsStr)) !== null) {
+      blocks.push(match[1].trim());
+    }
+
     const seen = new Set();
     return blocks
-      .map((b) => b.trim())
       .filter((block) => {
         const match = block.match(/⏱️ Signature created on:\s*(.+)$/m);
         const key = match ? match[1].trim() : block;
