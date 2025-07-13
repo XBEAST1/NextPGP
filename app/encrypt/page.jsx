@@ -47,6 +47,26 @@ export default function App() {
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
+  const getSubkeyUsage = (subkey) => {
+    const usage = [];
+    for (const sig of subkey.bindingSignatures) {
+      const flags = sig.keyFlags || sig.parsedKeyFlags || [];
+      for (const f of flags) {
+        if (f & openpgp.enums.keyFlags.signData) {
+          usage.push("Signing");
+        }
+        if (
+          f &
+          (openpgp.enums.keyFlags.encryptCommunication |
+            openpgp.enums.keyFlags.encryptStorage)
+        ) {
+          usage.push("Encryption");
+        }
+      }
+    }
+    return [...new Set(usage)];
+  };
+
   useEffect(() => {
     openDB();
 
@@ -68,12 +88,14 @@ export default function App() {
                 expirationTime instanceof Date && expirationTime < new Date();
 
               // Skip keys that are revoked or expired
-              if (isRevoked || isExpired) {
-                return null;
-              }
+              if (isRevoked || isExpired) return null;
+
+              const subkeys = publicKeyObj.getSubkeys();
+              const allUsages = subkeys.flatMap(getSubkeyUsage);
+              const canEncrypt = allUsages.includes("Encryption");
 
               const userIDs = publicKeyObj.getUserIDs();
-              return { ...key, userIDs };
+              return { ...key, userIDs, canEncrypt };
             } catch (error) {
               console.error("Error checking key status:", error);
               return null;
@@ -83,18 +105,19 @@ export default function App() {
 
         const filteredKeys = validKeys.filter((key) => key !== null);
 
-        const filteredSignerKeys = filteredKeys.filter(
+        const signerKeys = filteredKeys.filter(
           (key) => key.publicKey && key.privateKey
         );
-        const filteredRecipientKeys = filteredKeys.filter(
-          (key) => key.publicKey
+
+        const recipientKeys = filteredKeys.filter(
+          (key) => key.publicKey && key.canEncrypt
         );
 
         setPgpKeys(filteredKeys);
-        setSignerKeys(filteredSignerKeys);
-        setRecipientKeys(filteredRecipientKeys);
-      } catch (error) {
-        console.error("Error fetching keys:", error);
+        setSignerKeys(signerKeys);
+        setRecipientKeys(recipientKeys);
+      } catch (err) {
+        console.error("Error fetching keys:", err);
       }
     };
 
