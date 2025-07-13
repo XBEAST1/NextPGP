@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
   Table,
   TableHeader,
@@ -145,18 +145,18 @@ const columnsModal = [
   {
     name: "EMAIL",
     uid: "email",
-    width: "50%",
+    width: "40%",
     align: "center",
     sortable: true,
   },
   {
     name: "STATUS",
     uid: "status",
+    width: "20%",
     align: "center",
     sortable: true,
   },
   { name: "PRIMARY", uid: "primary", align: "center" },
-  { name: "DELETE", uid: "delete", align: "center" },
 ];
 
 const columnsModal2 = [
@@ -557,10 +557,9 @@ export default function App() {
   const [addUserIDModal, setaddUserIDModal] = useState(false);
   const [manageUserIDsModal, setmanageUserIDsModal] = useState(false);
   const [modalUserIDs, setModalUserIDs] = useState([]);
-  const [userIDToDelete, setUserIDToDelete] = useState(null);
-  const [deleteUserIDModal, setdeleteUserIDModal] = useState(false);
   const [addSubkeyModal, setaddSubkeyModal] = useState(false);
   const [manageSubkeyModal, setmanageSubkeyModal] = useState(false);
+  const [selectedSubkey, setSelectedSubkey] = useState(null);
   const [subkeyOption, setsubkeyOption] = useState("1");
   const [selectedAlgorithm, setSelectedAlgorithm] = useState("curve25519");
   const [certifyUserModal, setcertifyUserModal] = useState(false);
@@ -904,6 +903,7 @@ export default function App() {
 
   const UserActionsDropdownSubkey = ({ subkey }) => {
     const [armoredSubkey, setArmoredSubkey] = useState([]);
+    const revocationReasonsRef = useRef([]);
 
     useEffect(() => {
       const extractArmoredSubkeysFromMasterKey = async () => {
@@ -935,7 +935,14 @@ export default function App() {
             return;
           }
 
+          const reasonsMap = {
+            0: "Key is Compromised",
+            1: "Key is Superseded",
+            2: "Key is No Longer Used",
+          };
+
           const allSubkeys = [];
+          const allReasons = [];
 
           subkeys.forEach((subkey) => {
             const standalone = new openpgp.PacketList();
@@ -945,16 +952,31 @@ export default function App() {
             userIDSigs.forEach((sig) => standalone.push(sig));
             standalone.push(subkey.keyPacket);
             subkey.bindingSignatures?.forEach((sig) => standalone.push(sig));
+            subkey.revocationSignatures?.forEach((sig) => standalone.push(sig));
+
+            let reasonInfo = null;
+            for (const sig of subkey.revocationSignatures) {
+              if (sig.reasonForRevocationFlag !== undefined) {
+                reasonInfo = {
+                  code: sig.reasonForRevocationFlag,
+                  reason:
+                    reasonsMap[sig.reasonForRevocationFlag] || "Unknown reason",
+                  text: sig.reasonForRevocationString,
+                };
+                break;
+              }
+            }
+            allReasons.push(reasonInfo);
 
             const armored = openpgp.armor(
               openpgp.enums.armor.privateKey,
               standalone.write()
             );
-
             allSubkeys.push(armored);
           });
 
           setArmoredSubkey(allSubkeys);
+          revocationReasonsRef.current = allReasons;
         } catch (err) {
           console.error("Failed to export standalone subkeys", err);
         }
@@ -989,12 +1011,27 @@ export default function App() {
                     const subkeyIndex = parseInt(
                       subkey.id.split("-subkey-")[1]
                     );
-                    revokeSubkey(armoredSubkey[subkeyIndex]);
+                    setSelectedSubkey(armoredSubkey[subkeyIndex]);
+                    setrevokeModal(true);
                   }}
                 >
                   Revoke Subkey
                 </DropdownItem>
               </>
+            )}
+
+            {subkey.status !== "revoked" ? null : (
+              <DropdownItem
+                key="revocation-reason-subkey"
+                onPress={() => {
+                  const subkeyIndex = parseInt(subkey.id.split("-subkey-")[1]);
+                  const info = revocationReasonsRef.current[subkeyIndex];
+                  setRevocationInfo(info || null);
+                  setrevocationReasonModal(true);
+                }}
+              >
+                Revocation Reason
+              </DropdownItem>
             )}
           </DropdownMenu>
         </Dropdown>
@@ -1740,7 +1777,7 @@ export default function App() {
       const creationTime = privateKey.getCreationTime();
       const expirationTime = await privateKey.getExpirationTime();
       const expirationSeconds = expirationTime
-        ? Math.floor((expirationTime.getTime() - creationTime.getTime()) / 1000)
+        ? Math.floor((expirationTime - creationTime) / 1000)
         : undefined;
 
       const updatedKeyPair = await openpgp.reformatKey({
@@ -1840,7 +1877,7 @@ export default function App() {
       const creationTime = privateKey.getCreationTime();
       const expirationTime = await privateKey.getExpirationTime();
       const expirationSeconds = expirationTime
-        ? Math.floor((expirationTime.getTime() - creationTime.getTime()) / 1000)
+        ? Math.floor((expirationTime - creationTime) / 1000)
         : undefined;
 
       const updatedKeyPair = await openpgp.reformatKey({
@@ -1885,92 +1922,6 @@ export default function App() {
       console.error("setPrimaryUserID error:", error);
       addToast({
         title: "Failed to update Primary User ID",
-        color: "danger",
-      });
-    }
-  };
-
-  const deleteUserID = async (user, targetUserIDObj, showToast = true) => {
-    try {
-      let privateKey = await openpgp.readPrivateKey({
-        armoredKey: user.privateKey,
-      });
-
-      let currentPassword = null;
-
-      if (!privateKey.isDecrypted()) {
-        currentPassword = await triggerKeyPasswordModal(user);
-        privateKey = await openpgp.decryptKey({
-          privateKey,
-          passphrase: currentPassword,
-        });
-      }
-
-      const fullPublicKey = await openpgp.readKey({
-        armoredKey: user.publicKey,
-      });
-      const currentUserIDs = fullPublicKey.getUserIDs().map(parseUserId);
-
-      const updatedUserIDs = currentUserIDs.filter(
-        (u) => u.id !== targetUserIDObj.id
-      );
-
-      const userIDsForKey = updatedUserIDs.map((u) =>
-        u.email && u.email !== "N/A"
-          ? { name: u.name, email: u.email }
-          : { name: u.name }
-      );
-
-      const creationTime = privateKey.getCreationTime();
-      const expirationTime = await privateKey.getExpirationTime();
-      const expirationSeconds = expirationTime
-        ? Math.floor((expirationTime.getTime() - creationTime.getTime()) / 1000)
-        : undefined;
-
-      let updatedKeyPair = await openpgp.reformatKey({
-        privateKey,
-        userIDs: userIDsForKey,
-        date: creationTime,
-        keyExpirationTime: expirationSeconds,
-        format: "armored",
-      });
-
-      if (currentPassword) {
-        const decryptedKey = await openpgp.readPrivateKey({
-          armoredKey: updatedKeyPair.privateKey,
-        });
-        const reEncryptedKey = await openpgp.encryptKey({
-          privateKey: decryptedKey,
-          passphrase: currentPassword,
-        });
-        updatedKeyPair.privateKey = reEncryptedKey.armor();
-      }
-
-      await updateKeyInIndexeddb(user.id, {
-        privateKey: updatedKeyPair.privateKey,
-        publicKey: updatedKeyPair.publicKey,
-      });
-
-      if (showToast) {
-        addToast({
-          title: "User ID deleted successfully",
-          color: "success",
-        });
-      }
-
-      const refreshed = await loadKeysFromIndexedDB();
-      setUsers(refreshed);
-
-      const updatedUser = refreshed.find((u) => u.id === user.id);
-      if (updatedUser) {
-        const updatedModalUserIDs =
-          await getUserIDsFromKeyForModal(updatedUser);
-        setModalUserIDs(updatedModalUserIDs);
-      }
-    } catch (error) {
-      console.error("deleteUserID error:", error);
-      addToast({
-        title: "Failed to delete User ID",
         color: "danger",
       });
     }
@@ -2472,7 +2423,7 @@ export default function App() {
       addToast({ title: "Failed to revoke subkey", color: "danger" });
     }
   };
-  
+
   const getRevocationReason = async (user) => {
     const key = await openpgp.readKey({
       armoredKey: user.publicKey || user.privateKey,
@@ -2724,12 +2675,7 @@ export default function App() {
     if (manageUserIDsModal && selectedUserId) {
       (async () => {
         const result = await getUserIDsFromKeyForModal(selectedUserId);
-        // Delete revoked user IDs automatically as openpgp does not support them yet
-        for (const uid of result) {
-          if (uid.status === "revoked") {
-            await deleteUserID(selectedUserId, uid, false);
-          }
-        }
+
         const refreshedUserIDs =
           await getUserIDsFromKeyForModal(selectedUserId);
         setModalUserIDs(refreshedUserIDs);
@@ -2784,7 +2730,6 @@ export default function App() {
             <Chip
               className="capitalize -ms-4"
               color={statusColorMap[row.status]}
-              size="sm"
               variant="flat"
             >
               {cellValue}
@@ -2809,27 +2754,6 @@ export default function App() {
               onPress={() => setPrimaryUserID(selectedUserId, row)}
             >
               Set as Primary
-            </Button>
-          );
-        case "delete":
-          return !selectedUserId.privateKey ? (
-            <Button
-              isDisabled={true}
-              className="ms-2"
-              color="danger"
-              variant="flat"
-            >
-              Delete
-            </Button>
-          ) : (
-            <Button
-              isDisabled={modalUserIDs.length === 1}
-              className="ms-2"
-              color="danger"
-              variant="flat"
-              onPress={() => triggerDeleteUserIDModal(selectedUserId, row)}
-            >
-              Delete
             </Button>
           );
         default:
@@ -3445,10 +3369,7 @@ export default function App() {
         console.error("Error loading subkeys for modal4:", e);
       })
       .finally(() => setIsLoadingModal4(false));
-  }, [
-    manageSubkeyModal,
-    selectedUserId,
-  ]);
+  }, [manageSubkeyModal, selectedUserId]);
 
   const filteredItemsModal4 = useMemo(() => {
     let items = [...usersModal4];
@@ -4004,6 +3925,7 @@ export default function App() {
       >
         <ModalContent className="p-7">
           <Table
+            aria-label="User ID Table"
             isHeaderSticky
             bottomContent={bottomContentModal}
             bottomContentPlacement="outside"
@@ -4043,49 +3965,6 @@ export default function App() {
               )}
             </TableBody>
           </Table>
-        </ModalContent>
-      </Modal>
-      <Modal
-        size="lg"
-        backdrop="blur"
-        isOpen={deleteUserIDModal}
-        onClose={() => setdeleteUserIDModal(false)}
-      >
-        <ModalContent className="p-5">
-          <h3 className="mb-2 font-semibold text-lg">
-            Are You Sure You Want To Delete {userIDToDelete?.name}&apos;s User
-            ID?
-          </h3>
-          <p className="text-sm text-red-500 mb-4">
-            ⚠️ This will permanently remove the selected User ID from your local
-            copy of the key. Deleting a User ID does <strong>not</strong> revoke
-            it. There will be no record that this identity was invalidated, and
-            anyone who previously trusted it may still do so. This action is
-            irreversible.
-          </p>
-          <div className="flex gap-2">
-            <Button
-              className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
-              onPress={() => setdeleteUserIDModal(false)}
-            >
-              No
-            </Button>
-            <Button
-              className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
-              onPress={async () => {
-                await deleteUserID(selectedUserId, userIDToDelete);
-                setdeleteUserIDModal(false);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  deleteUserID(selectedUserId, userIDToDelete);
-                  setdeleteUserIDModal(false);
-                }
-              }}
-            >
-              Yes
-            </Button>
-          </div>
         </ModalContent>
       </Modal>
       <Modal
@@ -4510,7 +4389,10 @@ export default function App() {
         size="xl"
         backdrop="blur"
         isOpen={revokeModal}
-        onClose={() => setrevokeModal(false)}
+        onClose={() => {
+          setSelectedSubkeyIndex(null);
+          setrevokeModal(false);
+        }}
       >
         <ModalContent className="p-5">
           <h3 className="mb-2 font-semibold">
@@ -4582,9 +4464,13 @@ export default function App() {
             </Button>
             <Button
               className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
-              onPress={() => {
-                revokeKey(selectedUserId);
+              onPress={async () => {
                 setrevokeModal(false);
+                if (manageSubkeyModal && selectedSubkey !== null) {
+                  await revokeSubkey(selectedSubkey);
+                } else {
+                  await revokeKey(selectedUserId);
+                }
               }}
             >
               Revoke
