@@ -1597,18 +1597,16 @@ export default function App() {
     }
   };
 
-  const ChangeSubkeyValidity = async () => {
-    if (!selectedUserId) return;
+  const ChangeSubkeyValidity = async (armoredSelectedSubkey) => {
+    if (!selectedUserId || !armoredSelectedSubkey) return;
 
     try {
-      // 1) Compute keyExpirationTime in seconds (or undefined = never)
       const now = new Date();
       let keyExpirationTime;
       if (isNoExpiryChecked || !expiryDate) {
         keyExpirationTime = undefined;
       } else {
         const sel = new Date(expiryDate);
-        // expire at start of next day
         const expiry = new Date(
           sel.getFullYear(),
           sel.getMonth(),
@@ -1621,7 +1619,6 @@ export default function App() {
         keyExpirationTime = Math.floor((expiry - now) / 1000);
       }
 
-      // 2) Read & decrypt the private key
       let privateKey = await openpgp.readPrivateKey({
         armoredKey: selectedUserId.privateKey,
       });
@@ -1635,10 +1632,25 @@ export default function App() {
         });
       }
 
-      // 3) Gather your existing UserIDs so you don’t accidentally wipe them
+      // Resolve selected subkey on the primary key
+      const subkeyContainer = await openpgp.readKey({
+        armoredKey: armoredSelectedSubkey,
+      });
+
+      const targetPacket = subkeyContainer.subkeys?.[0]?.keyPacket;
+      if (!targetPacket) throw new Error("Invalid subkey data");
+
+      const keyIDhex = targetPacket.getKeyID().toHex();
+      const targetSubkey = privateKey.subkeys.find(
+        (s) => s.keyPacket.getKeyID().toHex() === keyIDhex
+      );
+      if (!targetSubkey) throw new Error("Subkey not found on primary key");
+
+      // Gather existing UserIDs (for reformatKey helper)
       const fullPublicKey = await openpgp.readKey({
         armoredKey: selectedUserId.publicKey,
       });
+
       const existingUserIDs = fullPublicKey
         .getUserIDs()
         .map(parseUserId)
@@ -1648,48 +1660,58 @@ export default function App() {
             : { name: u.name }
         );
 
-      // 4) Call reformatKey – this will update expiring time
-      const updatedKeyPair = await openpgp.reformatKey({
+      // Build a helper key that contains the desired new expiration
+      const { privateKey: helperKey } = await openpgp.reformatKey({
         privateKey,
+        userIDs: existingUserIDs,
         keyExpirationTime,
         date: new Date(),
-        format: "armored",
-        userIDs: existingUserIDs,
+        format: "object",
       });
 
-      // 5) If it was encrypted, re‑encrypt it
+      // Extract the updated subkey from the helper key
+      const updatedSubkey = helperKey.subkeys.find(
+        (s) => s.keyPacket.getKeyID().toHex() === keyIDhex
+      );
+      if (!updatedSubkey) throw new Error("Failed to locate updated subkey");
+
+      // Merge the updated subkey back into the original key
+      await targetSubkey.update(updatedSubkey, new Date());
+
+      // Serialize updated keys
+      let finalPrivate = privateKey.armor();
+      const finalPublic = privateKey.toPublic().armor();
+
+      // Re‑encrypt private key if it was protected
       if (currentPassword) {
         const decryptedKey = await openpgp.readPrivateKey({
-          armoredKey: updatedKeyPair.privateKey,
+          armoredKey: finalPrivate,
         });
-        const reEncryptedKey = await openpgp.encryptKey({
+        const reEncrypted = await openpgp.encryptKey({
           privateKey: decryptedKey,
           passphrase: currentPassword,
         });
-        updatedKeyPair.privateKey = reEncryptedKey.armor();
+        finalPrivate = reEncrypted.armor();
       }
 
-      // 6) Persist both arms back into IndexedDB
       await updateKeyInIndexeddb(selectedUserId.id, {
-        privateKey: updatedKeyPair.privateKey,
-        publicKey: updatedKeyPair.publicKey,
+        privateKey: finalPrivate,
+        publicKey: finalPublic,
       });
 
-      // 7) Refresh your UI
       const refreshed = await loadKeysFromIndexedDB();
       setUsers(refreshed);
       const updatedUser = refreshed.find((u) => u.id === selectedUserId.id);
       if (updatedUser) setSelectedUserId(updatedUser);
 
       addToast({ title: "Subkey Validity Updated", color: "success" });
-      setValidityModal(false);
+      setvalidityModal(false);
       setSelectedSubkey(null);
     } catch (err) {
       console.error(err);
       addToast({ title: "Failed to update subkey validity", color: "danger" });
     }
   };
-  
 
   const triggerKeyPasswordModal = async (user) => {
     setPassword("");
@@ -3530,6 +3552,7 @@ export default function App() {
   useEffect(() => {
     if (!manageSubkeyModal || !selectedUserId) return;
     setIsLoadingModal4(true);
+    setUsersModal4([]);
 
     manageSubkeys(selectedUserId)
       .then(setUsersModal4)
