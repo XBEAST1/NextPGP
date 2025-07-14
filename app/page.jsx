@@ -1004,6 +1004,49 @@ export default function App() {
             </DropdownItem>
 
             {subkey.status === "revoked" ? null : (
+              <DropdownItem
+                key="change-subkey-validity"
+                onPress={() => {
+                  const subkeyIndex = parseInt(subkey.id.split("-subkey-")[1]);
+                  setSelectedSubkey(armoredSubkey[subkeyIndex]);
+                  setvalidityModal(true);
+                  if (subkey.expirydate === "No Expiry") {
+                    setIsNoExpiryChecked(true);
+                    setExpiryDate(null);
+                  } else {
+                    setIsNoExpiryChecked(false);
+                    const [day, month, year] = subkey.expirydate.split("-");
+                    const monthMap = {
+                      Jan: 0,
+                      Feb: 1,
+                      Mar: 2,
+                      Apr: 3,
+                      May: 4,
+                      Jun: 5,
+                      Jul: 6,
+                      Aug: 7,
+                      Sep: 8,
+                      Oct: 9,
+                      Nov: 10,
+                      Dec: 11,
+                    };
+                    const date = new Date(year, monthMap[month], parseInt(day));
+                    setExpiryDate(
+                      new CalendarDate(
+                        date.getFullYear(),
+                        date.getMonth() + 1,
+                        date.getDate()
+                      )
+                    );
+                  }
+                  setvalidityModal(true);
+                }}
+              >
+                Change Validity
+              </DropdownItem>
+            )}
+
+            {subkey.status === "revoked" ? null : (
               <>
                 <DropdownItem
                   key="revoke-subkey"
@@ -1473,6 +1516,19 @@ export default function App() {
             : { name: u.name }
         );
 
+      // Capture original revocation status before reformatting
+      const originalPrivateKey = privateKey;
+      const originalSubkeys = originalPrivateKey.getSubkeys();
+      const revocationMap = new Map();
+
+      originalSubkeys.forEach((subkey) => {
+        const fingerprint = subkey.getFingerprint();
+        revocationMap.set(fingerprint, {
+          isRevoked: subkey.isRevoked(),
+          revocationSignatures: [...subkey.revocationSignatures],
+        });
+      });
+
       const updatedKeyPair = await openpgp.reformatKey({
         privateKey,
         keyExpirationTime,
@@ -1481,20 +1537,46 @@ export default function App() {
         userIDs: existingUserIDs,
       });
 
+      // Re-apply revocations to reformatted key
+      let updatedPrivateKey = await openpgp.readPrivateKey({
+        armoredKey: updatedKeyPair.privateKey,
+      });
+
+      const updatedSubkeys = updatedPrivateKey.getSubkeys();
+      for (const subkey of updatedSubkeys) {
+        const fingerprint = subkey.getFingerprint();
+        const originalData = revocationMap.get(fingerprint);
+
+        if (originalData?.isRevoked) {
+          originalData.revocationSignatures.forEach((sig) => {
+            if (
+              !subkey.revocationSignatures.some((existingSig) =>
+                existingSig.equals(sig)
+              )
+            ) {
+              subkey.revocationSignatures.push(sig);
+            }
+          });
+        }
+      }
+
+      // Serialize the modified key
+      const restoredKey = updatedPrivateKey.armor();
+      const restoredPublicKey = updatedPrivateKey.toPublic().armor();
+
+      // Re-encryption if needed
+      let finalPrivateKey = restoredKey;
       if (currentPassword) {
-        const decryptedKey = await openpgp.readPrivateKey({
-          armoredKey: updatedKeyPair.privateKey,
-        });
-        const reEncryptedKey = await openpgp.encryptKey({
-          privateKey: decryptedKey,
+        const reEncrypted = await openpgp.encryptKey({
+          privateKey: await openpgp.readPrivateKey({ armoredKey: restoredKey }),
           passphrase: currentPassword,
         });
-        updatedKeyPair.privateKey = reEncryptedKey.armor();
+        finalPrivateKey = reEncrypted.armor();
       }
 
       await updateKeyInIndexeddb(selectedUserId.id, {
-        privateKey: updatedKeyPair.privateKey,
-        publicKey: updatedKeyPair.publicKey,
+        privateKey: finalPrivateKey,
+        publicKey: restoredPublicKey,
       });
 
       addToast({
@@ -1514,6 +1596,100 @@ export default function App() {
       console.error(error);
     }
   };
+
+  const ChangeSubkeyValidity = async () => {
+    if (!selectedUserId) return;
+
+    try {
+      // 1) Compute keyExpirationTime in seconds (or undefined = never)
+      const now = new Date();
+      let keyExpirationTime;
+      if (isNoExpiryChecked || !expiryDate) {
+        keyExpirationTime = undefined;
+      } else {
+        const sel = new Date(expiryDate);
+        // expire at start of next day
+        const expiry = new Date(
+          sel.getFullYear(),
+          sel.getMonth(),
+          sel.getDate() + 1,
+          0,
+          0,
+          0,
+          0
+        );
+        keyExpirationTime = Math.floor((expiry - now) / 1000);
+      }
+
+      // 2) Read & decrypt the private key
+      let privateKey = await openpgp.readPrivateKey({
+        armoredKey: selectedUserId.privateKey,
+      });
+
+      let currentPassword = null;
+      if (!privateKey.isDecrypted()) {
+        currentPassword = await triggerKeyPasswordModal(selectedUserId);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+
+      // 3) Gather your existing UserIDs so you don’t accidentally wipe them
+      const fullPublicKey = await openpgp.readKey({
+        armoredKey: selectedUserId.publicKey,
+      });
+      const existingUserIDs = fullPublicKey
+        .getUserIDs()
+        .map(parseUserId)
+        .map((u) =>
+          u.email && u.email !== "N/A"
+            ? { name: u.name, email: u.email.trim() }
+            : { name: u.name }
+        );
+
+      // 4) Call reformatKey – this will update expiring time
+      const updatedKeyPair = await openpgp.reformatKey({
+        privateKey,
+        keyExpirationTime,
+        date: new Date(),
+        format: "armored",
+        userIDs: existingUserIDs,
+      });
+
+      // 5) If it was encrypted, re‑encrypt it
+      if (currentPassword) {
+        const decryptedKey = await openpgp.readPrivateKey({
+          armoredKey: updatedKeyPair.privateKey,
+        });
+        const reEncryptedKey = await openpgp.encryptKey({
+          privateKey: decryptedKey,
+          passphrase: currentPassword,
+        });
+        updatedKeyPair.privateKey = reEncryptedKey.armor();
+      }
+
+      // 6) Persist both arms back into IndexedDB
+      await updateKeyInIndexeddb(selectedUserId.id, {
+        privateKey: updatedKeyPair.privateKey,
+        publicKey: updatedKeyPair.publicKey,
+      });
+
+      // 7) Refresh your UI
+      const refreshed = await loadKeysFromIndexedDB();
+      setUsers(refreshed);
+      const updatedUser = refreshed.find((u) => u.id === selectedUserId.id);
+      if (updatedUser) setSelectedUserId(updatedUser);
+
+      addToast({ title: "Subkey Validity Updated", color: "success" });
+      setValidityModal(false);
+      setSelectedSubkey(null);
+    } catch (err) {
+      console.error(err);
+      addToast({ title: "Failed to update subkey validity", color: "danger" });
+    }
+  };
+  
 
   const triggerKeyPasswordModal = async (user) => {
     setPassword("");
@@ -1925,13 +2101,6 @@ export default function App() {
         color: "danger",
       });
     }
-  };
-
-  const triggerDeleteUserIDModal = (user, targetUserIDObj) => {
-    setSelectedUserId(user);
-    setSelectedKeyName(user.name);
-    setUserIDToDelete(targetUserIDObj);
-    setdeleteUserIDModal(true);
   };
 
   const addSubkey = async (user) => {
@@ -3695,7 +3864,13 @@ export default function App() {
           />
           <Button
             className="mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
-            onPress={ChangeKeyValidity}
+            onPress={async () => {
+              if (manageSubkeyModal && selectedSubkey !== null) {
+                await ChangeSubkeyValidity(selectedSubkey);
+              } else {
+                ChangeKeyValidity();
+              }
+            }}
           >
             Confirm
           </Button>

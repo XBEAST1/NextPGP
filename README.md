@@ -310,7 +310,7 @@
 <p>If you have any questions, feel free to reach out:</p>
 <ul>
   <li><b>GitHub:</b> <a href="https://github.com/xbeast">XBEAST1</a></li>
-  <li><b>Email:</b> <a href="mailto:xbeast331@proton.me">xbeast331@proton.me</a></li>
+  <li><b>Email:</b> <a href="mailto:xbeast1@proton.me">xbeast1@proton.me</a></li>
 </ul>
 
 ---
