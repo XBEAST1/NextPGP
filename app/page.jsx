@@ -145,7 +145,7 @@ const columnsModal = [
   {
     name: "EMAIL",
     uid: "email",
-    width: "40%",
+    width: "50%",
     align: "center",
     sortable: true,
   },
@@ -157,6 +157,7 @@ const columnsModal = [
     sortable: true,
   },
   { name: "PRIMARY", uid: "primary", align: "center" },
+  { name: "REVOKE", uid: "revoke", align: "center" },
 ];
 
 const columnsModal2 = [
@@ -557,6 +558,8 @@ export default function App() {
   const [addUserIDModal, setaddUserIDModal] = useState(false);
   const [manageUserIDsModal, setmanageUserIDsModal] = useState(false);
   const [modalUserIDs, setModalUserIDs] = useState([]);
+  const [userIDToRevoke, setUserIDToRevoke] = useState(null);
+  const [revokeUserIDModal, setrevokeUserIDModal] = useState(false);
   const [addSubkeyModal, setaddSubkeyModal] = useState(false);
   const [manageSubkeyModal, setmanageSubkeyModal] = useState(false);
   const [selectedSubkey, setSelectedSubkey] = useState(null);
@@ -1507,37 +1510,49 @@ export default function App() {
       const fullPublicKey = await openpgp.readKey({
         armoredKey: selectedUserId.publicKey,
       });
-      const existingUserIDs = fullPublicKey
-        .getUserIDs()
-        .map(parseUserId)
+
+      // Preserve revoked user IDs
+      const userRevocationMap = new Map();
+      fullPublicKey.users.forEach((user) => {
+        if (user.userID) {
+          userRevocationMap.set(user.userID.userID, {
+            isRevoked: user.isRevoked(),
+            revocationSignatures: [...user.revocationSignatures],
+          });
+        }
+      });
+
+      // Prepare userIDs array for reformatKey (revoked + active)
+      const allUserIDsForReformat = fullPublicKey.users
+        .filter((u) => !!u.userID)
+        .map((u) => parseUserId(u.userID.userID))
         .map((u) =>
           u.email && u.email !== "N/A"
             ? { name: u.name, email: u.email.trim() }
             : { name: u.name }
         );
 
-      // Capture original revocation status before reformatting
-      const originalPrivateKey = privateKey;
-      const originalSubkeys = originalPrivateKey.getSubkeys();
-      const revocationMap = new Map();
-
+      // Preserve revoked subkeys
+      const originalSubkeys = privateKey.getSubkeys();
+      const subkeyRevocationMap = new Map();
       originalSubkeys.forEach((subkey) => {
         const fingerprint = subkey.getFingerprint();
-        revocationMap.set(fingerprint, {
+        subkeyRevocationMap.set(fingerprint, {
           isRevoked: subkey.isRevoked(),
           revocationSignatures: [...subkey.revocationSignatures],
         });
       });
 
+      // Reformat key (updates expiration time)
       const updatedKeyPair = await openpgp.reformatKey({
         privateKey,
         keyExpirationTime,
         date: new Date(),
         format: "armored",
-        userIDs: existingUserIDs,
+        userIDs: allUserIDsForReformat,
       });
 
-      // Re-apply revocations to reformatted key
+      // Re‑apply subkey revocations
       let updatedPrivateKey = await openpgp.readPrivateKey({
         armoredKey: updatedKeyPair.privateKey,
       });
@@ -1545,8 +1560,7 @@ export default function App() {
       const updatedSubkeys = updatedPrivateKey.getSubkeys();
       for (const subkey of updatedSubkeys) {
         const fingerprint = subkey.getFingerprint();
-        const originalData = revocationMap.get(fingerprint);
-
+        const originalData = subkeyRevocationMap.get(fingerprint);
         if (originalData?.isRevoked) {
           originalData.revocationSignatures.forEach((sig) => {
             if (
@@ -1555,6 +1569,24 @@ export default function App() {
               )
             ) {
               subkey.revocationSignatures.push(sig);
+            }
+          });
+        }
+      }
+
+      // Re‑apply user‑ID revocations
+      for (const user of updatedPrivateKey.users) {
+        if (!user.userID) continue;
+        const uid = user.userID.userID;
+        const originalData = userRevocationMap.get(uid);
+        if (originalData?.isRevoked) {
+          originalData.revocationSignatures.forEach((sig) => {
+            if (
+              !user.revocationSignatures.some((existingSig) =>
+                existingSig.equals(sig)
+              )
+            ) {
+              user.revocationSignatures.push(sig);
             }
           });
         }
@@ -1583,9 +1615,9 @@ export default function App() {
         title: "Validity Updated Successfully",
         color: "success",
       });
+
       const refreshedKeys = await loadKeysFromIndexedDB();
       setUsers(refreshedKeys);
-
       setvalidityModal(false);
       setSelectedUserId(null);
     } catch (error) {
@@ -1952,9 +1984,33 @@ export default function App() {
           passphrase: currentPassword,
         });
       }
+
       const fullPublicKey = await openpgp.readKey({
         armoredKey: user.publicKey,
       });
+
+      // Preserve revoked user IDs
+      const userRevocationMap = new Map();
+      fullPublicKey.users.forEach((user) => {
+        if (user.userID) {
+          userRevocationMap.set(user.userID.userID, {
+            isRevoked: user.isRevoked(),
+            revocationSignatures: [...user.revocationSignatures],
+          });
+        }
+      });
+
+      // Preserve subkey revocations
+      const originalSubkeys = privateKey.getSubkeys();
+      const subkeyRevocationMap = new Map();
+      originalSubkeys.forEach((subkey) => {
+        const fingerprint = subkey.getFingerprint();
+        subkeyRevocationMap.set(fingerprint, {
+          isRevoked: subkey.isRevoked(),
+          revocationSignatures: [...subkey.revocationSignatures],
+        });
+      });
+
       const currentUserIDs = fullPublicKey.getUserIDs();
 
       const parseUserId = (uid) => {
@@ -1986,25 +2042,64 @@ export default function App() {
         format: "armored",
       });
 
+      let updatedPrivateKey = await openpgp.readPrivateKey({
+        armoredKey: updatedKeyPair.privateKey,
+      });
+
+      // Re-apply subkey revocations
+      const updatedSubkeys = updatedPrivateKey.getSubkeys();
+      for (const subkey of updatedSubkeys) {
+        const fingerprint = subkey.getFingerprint();
+        const originalData = subkeyRevocationMap.get(fingerprint);
+        if (originalData?.isRevoked) {
+          originalData.revocationSignatures.forEach((sig) => {
+            if (
+              !subkey.revocationSignatures.some((existingSig) =>
+                existingSig.equals(sig)
+              )
+            ) {
+              subkey.revocationSignatures.push(sig);
+            }
+          });
+        }
+      }
+
+      // Re-apply user-ID revocations
+      for (const user of updatedPrivateKey.users) {
+        if (!user.userID) continue;
+        const uid = user.userID.userID;
+        const originalData = userRevocationMap.get(uid);
+        if (originalData?.isRevoked) {
+          originalData.revocationSignatures.forEach((sig) => {
+            if (
+              !user.revocationSignatures.some((existingSig) =>
+                existingSig.equals(sig)
+              )
+            ) {
+              user.revocationSignatures.push(sig);
+            }
+          });
+        }
+      }
+
       if (currentPassword) {
-        const decryptedKey = await openpgp.readPrivateKey({
-          armoredKey: updatedKeyPair.privateKey,
-        });
-        const reEncryptedKey = await openpgp.encryptKey({
-          privateKey: decryptedKey,
+        const reEncrypted = await openpgp.encryptKey({
+          privateKey: updatedPrivateKey,
           passphrase: currentPassword,
         });
-        updatedKeyPair.privateKey = reEncryptedKey.armor();
+        updatedKeyPair.privateKey = reEncrypted.armor();
       }
 
       await updateKeyInIndexeddb(user.id, {
         privateKey: updatedKeyPair.privateKey,
-        publicKey: updatedKeyPair.publicKey,
+        publicKey: updatedPrivateKey.toPublic().armor(),
       });
+
       addToast({
         title: "User ID added successfully",
         color: "success",
       });
+
       const refreshedKeys = await loadKeysFromIndexedDB();
       setUsers(refreshedKeys);
       setName("");
@@ -2027,6 +2122,19 @@ export default function App() {
       const freshPublicKey = await openpgp.readKey({
         armoredKey: currentUserObj.publicKey,
       });
+
+      // Preserve revoked user IDs
+      const userRevocationMap = new Map();
+      freshPublicKey.users.forEach((user) => {
+        if (user.userID) {
+          userRevocationMap.set(user.userID.userID, {
+            isRevoked: user.isRevoked(),
+            revocationSignatures: [...user.revocationSignatures],
+          });
+        }
+      });
+
+      // Parse all user IDs
       const freshUserIDs = freshPublicKey.getUserIDs().map(parseUserId);
       if (freshUserIDs[0]?.id === targetUserIDObj.id) {
         addToast({
@@ -2045,7 +2153,6 @@ export default function App() {
       });
 
       let currentPassword = null;
-
       if (!privateKey.isDecrypted()) {
         currentPassword = await triggerKeyPasswordModal(user);
         privateKey = await openpgp.decryptKey({
@@ -2054,10 +2161,18 @@ export default function App() {
         });
       }
 
-      const fullPublicKey = await openpgp.readKey({
-        armoredKey: currentUserObj.publicKey,
+      // Preserve subkey revocations
+      const originalSubkeys = privateKey.getSubkeys();
+      const subkeyRevocationMap = new Map();
+      originalSubkeys.forEach((subkey) => {
+        const fingerprint = subkey.getFingerprint();
+        subkeyRevocationMap.set(fingerprint, {
+          isRevoked: subkey.isRevoked(),
+          revocationSignatures: [...subkey.revocationSignatures],
+        });
       });
-      const currentUserIDs = fullPublicKey.getUserIDs().map(parseUserId);
+
+      const currentUserIDs = freshPublicKey.getUserIDs().map(parseUserId);
       const targetUser = currentUserIDs.find(
         (u) => u.id === targetUserIDObj.id
       );
@@ -2086,20 +2201,57 @@ export default function App() {
         format: "armored",
       });
 
+      let updatedPrivateKey = await openpgp.readPrivateKey({
+        armoredKey: updatedKeyPair.privateKey,
+      });
+
+      // Re-apply subkey revocations
+      const updatedSubkeys = updatedPrivateKey.getSubkeys();
+      for (const subkey of updatedSubkeys) {
+        const fingerprint = subkey.getFingerprint();
+        const originalData = subkeyRevocationMap.get(fingerprint);
+        if (originalData?.isRevoked) {
+          originalData.revocationSignatures.forEach((sig) => {
+            if (
+              !subkey.revocationSignatures.some((existingSig) =>
+                existingSig.equals(sig)
+              )
+            ) {
+              subkey.revocationSignatures.push(sig);
+            }
+          });
+        }
+      }
+
+      // Re-apply user-ID revocations
+      for (const user of updatedPrivateKey.users) {
+        if (!user.userID) continue;
+        const uid = user.userID.userID;
+        const originalData = userRevocationMap.get(uid);
+        if (originalData?.isRevoked) {
+          originalData.revocationSignatures.forEach((sig) => {
+            if (
+              !user.revocationSignatures.some((existingSig) =>
+                existingSig.equals(sig)
+              )
+            ) {
+              user.revocationSignatures.push(sig);
+            }
+          });
+        }
+      }
+
       if (currentPassword) {
-        const decryptedKey = await openpgp.readPrivateKey({
-          armoredKey: updatedKeyPair.privateKey,
-        });
-        const reEncryptedKey = await openpgp.encryptKey({
-          privateKey: decryptedKey,
+        const reEncrypted = await openpgp.encryptKey({
+          privateKey: updatedPrivateKey,
           passphrase: currentPassword,
         });
-        updatedKeyPair.privateKey = reEncryptedKey.armor();
+        updatedKeyPair.privateKey = reEncrypted.armor();
       }
 
       await updateKeyInIndexeddb(user.id, {
         privateKey: updatedKeyPair.privateKey,
-        publicKey: updatedKeyPair.publicKey,
+        publicKey: updatedPrivateKey.toPublic().armor(),
       });
 
       addToast({
@@ -2125,6 +2277,85 @@ export default function App() {
     }
   };
 
+  const revokeUserID = async (user, targetUserIDObj) => {
+    try {
+      const refreshedStart = await loadKeysFromIndexedDB();
+      const currentUserObj = refreshedStart.find((u) => u.id === user.id);
+      if (!currentUserObj) throw new Error("User not found in IndexedDB");
+
+      let privateKey = await openpgp.readPrivateKey({
+        armoredKey: currentUserObj.privateKey,
+      });
+
+      let currentPassword = null;
+
+      if (!privateKey.isDecrypted()) {
+        currentPassword = await triggerKeyPasswordModal(user);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+
+      // Locate the target User ID on the key
+      const targetUser = privateKey.users.find((u) => {
+        if (!u.userID) return false;
+        const parsed = parseUserId(u.userID.userID);
+        return parsed.id === targetUserIDObj.id;
+      });
+      if (!targetUser) throw new Error("Target user ID not found on key");
+
+      // Revoke the User ID
+      const revokedUser = await targetUser.revoke(privateKey.keyPacket);
+      const idx = privateKey.users.indexOf(targetUser);
+      if (idx !== -1) privateKey.users[idx] = revokedUser;
+
+      // Get updated armored keys
+      let updatedPrivateKeyArmored = privateKey.armor();
+      if (currentPassword) {
+        const reEncryptedKey = await openpgp.encryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+        updatedPrivateKeyArmored = reEncryptedKey.armor();
+      }
+      const updatedPublicKeyArmored = privateKey.toPublic().armor();
+
+      await updateKeyInIndexeddb(user.id, {
+        privateKey: updatedPrivateKeyArmored,
+        publicKey: updatedPublicKeyArmored,
+      });
+
+      addToast({
+        title: "User ID revoked successfully",
+        color: "success",
+      });
+
+      const refreshed = await loadKeysFromIndexedDB();
+      setUsers(refreshed);
+
+      const updatedUser = refreshed.find((u) => u.id === user.id);
+      if (updatedUser) {
+        const updatedModalUserIDs =
+          await getUserIDsFromKeyForModal(updatedUser);
+        setModalUserIDs(updatedModalUserIDs);
+      }
+    } catch (error) {
+      console.error("setPrimaryUserID error:", error);
+      addToast({
+        title: "Failed to revoke User ID",
+        color: "danger",
+      });
+    }
+  };
+
+  const triggerRevokeUserIDModal = (user, targetUserIDObj) => {
+    setSelectedUserId(user);
+    setSelectedKeyName(user.name);
+    setUserIDToRevoke(targetUserIDObj);
+    setrevokeUserIDModal(true);
+  };
+
   const addSubkey = async (user) => {
     if (!user || !user.privateKey) return;
 
@@ -2141,6 +2372,17 @@ export default function App() {
           passphrase: currentPassword,
         });
       }
+
+      // Preserve subkey revocations BEFORE modification
+      const originalSubkeys = privateKey.getSubkeys();
+      const subkeyRevocationMap = new Map();
+      originalSubkeys.forEach((subkey) => {
+        const fingerprint = subkey.getFingerprint();
+        subkeyRevocationMap.set(fingerprint, {
+          isRevoked: subkey.isRevoked(),
+          revocationSignatures: [...subkey.revocationSignatures],
+        });
+      });
 
       const opt = String(subkeyOption);
       const isSign = opt === "0";
@@ -2179,11 +2421,30 @@ export default function App() {
 
       privateKey = await privateKey.addSubkey(subkeyOpts);
 
-      // Preserve existing subkey revocations
+      // Re-apply subkey revocations
+      const updatedSubkeys = privateKey.getSubkeys();
+      for (const subkey of updatedSubkeys) {
+        const fingerprint = subkey.getFingerprint();
+        const originalData = subkeyRevocationMap.get(fingerprint);
+        if (originalData?.isRevoked) {
+          originalData.revocationSignatures.forEach((sig) => {
+            if (
+              !subkey.revocationSignatures.some(
+                (existingSig) =>
+                  JSON.stringify(existingSig) === JSON.stringify(sig)
+              )
+            ) {
+              subkey.revocationSignatures.push(sig);
+            }
+          });
+        }
+      }
+
+      // Serialize the modified key
       let updatedPrivateArmored = privateKey.armor();
       let updatedPublicArmored = privateKey.toPublic().armor();
 
-      // Re‑encrypt if the key was protected
+      // Re-encrypt if needed
       if (currentPassword) {
         const decryptedKey = await openpgp.readPrivateKey({
           armoredKey: updatedPrivateArmored,
@@ -2865,7 +3126,6 @@ export default function App() {
   useEffect(() => {
     if (manageUserIDsModal && selectedUserId) {
       (async () => {
-        const result = await getUserIDsFromKeyForModal(selectedUserId);
 
         const refreshedUserIDs =
           await getUserIDsFromKeyForModal(selectedUserId);
@@ -2945,6 +3205,27 @@ export default function App() {
               onPress={() => setPrimaryUserID(selectedUserId, row)}
             >
               Set as Primary
+            </Button>
+          );
+        case "revoke":
+          return !selectedUserId.privateKey ? (
+            <Button
+              isDisabled={true}
+              className="ms-2"
+              color="danger"
+              variant="flat"
+            >
+              Revoke
+            </Button>
+          ) : (
+            <Button
+              isDisabled={modalUserIDs.length === 1}
+              className="ms-2"
+              color="danger"
+              variant="flat"
+              onPress={() => triggerRevokeUserIDModal(selectedUserId, row)}
+            >
+              Revoke
             </Button>
           );
         default:
@@ -4140,7 +4421,7 @@ export default function App() {
                 <TableColumn
                   key={column.uid}
                   align={
-                    ["email", "status", "primary", "delete"].includes(
+                    ["email", "status", "primary", "revoke"].includes(
                       column.uid
                     )
                       ? "center"
@@ -4163,6 +4444,42 @@ export default function App() {
               )}
             </TableBody>
           </Table>
+        </ModalContent>
+      </Modal>
+      <Modal
+        size="md"
+        backdrop="blur"
+        isOpen={revokeUserIDModal}
+        onClose={() => setrevokeUserIDModal(false)}
+      >
+        <ModalContent className="p-5">
+          <h3 className="mb-2">
+            Are You Sure You Want To Revoke {userIDToRevoke?.name}&apos;s User
+            ID?
+          </h3>
+          <div className="flex gap-2">
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
+              onPress={() => setrevokeUserIDModal(false)}
+            >
+              No
+            </Button>
+            <Button
+              className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
+              onPress={async () => {
+                await revokeUserID(selectedUserId, userIDToRevoke);
+                setrevokeUserIDModal(false);
+              }}
+              onKeyDown={async (e) => {
+                if (e.key === "Enter") {
+                  await revokeUserID(selectedUserId, userIDToRevoke);
+                  setrevokeUserIDModal(false);
+                }
+              }}
+            >
+              Yes
+            </Button>
+          </div>
         </ModalContent>
       </Modal>
       <Modal
@@ -4571,9 +4888,9 @@ export default function App() {
                 await RevokeUsingCertificate(selectedUserId, keyInput);
                 setrevokeUsingCertificateModal(false);
               }}
-              onKeyDown={(e) => {
+              onKeyDown={async (e) => {
                 if (e.key === "Enter") {
-                  RevokeUsingCertificate(selectedUserId, keyInput);
+                  await RevokeUsingCertificate(selectedUserId, keyInput);
                   setrevokeUsingCertificateModal(false);
                 }
               }}
@@ -4781,9 +5098,9 @@ export default function App() {
                 await publishKeyOnServer();
                 setpublishKeyModal(false);
               }}
-              onKeyDown={(e) => {
+              onKeyDown={async (e) => {
                 if (e.key === "Enter") {
-                  publishKeyOnServer();
+                  await publishKeyOnServer();
                   setpublishKeyModal(false);
                 }
               }}
