@@ -16,6 +16,10 @@ td {
     white-space: nowrap !important;
 }
 
+*:focus {
+    outline: none;
+}
+
 @keyframes glow-pulse {
     0% {
         text-shadow: 0 0 0px #facc15;

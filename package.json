@@ -11,7 +11,7 @@
  "dependencies": {
   "@brendon1555/authjs-mongoose-adapter": "^1.1.0",
   "@ducanh2912/next-pwa": "^10.2.9",
-  "@heroui/react": "^2.7.8",
+  "@heroui/react": "^2.8.0",
   "@internationalized/date": "3.8.0",
   "@next/third-parties": "^15.1.0",
   "@react-aria/ssr": "3.9.7",
