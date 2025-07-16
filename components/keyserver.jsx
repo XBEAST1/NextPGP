@@ -281,7 +281,7 @@ const KeyServer = ({ isOpen, onClose, initialSearch, onKeyImported }) => {
           certifierNames.length > 0 &&
           !emailList.includes(k.email.toLowerCase())
         ) {
-          const suffix = ` (Certified By ${certifierNames.join(", ")})`;
+          const suffix = ` (Certified ${certifierNames.join(", ")})`;
           return { ...k, name: k.name + suffix };
         }
         return k;
