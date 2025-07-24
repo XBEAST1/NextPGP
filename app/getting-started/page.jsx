@@ -41,7 +41,7 @@ const Page = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center">
+    <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex flex-col items-center">
       <div className="max-w-7xl w-full">
         <motion.h1
           {...fadeInUp}
@@ -52,7 +52,7 @@ const Page = () => {
 
         <motion.div
           {...fadeInUp}
-          className="bg-gray-900 p-6 rounded-2xl shadow-xl space-y-6"
+          className="bg-gray-100 dark:bg-gray-900 p-6 rounded-2xl shadow-xl space-y-6"
         >
           <p className="text-lg">
             NextPGP helps you send secret messages/files that only the right
@@ -114,7 +114,7 @@ const Page = () => {
             whileInView={{ y: 0, opacity: 1 }}
             viewport={{ once: true }}
             transition={{ type: "spring", stiffness: 70 }}
-            className="bg-gray-800 p-4 rounded-xl mt-4"
+            className="bg-gray-200 dark:bg-gray-800 text-black dark:text-white p-4 rounded-xl mt-4"
           >
             <h3 className="text-xl font-semibold mb-2">
               👥 Example: Hamza & Daniela
@@ -126,44 +126,65 @@ const Page = () => {
               <li className="ps-1">
                 First, they each open NextPGP and generate their own key pair —
                 a <strong>public key</strong>{" "}
-                <span className="text-gray-400">(silver key 🗝️)</span> and a{" "}
-                <strong>private key</strong>{" "}
-                <span className="text-yellow-400">(golden key 🔑)</span>.
+                <span className="text-gray-500 dark:text-gray-400">
+                  (silver key 🗝️)
+                </span>{" "}
+                and a <strong>private key</strong>{" "}
+                <span className="text-yellow-600 dark:text-yellow-400">
+                  (golden key 🔑)
+                </span>
+                .
               </li>
               <li className="ps-1">
                 Daniela sends her <strong>public key</strong>{" "}
-                <span className="text-gray-400">(silver key 🗝️)</span> to Hamza,
-                and Hamza does the same — he sends his{" "}
+                <span className="text-gray-500 dark:text-gray-400">
+                  (silver key 🗝️)
+                </span>{" "}
+                to Hamza, and Hamza does the same — he sends his{" "}
                 <strong>public key</strong>{" "}
-                <span className="text-gray-400">(silver key 🗝️)</span> to
-                Daniela. It&apos;s safe to share these because they&apos;re only
-                used to <strong>lock (encrypt)</strong> messages.
+                <span className="text-gray-500 dark:text-gray-400">
+                  (silver key 🗝️)
+                </span>{" "}
+                to Daniela. It&apos;s safe to share these because they&apos;re
+                only used to <strong>lock (encrypt)</strong> messages.
               </li>
               <li className="ps-1">
                 Hamza writes: “Hey Daniela, here&apos;s the secret!” and uses
                 her <strong>public key</strong>{" "}
-                <span className="text-gray-400">(silver key 🗝️)</span> to{" "}
-                <strong>lock (encrypt)</strong> the message.
+                <span className="text-gray-500 dark:text-gray-400">
+                  (silver key 🗝️)
+                </span>{" "}
+                to <strong>lock (encrypt)</strong> the message.
               </li>
               <li className="ps-1">
                 Daniela receives the locked message and uses her{" "}
                 <strong>private key</strong>{" "}
-                <span className="text-yellow-400">(golden key 🔑)</span> to{" "}
-                <strong>unlock (decrypt)</strong> it.
+                <span className="text-yellow-600 dark:text-yellow-400">
+                  (golden key 🔑)
+                </span>{" "}
+                to <strong>unlock (decrypt)</strong> it.
               </li>
               <li className="ps-1">
                 Even if someone intercepts the message, they can&apos;t read it
                 without Daniela&apos;s <strong>private key</strong>{" "}
-                <span className="text-yellow-400">(golden key 🔑)</span>.
+                <span className="text-yellow-600 dark:text-yellow-400">
+                  (golden key 🔑)
+                </span>
+                .
               </li>
               <li className="ps-1">
                 To reply, Daniela does the same: she uses Hamza&apos;s{" "}
                 <strong>public key</strong>{" "}
-                <span className="text-gray-400">(silver key 🗝️)</span> to{" "}
-                <strong>lock (encrypt)</strong> a message that only he can{" "}
+                <span className="text-gray-500 dark:text-gray-400">
+                  (silver key 🗝️)
+                </span>{" "}
+                to <strong>lock (encrypt)</strong> a message that only he can{" "}
                 <strong>unlock (decrypt)</strong> with his{" "}
                 <strong>private key</strong>{" "}
-                <span className="text-yellow-400">(golden key 🔑)</span>.
+                <span className="text-yellow-600 dark:text-yellow-400">
+                  (golden key 🔑)
+                </span>
+                .
               </li>
             </ul>
           </motion.div>

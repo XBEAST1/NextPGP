@@ -3126,7 +3126,6 @@ export default function App() {
   useEffect(() => {
     if (manageUserIDsModal && selectedUserId) {
       (async () => {
-
         const refreshedUserIDs =
           await getUserIDsFromKeyForModal(selectedUserId);
         setModalUserIDs(refreshedUserIDs);
@@ -4822,7 +4821,7 @@ export default function App() {
           <h3 className="mb-2 font-semibold text-lg">
             Are You Sure You Want To Revoke {selectedKeyName}&apos;s Key?
           </h3>
-          <div className="mb-4 p-3 bg-gray-800 rounded-lg">
+          <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <p className="text-default-400">Creation Date:</p>
@@ -4905,7 +4904,6 @@ export default function App() {
         backdrop="blur"
         isOpen={revokeModal}
         onClose={() => {
-          setSelectedSubkeyIndex(null);
           setrevokeModal(false);
         }}
       >
@@ -4914,7 +4912,7 @@ export default function App() {
             Are You Sure You Want To Revoke {selectedKeyName}&apos;s Key?
           </h3>
 
-          <div className="mb-4 p-3 bg-gray-800 rounded-lg">
+          <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <p className="text-default-400">Creation Date:</p>
@@ -5004,7 +5002,7 @@ export default function App() {
             Revocation Reason for {selectedKeyName}&apos;s Key
           </h3>
 
-          <div className="mb-4 p-3 bg-gray-800 rounded-lg">
+          <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <p className="text-default-400">Creation Date:</p>
@@ -5022,7 +5020,7 @@ export default function App() {
           </div>
 
           {revocationInfo ? (
-            <div className="mb-4 p-3 bg-gray-800 rounded-lg text-sm">
+            <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm">
               <p>
                 <strong>Revocation Reason:</strong>{" "}
                 {revocationInfo.reason ?? "Unknown"}
