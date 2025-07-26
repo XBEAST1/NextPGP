@@ -44,6 +44,7 @@ import {
   decryptData,
   encryptData,
   dbPgpKeys,
+  updateKeyInIndexeddb,
 } from "@/lib/indexeddb";
 import { today, getLocalTimeZone, CalendarDate } from "@internationalized/date";
 import { NProgressLink } from "@/components/nprogress";
@@ -767,9 +768,11 @@ export default function App() {
                       </DropdownItem>
                       <DropdownItem
                         key="remove-password"
-                        onPress={() =>
-                          triggerRemovePasswordModal(user, user.name)
-                        }
+                        onPress={() => {
+                          setSelectedUserId(user);
+                          setSelectedKeyName(user.name);
+                          setremovePasswordModal(true);
+                        }}
                       >
                         Remove Password
                       </DropdownItem>
@@ -901,7 +904,11 @@ export default function App() {
 
             <DropdownItem
               key="delete-key"
-              onPress={() => triggerdeleteModal(user.id, user.name)}
+              onPress={() => {
+                setSelectedUserId(user.id);
+                setSelectedKeyName(user.name);
+                setdeleteModal(true);
+              }}
             >
               Delete
             </DropdownItem>
@@ -1226,6 +1233,33 @@ export default function App() {
     }
   }, []);
 
+  const publishKeyOnServer = async () => {
+    try {
+      const response = await fetch("/api/keyserver", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          publicKey: selectedUserId.publicKey,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to publish key on the server.");
+      }
+      addToast({
+        title: `${selectedKeyName}'s Key published successfully`,
+        color: "success",
+      });
+    } catch (error) {
+      console.error("Error publishing key:", error);
+      addToast({
+        title: `Failed to publish ${selectedKeyName}'s key`,
+        color: "danger",
+      });
+    }
+  };
+
   const exportPublicKey = (user) => {
     const keyid = user.keyid.replace(/\s/g, "");
     const publicKey = user.publicKey;
@@ -1317,55 +1351,6 @@ export default function App() {
         color: "danger",
       });
     }
-  };
-
-  const updateKeyInIndexeddb = async (keyId, updatedKeys) => {
-    const db = await openDB();
-    const encryptionKey = await getEncryptionKey();
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction("pgpKeys", "readonly");
-      const store = transaction.objectStore("pgpKeys");
-      const getRequest = store.get(keyId);
-
-      getRequest.onsuccess = async () => {
-        const record = getRequest.result;
-        if (!record) {
-          return reject(new Error("Key record not found"));
-        }
-
-        try {
-          const originalDecrypted = await decryptData(
-            record.encrypted,
-            encryptionKey,
-            record.iv
-          );
-          const updatedDecrypted = {
-            ...originalDecrypted,
-            privateKey: updatedKeys.privateKey,
-            publicKey: updatedKeys.publicKey,
-          };
-
-          const { encrypted, iv } = await encryptData(
-            updatedDecrypted,
-            encryptionKey
-          );
-          record.encrypted = encrypted;
-          record.iv = iv;
-        } catch (error) {
-          return reject(error);
-        }
-
-        const writeTx = db.transaction("pgpKeys", "readwrite");
-        const writeStore = writeTx.objectStore("pgpKeys");
-        const putRequest = writeStore.put(record);
-
-        putRequest.onsuccess = () => resolve();
-        putRequest.onerror = (e) => reject(e.target.error);
-      };
-
-      getRequest.onerror = (e) => reject(e.target.error);
-    });
   };
 
   const certifyUserKey = async (certifierUser, targetUser) => {
@@ -2058,12 +2043,6 @@ export default function App() {
     }
   };
 
-  const triggerRemovePasswordModal = async (user, name) => {
-    setSelectedUserId(user);
-    setSelectedKeyName(name);
-    setremovePasswordModal(true);
-  };
-
   const removePasswordFromKey = async () => {
     try {
       let privateKey = await openpgp.readKey({
@@ -2092,19 +2071,7 @@ export default function App() {
         color: "danger",
       });
     }
-    closeremovePasswordModal();
-  };
-
-  const closeremovePasswordModal = () => {
-    setSelectedUserId(null);
-    setSelectedKeyName("");
     setremovePasswordModal(false);
-  };
-
-  const triggerdeleteModal = (user, name) => {
-    setSelectedUserId(user);
-    setSelectedKeyName(name);
-    setdeleteModal(true);
   };
 
   const deleteKey = async (user) => {
@@ -3083,39 +3050,6 @@ export default function App() {
     }
 
     return null;
-  };
-
-  const publishKeyOnServer = async () => {
-    try {
-      const response = await fetch("/api/keyserver", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          publicKey: selectedUserId.publicKey,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to publish key on the server.");
-      }
-      addToast({
-        title: `${selectedKeyName}'s Key published successfully`,
-        color: "success",
-      });
-    } catch (error) {
-      console.error("Error publishing key:", error);
-      addToast({
-        title: `Failed to publish ${selectedKeyName}'s key`,
-        color: "danger",
-      });
-    }
-  };
-
-  const closedeleteModal = () => {
-    setSelectedUserId(null);
-    setSelectedKeyName("");
-    setdeleteModal(false);
   };
 
   const onNextPage = useCallback(() => {
@@ -4487,7 +4421,7 @@ export default function App() {
       <Modal
         backdrop="blur"
         isOpen={removePasswordModal}
-        onClose={closeremovePasswordModal}
+        onClose={() => setremovePasswordModal(false)}
       >
         <ModalContent className="p-5">
           <h3 className="mb-2">
@@ -4497,7 +4431,7 @@ export default function App() {
           <div className="flex gap-2">
             <Button
               className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
-              onPress={closeremovePasswordModal}
+              onPress={() => setremovePasswordModal(false)}
             >
               No
             </Button>
@@ -5337,7 +5271,11 @@ export default function App() {
           </div>
         </ModalContent>
       </Modal>
-      <Modal backdrop="blur" isOpen={deleteModal} onClose={closedeleteModal}>
+      <Modal
+        backdrop="blur"
+        isOpen={deleteModal}
+        onClose={() => setdeleteModal(false)}
+      >
         <ModalContent className="p-5">
           <h3 className="mb-2">
             Are You Sure You Want To Delete {selectedKeyName}&apos;s Key?
@@ -5345,7 +5283,7 @@ export default function App() {
           <div className="flex gap-2">
             <Button
               className="w-full mt-4 px-4 py-2 bg-default-300 text-white rounded-full"
-              onPress={closedeleteModal}
+              onPress={() => setdeleteModal(false)}
             >
               No
             </Button>
@@ -5353,12 +5291,12 @@ export default function App() {
               className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
               onPress={() => {
                 deleteKey(selectedUserId);
-                closedeleteModal();
+                setdeleteModal(false);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   deleteKey(selectedUserId);
-                  closedeleteModal();
+                  setdeleteModal(false);
                 }
               }}
             >
