@@ -572,6 +572,7 @@ export default function App() {
   const [manageSubkeyModal, setmanageSubkeyModal] = useState(false);
   const [selectedSubkey, setSelectedSubkey] = useState(null);
   const [subkeyOption, setsubkeyOption] = useState("1");
+  const [subkeyGlobalIndex, setsubkeyGlobalIndex] = useState(null);
   const [selectedAlgorithm, setSelectedAlgorithm] = useState("curve25519");
   const [certifyUserModal, setcertifyUserModal] = useState(false);
   const [viewCertificateModal, setviewCertificateModal] = useState(false);
@@ -920,6 +921,7 @@ export default function App() {
 
   const UserActionsDropdownSubkey = ({ subkey }) => {
     const [armoredSubkey, setArmoredSubkey] = useState([]);
+    const [isSubkeyProtected, setIsSubkeyProtected] = useState(false);
     const revocationReasonsRef = useRef([]);
 
     useEffect(() => {
@@ -961,9 +963,16 @@ export default function App() {
           const allSubkeys = [];
           const allReasons = [];
 
+          const protectionStatuses = subkeys.map(
+            (subkey) => !subkey.isDecrypted()
+          );
+
+          const subkeyIndex = parseInt(subkey.id.split("-subkey-")[1]);
+
+          setIsSubkeyProtected(protectionStatuses[subkeyIndex]);
+
           subkeys.forEach((subkey) => {
             const standalone = new openpgp.PacketList();
-
             standalone.push(primaryPacket);
             userIDPackets.forEach((uid) => standalone.push(uid));
             userIDSigs.forEach((sig) => standalone.push(sig));
@@ -1063,21 +1072,51 @@ export default function App() {
               </DropdownItem>
             )}
 
-            {subkey.status === "revoked" ? null : (
-              <>
-                <DropdownItem
-                  key="add-subkey-password"
-                  onPress={() => {
-                    const subkeyIndex = parseInt(
-                      subkey.id.split("-subkey-")[1]
-                    );
-                    addOrChangeSubkeyPassword(armoredSubkey[subkeyIndex]);
-                  }}
-                >
-                  Add Password
-                </DropdownItem>
-              </>
-            )}
+            {subkey.status !== "revoked" &&
+              (isSubkeyProtected ? (
+                <>
+                  <DropdownItem
+                    key="change-subkey-password"
+                    onPress={() => {
+                      const subkeyIndex = parseInt(
+                        subkey.id.split("-subkey-")[1]
+                      );
+                      setsubkeyGlobalIndex(subkeyIndex);
+                      addOrChangeSubkeyPassword(subkeyIndex);
+                    }}
+                  >
+                    Change Password
+                  </DropdownItem>
+
+                  <DropdownItem
+                    key="remove-subkey-password"
+                    onPress={() => {
+                      const subkeyIndex = parseInt(
+                        subkey.id.split("-subkey-")[1]
+                      );
+                      setsubkeyGlobalIndex(subkeyIndex);
+                      RemoveSubkeyPassword(subkeyIndex);
+                    }}
+                  >
+                    Remove Password
+                  </DropdownItem>
+                </>
+              ) : (
+                <>
+                  <DropdownItem
+                    key="add-subkey-password"
+                    onPress={() => {
+                      const subkeyIndex = parseInt(
+                        subkey.id.split("-subkey-")[1]
+                      );
+                      setsubkeyGlobalIndex(subkeyIndex);
+                      addOrChangeSubkeyPassword(subkeyIndex);
+                    }}
+                  >
+                    Add Password
+                  </DropdownItem>
+                </>
+              ))}
 
             {subkey.status === "revoked" ? null : (
               <>
@@ -1891,121 +1930,92 @@ export default function App() {
     }
   };
 
-  const triggerSubkeyPasswordModal = async (armoredSubkey) => {
+  const triggerSubkeyPasswordModal = async (selectedSubkey) => {
     setPassword("");
     setPasswordModal(true);
 
     return new Promise((resolve, reject) => {
-      setnewKeyPassword(() => async (pwd) => {
-        if (!pwd) {
-          setPasswordModal(false);
-          setnewKeyPassword(null);
-          reject(new Error("Password entry cancelled"));
-          return;
-        }
-
-        try {
-          const subKeyPriv = await openpgp.readPrivateKey({
-            armoredKey: armoredSubkey,
-          });
-
-          decryptedKey = await openpgp.decryptKey({
-            privateKey: subKeyPriv,
-            passphrase: pwd,
-          });
-
-          if (!decryptedKey.isDecrypted()) {
-            throw new Error("Decryption returned but key still encrypted.");
+      const tryPassword = async () => {
+        setnewKeyPassword(() => async (pwd) => {
+          if (!pwd) {
+            setPasswordModal(false);
+            setnewKeyPassword(null);
+            reject(new Error("Password entry cancelled"));
+            return;
           }
-
-          setPasswordModal(false);
-          setnewKeyPassword(null);
-          resolve(decryptedKey);
-        } catch (error) {
-          console.error("❌ Decryption failed:", error);
-          addToast({
-            title: "Invalid password for subkey",
-            color: "danger",
-          });
-          setPassword("");
-          setPasswordModal(false);
-          setnewKeyPassword(null);
-          reject(error);
-        }
-      });
+          try {
+            await selectedSubkey.keyPacket.decrypt(pwd);
+            if (!selectedSubkey.isDecrypted()) {
+              throw new Error("Incorrect Password");
+            }
+            setPasswordModal(false);
+            setnewKeyPassword(null);
+            resolve(pwd);
+          } catch {
+            addToast({
+              title: "Incorrect Password",
+              color: "danger",
+            });
+          }
+        });
+      };
+      tryPassword();
     });
   };
 
-  const addOrChangeSubkeyPassword = async (armoredSelectedSubkey) => {
-    if (!selectedUserId || !armoredSelectedSubkey) {
+  const addOrChangeSubkeyPassword = async (subkeyIndex) => {
+    if (!selectedUserId || subkeyIndex === undefined) {
       return;
     }
 
     try {
-      let primaryPriv = await openpgp.readPrivateKey({
+      let privateKey = await openpgp.readPrivateKey({
         armoredKey: selectedUserId.privateKey,
       });
 
       let ownerPassphrase = null;
-      if (!primaryPriv.isDecrypted()) {
+      if (!privateKey.isDecrypted()) {
         ownerPassphrase = await triggerKeyPasswordModal(selectedUserId);
-        primaryPriv = await openpgp.decryptKey({
-          privateKey: primaryPriv,
+        privateKey = await openpgp.decryptKey({
+          privateKey,
           passphrase: ownerPassphrase,
         });
       }
 
-      const pubSubkey = await openpgp.readKey({
-        armoredKey: armoredSelectedSubkey,
-      });
-      const pkt = pubSubkey.subkeys?.[0]?.keyPacket;
-      if (!pkt) {
-        throw new Error("Invalid sub-key data");
+      const subkeys = privateKey.getSubkeys();
+      const selectedSubkey = subkeys[subkeyIndex];
+
+      if (!selectedSubkey) {
+        throw new Error("Subkey not found");
       }
-      const keyIDhex = pkt.getKeyID().toHex();
 
-      let subKeyPriv = await openpgp.readPrivateKey({
-        armoredKey: armoredSelectedSubkey,
-      });
+      const isEncrypted = !selectedSubkey.isDecrypted();
+      let currentSubkeyPassphrase = null;
 
-      let isEncrypted = !subKeyPriv.isDecrypted();
-      console.log(isEncrypted ? "Yes" : "No");
       if (isEncrypted) {
-        subKeyPriv = await triggerSubkeyPasswordModal(armoredSelectedSubkey);
+        try {
+          currentSubkeyPassphrase =
+            await triggerSubkeyPasswordModal(selectedSubkey);
+        } catch (err) {
+          return;
+        }
       }
 
-      // Get the new passphrase and encrypt
       const newPassphrase = await triggernewPasswordChangeModal();
-      const protectedSubKey = await openpgp.encryptKey({
-        privateKey: subKeyPriv,
-        passphrase: newPassphrase,
-      });
 
-      // Get the first (and should be only) subkey from the protected key
-      const updatedSubkey = protectedSubKey.subkeys?.[0];
-      if (
-        !updatedSubkey ||
-        updatedSubkey.keyPacket.getKeyID().toHex() !== keyIDhex
-      ) {
-        throw new Error("Failed to extract updated sub-key");
+      // First, ensure the target subkey is decrypted
+      let targetSubkey = subkeys[subkeyIndex];
+      if (!targetSubkey.isDecrypted() && currentSubkeyPassphrase) {
+        await targetSubkey.keyPacket.decrypt(currentSubkeyPassphrase);
       }
 
-      // Find the target subkey in the primary key
-      const targetSubkey = primaryPriv.subkeys.find(
-        (s) => s.keyPacket.getKeyID().toHex() === keyIDhex
-      );
-      if (!targetSubkey) {
-        throw new Error("Sub-key not found on primary key");
-      }
+      await targetSubkey.keyPacket.encrypt(newPassphrase);
 
-      // Directly replace the key packet to ensure encryption is preserved
-      targetSubkey.keyPacket = updatedSubkey.keyPacket;
+      // Serialize the modified key
+      let finalPrivate = privateKey.armor();
+      const finalPublic = privateKey.toPublic().armor();
 
-      await targetSubkey.update(updatedSubkey, new Date());
-
-      let finalPrivate = primaryPriv.armor();
-      const finalPublic = primaryPriv.toPublic().armor();
-
+      // Re-encryption if needed
       if (ownerPassphrase !== null) {
         const reparsed = await openpgp.readPrivateKey({
           armoredKey: finalPrivate,
@@ -2025,19 +2035,22 @@ export default function App() {
       const refreshed = await loadKeysFromIndexedDB();
       setUsers(refreshed);
 
+      const updated = refreshed.find((u) => u.id === selectedUserId.id);
+      if (updated) setSelectedUserId(updated);
+
       addToast({
         title:
           currentSubkeyPassphrase === null
-            ? "Password added to sub-key"
-            : "Sub-key password changed",
+            ? "Subkey Password Added Successfully"
+            : "Subkey Password Changed Successfully",
         color: "success",
       });
 
       setSelectedSubkey(null);
     } catch (err) {
-      console.error(err);
+      console.error("Error in addOrChangeSubkeyPassword:", err);
       addToast({
-        title: "Failed to change sub-key password",
+        title: "Failed To Change Subkey Password",
         color: "danger",
       });
     }
@@ -2072,6 +2085,91 @@ export default function App() {
       });
     }
     setremovePasswordModal(false);
+  };
+
+  const RemoveSubkeyPassword = async (subkeyIndex) => {
+    if (!selectedUserId || subkeyIndex === undefined) {
+      return;
+    }
+
+    try {
+      let privateKey = await openpgp.readPrivateKey({
+        armoredKey: selectedUserId.privateKey,
+      });
+
+      let ownerPassphrase = null;
+      if (!privateKey.isDecrypted()) {
+        ownerPassphrase = await triggerKeyPasswordModal(selectedUserId);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: ownerPassphrase,
+        });
+      }
+
+      const subkeys = privateKey.getSubkeys();
+      const selectedSubkey = subkeys[subkeyIndex];
+
+      if (!selectedSubkey) {
+        throw new Error("Subkey not found");
+      }
+
+      const isEncrypted = !selectedSubkey.isDecrypted();
+      let currentSubkeyPassphrase = null;
+
+      if (isEncrypted) {
+        try {
+          currentSubkeyPassphrase =
+            await triggerSubkeyPasswordModal(selectedSubkey);
+        } catch (err) {
+          return;
+        }
+      }
+
+      // Ensure the target subkey is decrypted
+      let targetSubkey = subkeys[subkeyIndex];
+      if (!targetSubkey.isDecrypted() && currentSubkeyPassphrase) {
+        await targetSubkey.keyPacket.decrypt(currentSubkeyPassphrase);
+      }
+
+      // Serialize the modified key
+      let finalPrivate = privateKey.armor();
+      const finalPublic = privateKey.toPublic().armor();
+
+      // Re-encryption if needed
+      if (ownerPassphrase !== null) {
+        const reparsed = await openpgp.readPrivateKey({
+          armoredKey: finalPrivate,
+        });
+        const reProtected = await openpgp.encryptKey({
+          privateKey: reparsed,
+          passphrase: ownerPassphrase,
+        });
+        finalPrivate = reProtected.armor();
+      }
+
+      await updateKeyInIndexeddb(selectedUserId.id, {
+        privateKey: finalPrivate,
+        publicKey: finalPublic,
+      });
+
+      const refreshed = await loadKeysFromIndexedDB();
+      setUsers(refreshed);
+
+      const updated = refreshed.find((u) => u.id === selectedUserId.id);
+      if (updated) setSelectedUserId(updated);
+
+      addToast({
+        title: "Subkey Password removed successfully",
+        color: "success",
+      });
+
+      setSelectedSubkey(null);
+    } catch {
+      addToast({
+        title: "Failed To Remove Subkey Password",
+        color: "danger",
+      });
+    }
   };
 
   const deleteKey = async (user) => {
@@ -4308,7 +4406,11 @@ export default function App() {
         onClose={() => setPasswordModal(false)}
       >
         <ModalContent className="p-5">
-          <h3 className="mb-4">Enter Password for Protected Key</h3>
+          <h3 className="mb-4">
+            {subkeyGlobalIndex !== null && subkeyGlobalIndex !== undefined
+              ? `Enter Password For Protected Subkey #${subkeyGlobalIndex}`
+              : "Enter Password For Protected Key"}
+          </h3>
           <Input
             id="passwordInput"
             name="password"
@@ -4366,7 +4468,12 @@ export default function App() {
         onClose={() => setnewPasswordChangeModal(false)}
       >
         <ModalContent className="p-5">
-          <h3 className="mb-4">Enter New Password</h3>
+          <h3 className="mb-4">
+            {subkeyGlobalIndex !== null && subkeyGlobalIndex !== undefined
+              ? `Enter New Password For Subkey #${subkeyGlobalIndex}`
+              : "Enter New Password"}
+          </h3>
+
           <Input
             id="newPasswordInput"
             name="password"
