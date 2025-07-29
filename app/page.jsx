@@ -1023,6 +1023,7 @@ export default function App() {
             <DropdownItem
               onPress={() => {
                 const subkeyIndex = parseInt(subkey.id.split("-subkey-")[1]);
+                setsubkeyGlobalIndex(subkeyIndex);
                 backupSubkey(subkey, armoredSubkey[subkeyIndex]);
               }}
             >
@@ -1034,6 +1035,7 @@ export default function App() {
                 key="change-subkey-validity"
                 onPress={() => {
                   const subkeyIndex = parseInt(subkey.id.split("-subkey-")[1]);
+                  setsubkeyGlobalIndex(subkeyIndex);
                   setSelectedSubkey(armoredSubkey[subkeyIndex]);
                   setvalidityModal(true);
                   if (subkey.expirydate === "No Expiry") {
@@ -1126,7 +1128,8 @@ export default function App() {
                     const subkeyIndex = parseInt(
                       subkey.id.split("-subkey-")[1]
                     );
-                    setSelectedSubkey(armoredSubkey[subkeyIndex]);
+                    setSelectedSubkey(subkeyIndex);
+                    setsubkeyGlobalIndex(subkeyIndex);
                     setrevokeModal(true);
                   }}
                 >
@@ -1140,6 +1143,7 @@ export default function App() {
                 key="revocation-reason-subkey"
                 onPress={() => {
                   const subkeyIndex = parseInt(subkey.id.split("-subkey-")[1]);
+                  setsubkeyGlobalIndex(subkeyIndex);
                   const info = revocationReasonsRef.current[subkeyIndex];
                   setRevocationInfo(info || null);
                   setrevocationReasonModal(true);
@@ -1554,6 +1558,69 @@ export default function App() {
         });
       }
 
+      // Decrypt all encrypted subkeys
+      const subkeys = privateKey.getSubkeys();
+      const subkeyPassphrases = new Map(); // Store subkey passphrases for re-encryption
+
+      let primaryPassword;
+      const triedPasswords = new Set();
+
+      // Prime it with the primary key password
+      if (primaryPassword) {
+        triedPasswords.add(primaryPassword);
+      }
+
+      for (let i = 0; i < subkeys.length; i++) {
+        const subkey = subkeys[i];
+        if (await subkey.isRevoked()) continue;
+        if (subkey.isDecrypted()) continue; // top‑level guard
+
+        setsubkeyGlobalIndex(i);
+        let subkeyPass = null;
+
+        // Try every password we've already got cached
+        for (const pass of triedPasswords) {
+          if (subkey.isDecrypted()) break;
+          try {
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+            break;
+          } catch (err) {
+            // if it's "already decrypted", treat as success
+            if (/already decrypted/i.test(err.message)) {
+              subkeyPass = pass;
+              break;
+            }
+            // else wrong pass, keep going
+          }
+        }
+
+        // If we still haven't unlocked, prompt the user
+        if (!subkeyPass) {
+          try {
+            const pass = await triggerSubkeyPasswordModal(subkey);
+            triedPasswords.add(pass);
+
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+          } catch (err) {
+            addToast({
+              title: "Failed to decrypt subkey",
+              color: "danger",
+            });
+            console.error(`Failed to decrypt subkey ${i}:`, err);
+            return;
+          }
+        }
+
+        // Store the passphrase we ended up using
+        subkeyPassphrases.set(i, subkeyPass);
+      }
+
       const fullPublicKey = await openpgp.readKey({
         armoredKey: selectedUserId.publicKey,
       });
@@ -1651,6 +1718,22 @@ export default function App() {
           passphrase: currentPassword,
         });
         finalPrivateKey = reEncrypted.armor();
+      }
+
+      // Re-encrypt subkeys with their respective passwords
+      if (subkeyPassphrases.size > 0) {
+        const keyToReEncrypt = await openpgp.readPrivateKey({
+          armoredKey: finalPrivateKey,
+        });
+        const subkeys = keyToReEncrypt.getSubkeys();
+
+        for (const [subkeyIndex, passphrase] of subkeyPassphrases) {
+          if (subkeys[subkeyIndex] && subkeys[subkeyIndex].isDecrypted()) {
+            await subkeys[subkeyIndex].keyPacket.encrypt(passphrase);
+          }
+        }
+
+        finalPrivateKey = keyToReEncrypt.armor();
       }
 
       await updateKeyInIndexeddb(selectedUserId.id, {
@@ -2002,13 +2085,7 @@ export default function App() {
       }
 
       const newPassphrase = await triggernewPasswordChangeModal();
-
-      // First, ensure the target subkey is decrypted
       let targetSubkey = subkeys[subkeyIndex];
-      if (!targetSubkey.isDecrypted() && currentSubkeyPassphrase) {
-        await targetSubkey.keyPacket.decrypt(currentSubkeyPassphrase);
-      }
-
       await targetSubkey.keyPacket.encrypt(newPassphrase);
 
       // Serialize the modified key
@@ -2017,11 +2094,8 @@ export default function App() {
 
       // Re-encryption if needed
       if (ownerPassphrase !== null) {
-        const reparsed = await openpgp.readPrivateKey({
-          armoredKey: finalPrivate,
-        });
         const reProtected = await openpgp.encryptKey({
-          privateKey: reparsed,
+          privateKey,
           passphrase: ownerPassphrase,
         });
         finalPrivate = reProtected.armor();
@@ -2038,15 +2112,26 @@ export default function App() {
       const updated = refreshed.find((u) => u.id === selectedUserId.id);
       if (updated) setSelectedUserId(updated);
 
-      addToast({
-        title:
-          currentSubkeyPassphrase === null
-            ? "Subkey Password Added Successfully"
-            : "Subkey Password Changed Successfully",
-        color: "success",
-      });
+      if (ownerPassphrase === null) {
+        addToast({
+          title:
+            currentSubkeyPassphrase === null
+              ? "Subkey Password Added Successfully"
+              : "Subkey Password Changed Successfully",
+          color: "success",
+        });
+      }
+
+      if (ownerPassphrase !== null) {
+        addToast({
+          title:
+            "The primary key is already password-protected, so subkey passwords cannot differ from the primary passphrase.",
+          color: "warning",
+        });
+      }
 
       setSelectedSubkey(null);
+      setsubkeyGlobalIndex(null);
     } catch (err) {
       console.error("Error in addOrChangeSubkeyPassword:", err);
       addToast({
@@ -2164,6 +2249,7 @@ export default function App() {
       });
 
       setSelectedSubkey(null);
+      setsubkeyGlobalIndex(null);
     } catch {
       addToast({
         title: "Failed To Remove Subkey Password",
@@ -3056,7 +3142,7 @@ export default function App() {
     }
   };
 
-  const revokeSubkey = async (armoredSubkey) => {
+  const revokeSubkey = async (subkeyIndex) => {
     setRevocationReasonText("");
     try {
       let primaryKey = await openpgp.readKey({
@@ -3071,19 +3157,32 @@ export default function App() {
         });
       }
 
-      const subkeyContainer = await openpgp.readKey({
-        armoredKey: armoredSubkey,
-      });
-      const targetSubkeyPacket = subkeyContainer.subkeys?.[0]?.keyPacket;
-      if (!targetSubkeyPacket) throw new Error("Unable to parse subkey");
+      const subkeys = primaryKey.getSubkeys();
+      const selectedSubkey = subkeys[subkeyIndex];
 
-      const keyIDhex = targetSubkeyPacket.getKeyID().toHex();
-      const originalSubkey = primaryKey.subkeys.find(
-        (s) => s.keyPacket.getKeyID().toHex() === keyIDhex
-      );
-      if (!originalSubkey) throw new Error("Subkey not found on primary key");
+      if (!selectedSubkey) {
+        throw new Error("Subkey not found");
+      }
 
-      const revokedSubkey = await originalSubkey.revoke(
+      const isEncrypted = !selectedSubkey.isDecrypted();
+      let currentSubkeyPassphrase = null;
+
+      if (isEncrypted) {
+        try {
+          currentSubkeyPassphrase =
+            await triggerSubkeyPasswordModal(selectedSubkey);
+        } catch (err) {
+          return;
+        }
+      }
+
+      // First, ensure the target subkey is decrypted
+      let targetSubkey = subkeys[subkeyIndex];
+      if (!targetSubkey.isDecrypted() && currentSubkeyPassphrase) {
+        await targetSubkey.keyPacket.decrypt(currentSubkeyPassphrase);
+      }
+
+      const revokedSubkey = await targetSubkey.revoke(
         primaryKey.keyPacket,
         {
           flag: parseInt(revocationReason),
@@ -3092,25 +3191,11 @@ export default function App() {
         new Date()
       );
 
-      // Replace original subkey with its revoked version in the primary key
-      primaryKey.subkeys = primaryKey.subkeys.map((s) =>
-        s.keyPacket.getKeyID().toHex() === keyIDhex ? revokedSubkey : s
-      );
+      await targetSubkey.update(revokedSubkey);
 
       // Re‑armor both private and public full keys
       let newPrivateArmored = primaryKey.armor();
       let newPublicArmored = primaryKey.toPublic().armor();
-
-      if (currentPassword) {
-        const decryptedKey = await openpgp.readPrivateKey({
-          armoredKey: newPrivateArmored,
-        });
-        const reEncrypted = await openpgp.encryptKey({
-          privateKey: decryptedKey,
-          passphrase: currentPassword,
-        });
-        newPrivateArmored = reEncrypted.armor();
-      }
 
       await updateKeyInIndexeddb(selectedUserId.id, {
         privateKey: newPrivateArmored,
@@ -4408,7 +4493,7 @@ export default function App() {
         <ModalContent className="p-5">
           <h3 className="mb-4">
             {subkeyGlobalIndex !== null && subkeyGlobalIndex !== undefined
-              ? `Enter Password For Protected Subkey #${subkeyGlobalIndex}`
+              ? `Enter Password For Protected Subkey #${subkeyGlobalIndex + 1}`
               : "Enter Password For Protected Key"}
           </h3>
           <Input
@@ -4470,7 +4555,7 @@ export default function App() {
         <ModalContent className="p-5">
           <h3 className="mb-4">
             {subkeyGlobalIndex !== null && subkeyGlobalIndex !== undefined
-              ? `Enter New Password For Subkey #${subkeyGlobalIndex}`
+              ? `Enter New Password For Subkey #${subkeyGlobalIndex + 1}`
               : "Enter New Password"}
           </h3>
 
@@ -5135,12 +5220,14 @@ export default function App() {
         isOpen={revokeModal}
         onClose={() => {
           setrevokeModal(false);
+          setsubkeyGlobalIndex(null);
         }}
       >
         <ModalContent className="p-5">
           <h3 className="mb-2 font-semibold">
-            Are You Sure You Want To Revoke {selectedKeyName}&apos;s{" "}
-            {manageSubkeyModal ? "Subkey" : "Key"}?
+            {subkeyGlobalIndex !== null && subkeyGlobalIndex !== undefined
+              ? `Are You Sure You Want To Revoke ${selectedKeyName}'s Subkey #${subkeyGlobalIndex + 1}`
+              : `Are You Sure You Want To Revoke ${selectedKeyName}'s Key`}
           </h3>
 
           <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
@@ -5230,8 +5317,9 @@ export default function App() {
       >
         <ModalContent className="p-5">
           <h3 className="mb-2">
-            Revocation Reason for {selectedKeyName}&apos;s{" "}
-            {manageSubkeyModal ? "Subkey" : "Key"}
+            {subkeyGlobalIndex !== null && subkeyGlobalIndex !== undefined
+              ? `Revocation Reason for ${selectedKeyName}'s Subkey #${subkeyGlobalIndex + 1}`
+              : `Revocation Reason for ${selectedKeyName}'s Key`}
           </h3>
 
           <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
