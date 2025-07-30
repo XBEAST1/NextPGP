@@ -1320,26 +1320,77 @@ export default function App() {
   const backupKeyring = async (user, password = null) => {
     try {
       const keyid = user.keyid.replace(/\s/g, "");
+
       let privateKey = await openpgp.readKey({ armoredKey: user.privateKey });
-
       if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
-        if (!password) {
-          const enteredPassword = await triggerKeyPasswordModal(user);
-          password = enteredPassword;
+        const currentPassword = await triggerKeyPasswordModal(user);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
+        });
+      }
+
+      // Decrypt all encrypted subkeys
+      const subkeys = privateKey.getSubkeys();
+      const subkeyPassphrases = new Map(); // Store subkey passphrases for re-encryption
+
+      let primaryPassword;
+      const triedPasswords = new Set();
+
+      // Prime it with the primary key password
+      if (primaryPassword) {
+        triedPasswords.add(primaryPassword);
+      }
+
+      for (let i = 0; i < subkeys.length; i++) {
+        const subkey = subkeys[i];
+        if (await subkey.isRevoked()) continue;
+        if (subkey.isDecrypted()) continue; // top‑level guard
+
+        setsubkeyGlobalIndex(i);
+        let subkeyPass = null;
+
+        // Try every password we've already got cached
+        for (const pass of triedPasswords) {
+          if (subkey.isDecrypted()) break;
+          try {
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+            break;
+          } catch (err) {
+            // if it's "already decrypted", treat as success
+            if (/already decrypted/i.test(err.message)) {
+              subkeyPass = pass;
+              break;
+            }
+            // else wrong pass, keep going
+          }
         }
 
-        try {
-          privateKey = await openpgp.decryptKey({
-            privateKey: privateKey,
-            passphrase: password,
-          });
-        } catch {
-          addToast({
-            title: "Incorrect Password",
-            color: "danger",
-          });
-          return;
+        // If we still haven't unlocked, prompt the user
+        if (!subkeyPass) {
+          try {
+            const pass = await triggerSubkeyPasswordModal(subkey);
+            triedPasswords.add(pass);
+
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+          } catch (err) {
+            addToast({
+              title: "Failed to decrypt subkey",
+              color: "danger",
+            });
+            console.error(`Failed to decrypt subkey ${i}:`, err);
+            return;
+          }
         }
+
+        // Store the passphrase we ended up using
+        subkeyPassphrases.set(i, subkeyPass);
       }
 
       const privateKeyBackup = user.privateKey;
@@ -1398,16 +1449,79 @@ export default function App() {
 
   const certifyUserKey = async (certifierUser, targetUser) => {
     try {
-      let signerPriv = await openpgp.readKey({
+      let privateKey = await openpgp.readKey({
         armoredKey: certifierUser.privateKey,
       });
 
-      if (signerPriv.isPrivate() && !signerPriv.isDecrypted()) {
-        const passphrase = await triggerKeyPasswordModal(certifierUser);
-        signerPriv = await openpgp.decryptKey({
-          privateKey: signerPriv,
-          passphrase,
+      if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+        const currentPassword = await triggerKeyPasswordModal(certifierUser);
+        privateKey = await openpgp.decryptKey({
+          privateKey,
+          passphrase: currentPassword,
         });
+      }
+
+      // Decrypt all encrypted subkeys
+      const subkeys = privateKey.getSubkeys();
+      const subkeyPassphrases = new Map(); // Store subkey passphrases for re-encryption
+
+      let primaryPassword;
+      const triedPasswords = new Set();
+
+      // Prime it with the primary key password
+      if (primaryPassword) {
+        triedPasswords.add(primaryPassword);
+      }
+
+      for (let i = 0; i < subkeys.length; i++) {
+        const subkey = subkeys[i];
+        if (await subkey.isRevoked()) continue;
+        if (subkey.isDecrypted()) continue; // top‑level guard
+
+        setsubkeyGlobalIndex(i);
+        let subkeyPass = null;
+
+        // Try every password we've already got cached
+        for (const pass of triedPasswords) {
+          if (subkey.isDecrypted()) break;
+          try {
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+            break;
+          } catch (err) {
+            // if it's "already decrypted", treat as success
+            if (/already decrypted/i.test(err.message)) {
+              subkeyPass = pass;
+              break;
+            }
+            // else wrong pass, keep going
+          }
+        }
+
+        // If we still haven't unlocked, prompt the user
+        if (!subkeyPass) {
+          try {
+            const pass = await triggerSubkeyPasswordModal(subkey);
+            triedPasswords.add(pass);
+
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+          } catch (err) {
+            addToast({
+              title: "Failed to decrypt subkey",
+              color: "danger",
+            });
+            console.error(`Failed to decrypt subkey ${i}:`, err);
+            return;
+          }
+        }
+
+        // Store the passphrase we ended up using
+        subkeyPassphrases.set(i, subkeyPass);
       }
 
       const theirPub = await openpgp.readKey({
@@ -1415,7 +1529,7 @@ export default function App() {
       });
 
       // Check for existing certification by this signer (using key ID)
-      const signerKeyId = signerPriv.getKeyIDs()[0].toHex().toLowerCase();
+      const signerKeyId = privateKey.getKeyIDs()[0].toHex().toLowerCase();
 
       const existingKeyIds = theirPub.users.flatMap((user) =>
         user.otherCertifications.map((sig) =>
@@ -1431,9 +1545,18 @@ export default function App() {
         return targetUser.publicKey;
       }
 
-      // 5. Perform the certification
+      // Create a key with only the primary key to force primary key signing
+      const primaryKeyOnly = await openpgp.readKey({
+        armoredKey: privateKey.armor(),
+      });
+
+      // Remove all subkeys to force using only the primary key
+      // Was signing incorrectly using the last subkey instead of the primary key when multiple subkeys were present in the primary key
+      primaryKeyOnly.subkeys = [];
+
+      // Perform the certification using only the primary key
       const certifiedKey = await theirPub.signAllUsers(
-        [signerPriv],
+        [primaryKeyOnly],
         new Date()
       );
 
@@ -1794,6 +1917,69 @@ export default function App() {
         });
       }
 
+      // Decrypt all encrypted subkeys
+      const subkeys = privateKey.getSubkeys();
+      const subkeyPassphrases = new Map(); // Store subkey passphrases for re-encryption
+
+      let primaryPassword;
+      const triedPasswords = new Set();
+
+      // Prime it with the primary key password
+      if (primaryPassword) {
+        triedPasswords.add(primaryPassword);
+      }
+
+      for (let i = 0; i < subkeys.length; i++) {
+        const subkey = subkeys[i];
+        if (await subkey.isRevoked()) continue;
+        if (subkey.isDecrypted()) continue; // top‑level guard
+
+        setsubkeyGlobalIndex(i);
+        let subkeyPass = null;
+
+        // Try every password we've already got cached
+        for (const pass of triedPasswords) {
+          if (subkey.isDecrypted()) break;
+          try {
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+            break;
+          } catch (err) {
+            // if it's "already decrypted", treat as success
+            if (/already decrypted/i.test(err.message)) {
+              subkeyPass = pass;
+              break;
+            }
+            // else wrong pass, keep going
+          }
+        }
+
+        // If we still haven't unlocked, prompt the user
+        if (!subkeyPass) {
+          try {
+            const pass = await triggerSubkeyPasswordModal(subkey);
+            triedPasswords.add(pass);
+
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+          } catch (err) {
+            addToast({
+              title: "Failed to decrypt subkey",
+              color: "danger",
+            });
+            console.error(`Failed to decrypt subkey ${i}:`, err);
+            return;
+          }
+        }
+
+        // Store the passphrase we ended up using
+        subkeyPassphrases.set(i, subkeyPass);
+      }
+
       // Resolve selected subkey on the primary key
       const subkeyContainer = await openpgp.readKey({
         armoredKey: armoredSelectedSubkey,
@@ -1841,24 +2027,40 @@ export default function App() {
       await targetSubkey.update(updatedSubkey, new Date());
 
       // Serialize updated keys
-      let finalPrivate = privateKey.armor();
-      const finalPublic = privateKey.toPublic().armor();
+      let finalPrivateKey = privateKey.armor();
+      const finalPublicKey = privateKey.toPublic().armor();
 
-      // Re‑encrypt private key if it was protected
+      // Re‑encrypt if needed
       if (currentPassword) {
         const decryptedKey = await openpgp.readPrivateKey({
-          armoredKey: finalPrivate,
+          armoredKey: finalPrivateKey,
         });
         const reEncrypted = await openpgp.encryptKey({
           privateKey: decryptedKey,
           passphrase: currentPassword,
         });
-        finalPrivate = reEncrypted.armor();
+        finalPrivateKey = reEncrypted.armor();
+      }
+
+      // Re-encrypt subkeys with their respective passwords
+      if (subkeyPassphrases.size > 0) {
+        const keyToReEncrypt = await openpgp.readPrivateKey({
+          armoredKey: finalPrivateKey,
+        });
+        const subkeys = keyToReEncrypt.getSubkeys();
+
+        for (const [subkeyIndex, passphrase] of subkeyPassphrases) {
+          if (subkeys[subkeyIndex] && subkeys[subkeyIndex].isDecrypted()) {
+            await subkeys[subkeyIndex].keyPacket.encrypt(passphrase);
+          }
+        }
+
+        finalPrivateKey = keyToReEncrypt.armor();
       }
 
       await updateKeyInIndexeddb(selectedUserId.id, {
-        privateKey: finalPrivate,
-        publicKey: finalPublic,
+        privateKey: finalPrivateKey,
+        publicKey: finalPublicKey,
       });
 
       const refreshed = await loadKeysFromIndexedDB();
@@ -1983,15 +2185,95 @@ export default function App() {
         });
       }
 
+      // Decrypt all encrypted subkeys
+      const subkeys = privateKey.getSubkeys();
+      const subkeyPassphrases = new Map(); // Store subkey passphrases for re-encryption
+
+      let primaryPassword;
+      const triedPasswords = new Set();
+
+      // Prime it with the primary key password
+      if (primaryPassword) {
+        triedPasswords.add(primaryPassword);
+      }
+
+      for (let i = 0; i < subkeys.length; i++) {
+        const subkey = subkeys[i];
+        if (await subkey.isRevoked()) continue;
+        if (subkey.isDecrypted()) continue; // top‑level guard
+
+        setsubkeyGlobalIndex(i);
+        let subkeyPass = null;
+
+        // Try every password we've already got cached
+        for (const pass of triedPasswords) {
+          if (subkey.isDecrypted()) break;
+          try {
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+            break;
+          } catch (err) {
+            // if it's "already decrypted", treat as success
+            if (/already decrypted/i.test(err.message)) {
+              subkeyPass = pass;
+              break;
+            }
+            // else wrong pass, keep going
+          }
+        }
+
+        // If we still haven't unlocked, prompt the user
+        if (!subkeyPass) {
+          try {
+            const pass = await triggerSubkeyPasswordModal(subkey);
+            triedPasswords.add(pass);
+
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+          } catch (err) {
+            addToast({
+              title: "Failed to decrypt subkey",
+              color: "danger",
+            });
+            console.error(`Failed to decrypt subkey ${i}:`, err);
+            return;
+          }
+        }
+
+        // Store the passphrase we ended up using
+        subkeyPassphrases.set(i, subkeyPass);
+      }
+
+      setsubkeyGlobalIndex(null);
       const newPassword = await triggernewPasswordChangeModal();
 
       const updatedKey = await openpgp.encryptKey({
         privateKey,
         passphrase: newPassword,
       });
-      const armored = updatedKey.armor();
+      let finalPrivateKey = updatedKey.armor();
 
-      await updateKeyPassword(user.id, armored);
+      // Re-encrypt subkeys with their respective passwords
+      if (subkeyPassphrases.size > 0) {
+        const keyToReEncrypt = await openpgp.readPrivateKey({
+          armoredKey: finalPrivateKey,
+        });
+        const subkeys = keyToReEncrypt.getSubkeys();
+
+        for (const [subkeyIndex, passphrase] of subkeyPassphrases) {
+          if (subkeys[subkeyIndex] && subkeys[subkeyIndex].isDecrypted()) {
+            await subkeys[subkeyIndex].keyPacket.encrypt(passphrase);
+          }
+        }
+
+        finalPrivateKey = keyToReEncrypt.armor();
+      }
+
+      await updateKeyPassword(user.id, finalPrivateKey);
 
       const updatedKeys = await loadKeysFromIndexedDB();
 
@@ -2005,7 +2287,8 @@ export default function App() {
         title: toastMessage,
         color: "success",
       });
-    } catch {
+    } catch (err) {
+      console.error(err);
       addToast({
         title: "Failed to change password",
         color: "danger",
@@ -2153,9 +2436,89 @@ export default function App() {
           passphrase: currentPassword,
         });
       }
-      const armored = privateKey.armor();
 
-      await updateKeyPassword(selectedUserId.id, armored);
+      // Decrypt all encrypted subkeys
+      const subkeys = privateKey.getSubkeys();
+      const subkeyPassphrases = new Map(); // Store subkey passphrases for re-encryption
+
+      let primaryPassword;
+      const triedPasswords = new Set();
+
+      // Prime it with the primary key password
+      if (primaryPassword) {
+        triedPasswords.add(primaryPassword);
+      }
+
+      for (let i = 0; i < subkeys.length; i++) {
+        const subkey = subkeys[i];
+        if (await subkey.isRevoked()) continue;
+        if (subkey.isDecrypted()) continue; // top‑level guard
+
+        setsubkeyGlobalIndex(i);
+        let subkeyPass = null;
+
+        // Try every password we've already got cached
+        for (const pass of triedPasswords) {
+          if (subkey.isDecrypted()) break;
+          try {
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+            break;
+          } catch (err) {
+            // if it's "already decrypted", treat as success
+            if (/already decrypted/i.test(err.message)) {
+              subkeyPass = pass;
+              break;
+            }
+            // else wrong pass, keep going
+          }
+        }
+
+        // If we still haven't unlocked, prompt the user
+        if (!subkeyPass) {
+          try {
+            const pass = await triggerSubkeyPasswordModal(subkey);
+            triedPasswords.add(pass);
+
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+          } catch (err) {
+            addToast({
+              title: "Failed to decrypt subkey",
+              color: "danger",
+            });
+            console.error(`Failed to decrypt subkey ${i}:`, err);
+            return;
+          }
+        }
+
+        // Store the passphrase we ended up using
+        subkeyPassphrases.set(i, subkeyPass);
+      }
+
+      let finalPrivateKey = privateKey.armor();
+
+      // Re-encrypt subkeys with their respective passwords
+      if (subkeyPassphrases.size > 0) {
+        const keyToReEncrypt = await openpgp.readPrivateKey({
+          armoredKey: finalPrivateKey,
+        });
+        const subkeys = keyToReEncrypt.getSubkeys();
+
+        for (const [subkeyIndex, passphrase] of subkeyPassphrases) {
+          if (subkeys[subkeyIndex] && subkeys[subkeyIndex].isDecrypted()) {
+            await subkeys[subkeyIndex].keyPacket.encrypt(passphrase);
+          }
+        }
+
+        finalPrivateKey = keyToReEncrypt.armor();
+      }
+
+      await updateKeyPassword(selectedUserId.id, finalPrivateKey);
 
       addToast({
         title: "Password removed successfully",
@@ -2243,10 +2606,20 @@ export default function App() {
       const updated = refreshed.find((u) => u.id === selectedUserId.id);
       if (updated) setSelectedUserId(updated);
 
-      addToast({
-        title: "Subkey Password removed successfully",
-        color: "success",
-      });
+      if (ownerPassphrase === null) {
+        addToast({
+          title: "Subkey Password removed successfully",
+          color: "success",
+        });
+      }
+
+      if (ownerPassphrase !== null) {
+        addToast({
+          title:
+            "The primary key is already password-protected, so subkey passwords cannot be removed.",
+          color: "warning",
+        });
+      }
 
       setSelectedSubkey(null);
       setsubkeyGlobalIndex(null);
@@ -2309,6 +2682,69 @@ export default function App() {
           privateKey,
           passphrase: currentPassword,
         });
+      }
+
+      // Decrypt all encrypted subkeys
+      const subkeys = privateKey.getSubkeys();
+      const subkeyPassphrases = new Map(); // Store subkey passphrases for re-encryption
+
+      let primaryPassword;
+      const triedPasswords = new Set();
+
+      // Prime it with the primary key password
+      if (primaryPassword) {
+        triedPasswords.add(primaryPassword);
+      }
+
+      for (let i = 0; i < subkeys.length; i++) {
+        const subkey = subkeys[i];
+        if (await subkey.isRevoked()) continue;
+        if (subkey.isDecrypted()) continue; // top‑level guard
+
+        setsubkeyGlobalIndex(i);
+        let subkeyPass = null;
+
+        // Try every password we've already got cached
+        for (const pass of triedPasswords) {
+          if (subkey.isDecrypted()) break;
+          try {
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+            break;
+          } catch (err) {
+            // if it's "already decrypted", treat as success
+            if (/already decrypted/i.test(err.message)) {
+              subkeyPass = pass;
+              break;
+            }
+            // else wrong pass, keep going
+          }
+        }
+
+        // If we still haven't unlocked, prompt the user
+        if (!subkeyPass) {
+          try {
+            const pass = await triggerSubkeyPasswordModal(subkey);
+            triedPasswords.add(pass);
+
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+          } catch (err) {
+            addToast({
+              title: "Failed to decrypt subkey",
+              color: "danger",
+            });
+            console.error(`Failed to decrypt subkey ${i}:`, err);
+            return;
+          }
+        }
+
+        // Store the passphrase we ended up using
+        subkeyPassphrases.set(i, subkeyPass);
       }
 
       const fullPublicKey = await openpgp.readKey({
@@ -2408,12 +2844,29 @@ export default function App() {
         }
       }
 
+      // Re-encrypt if needed
       if (currentPassword) {
         const reEncrypted = await openpgp.encryptKey({
           privateKey: updatedPrivateKey,
           passphrase: currentPassword,
         });
         updatedKeyPair.privateKey = reEncrypted.armor();
+      }
+
+      // Re-encrypt subkeys with their respective passwords
+      if (subkeyPassphrases.size > 0) {
+        const keyToReEncrypt = await openpgp.readPrivateKey({
+          armoredKey: updatedKeyPair.privateKey,
+        });
+        const subkeys = keyToReEncrypt.getSubkeys();
+
+        for (const [subkeyIndex, passphrase] of subkeyPassphrases) {
+          if (subkeys[subkeyIndex] && subkeys[subkeyIndex].isDecrypted()) {
+            await subkeys[subkeyIndex].keyPacket.encrypt(passphrase);
+          }
+        }
+
+        updatedKeyPair.privateKey = keyToReEncrypt.armor();
       }
 
       await updateKeyInIndexeddb(user.id, {
@@ -2445,13 +2898,13 @@ export default function App() {
       const currentUserObj = refreshedStart.find((u) => u.id === user.id);
       if (!currentUserObj) throw new Error("User not found in IndexedDB");
 
-      const freshPublicKey = await openpgp.readKey({
+      const publicKey = await openpgp.readKey({
         armoredKey: currentUserObj.publicKey,
       });
 
       // Preserve revoked user IDs
       const userRevocationMap = new Map();
-      freshPublicKey.users.forEach((user) => {
+      publicKey.users.forEach((user) => {
         if (user.userID) {
           userRevocationMap.set(user.userID.userID, {
             isRevoked: user.isRevoked(),
@@ -2461,7 +2914,7 @@ export default function App() {
       });
 
       // Parse all user IDs
-      const freshUserIDs = freshPublicKey.getUserIDs().map(parseUserId);
+      const freshUserIDs = publicKey.getUserIDs().map(parseUserId);
       if (freshUserIDs[0]?.id === targetUserIDObj.id) {
         addToast({
           title: "Primary User ID already selected",
@@ -2487,6 +2940,69 @@ export default function App() {
         });
       }
 
+      // Decrypt all encrypted subkeys
+      const subkeys = privateKey.getSubkeys();
+      const subkeyPassphrases = new Map(); // Store subkey passphrases for re-encryption
+
+      let primaryPassword;
+      const triedPasswords = new Set();
+
+      // Prime it with the primary key password
+      if (primaryPassword) {
+        triedPasswords.add(primaryPassword);
+      }
+
+      for (let i = 0; i < subkeys.length; i++) {
+        const subkey = subkeys[i];
+        if (await subkey.isRevoked()) continue;
+        if (subkey.isDecrypted()) continue; // top‑level guard
+
+        setsubkeyGlobalIndex(i);
+        let subkeyPass = null;
+
+        // Try every password we've already got cached
+        for (const pass of triedPasswords) {
+          if (subkey.isDecrypted()) break;
+          try {
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+            break;
+          } catch (err) {
+            // if it's "already decrypted", treat as success
+            if (/already decrypted/i.test(err.message)) {
+              subkeyPass = pass;
+              break;
+            }
+            // else wrong pass, keep going
+          }
+        }
+
+        // If we still haven't unlocked, prompt the user
+        if (!subkeyPass) {
+          try {
+            const pass = await triggerSubkeyPasswordModal(subkey);
+            triedPasswords.add(pass);
+
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+          } catch (err) {
+            addToast({
+              title: "Failed to decrypt subkey",
+              color: "danger",
+            });
+            console.error(`Failed to decrypt subkey ${i}:`, err);
+            return;
+          }
+        }
+
+        // Store the passphrase we ended up using
+        subkeyPassphrases.set(i, subkeyPass);
+      }
+
       // Preserve subkey revocations
       const originalSubkeys = privateKey.getSubkeys();
       const subkeyRevocationMap = new Map();
@@ -2498,7 +3014,7 @@ export default function App() {
         });
       });
 
-      const currentUserIDs = freshPublicKey.getUserIDs().map(parseUserId);
+      const currentUserIDs = publicKey.getUserIDs().map(parseUserId);
       const targetUser = currentUserIDs.find(
         (u) => u.id === targetUserIDObj.id
       );
@@ -2567,12 +3083,29 @@ export default function App() {
         }
       }
 
+      // Re-encrypt if needed
       if (currentPassword) {
         const reEncrypted = await openpgp.encryptKey({
           privateKey: updatedPrivateKey,
           passphrase: currentPassword,
         });
         updatedKeyPair.privateKey = reEncrypted.armor();
+      }
+
+      // Re-encrypt subkeys with their respective passwords
+      if (subkeyPassphrases.size > 0) {
+        const keyToReEncrypt = await openpgp.readPrivateKey({
+          armoredKey: updatedKeyPair.privateKey,
+        });
+        const subkeys = keyToReEncrypt.getSubkeys();
+
+        for (const [subkeyIndex, passphrase] of subkeyPassphrases) {
+          if (subkeys[subkeyIndex] && subkeys[subkeyIndex].isDecrypted()) {
+            await subkeys[subkeyIndex].keyPacket.encrypt(passphrase);
+          }
+        }
+
+        updatedKeyPair.privateKey = keyToReEncrypt.armor();
       }
 
       await updateKeyInIndexeddb(user.id, {
@@ -2623,6 +3156,69 @@ export default function App() {
         });
       }
 
+      // Decrypt all encrypted subkeys
+      const subkeys = privateKey.getSubkeys();
+      const subkeyPassphrases = new Map(); // Store subkey passphrases for re-encryption
+
+      let primaryPassword;
+      const triedPasswords = new Set();
+
+      // Prime it with the primary key password
+      if (primaryPassword) {
+        triedPasswords.add(primaryPassword);
+      }
+
+      for (let i = 0; i < subkeys.length; i++) {
+        const subkey = subkeys[i];
+        if (await subkey.isRevoked()) continue;
+        if (subkey.isDecrypted()) continue; // top‑level guard
+
+        setsubkeyGlobalIndex(i);
+        let subkeyPass = null;
+
+        // Try every password we've already got cached
+        for (const pass of triedPasswords) {
+          if (subkey.isDecrypted()) break;
+          try {
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+            break;
+          } catch (err) {
+            // if it's "already decrypted", treat as success
+            if (/already decrypted/i.test(err.message)) {
+              subkeyPass = pass;
+              break;
+            }
+            // else wrong pass, keep going
+          }
+        }
+
+        // If we still haven't unlocked, prompt the user
+        if (!subkeyPass) {
+          try {
+            const pass = await triggerSubkeyPasswordModal(subkey);
+            triedPasswords.add(pass);
+
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+          } catch (err) {
+            addToast({
+              title: "Failed to decrypt subkey",
+              color: "danger",
+            });
+            console.error(`Failed to decrypt subkey ${i}:`, err);
+            return;
+          }
+        }
+
+        // Store the passphrase we ended up using
+        subkeyPassphrases.set(i, subkeyPass);
+      }
+
       // Locate the target User ID on the key
       const targetUser = privateKey.users.find((u) => {
         if (!u.userID) return false;
@@ -2638,6 +3234,9 @@ export default function App() {
 
       // Get updated armored keys
       let updatedPrivateKeyArmored = privateKey.armor();
+      const updatedPublicKeyArmored = privateKey.toPublic().armor();
+
+      // Re-encrypt if needed
       if (currentPassword) {
         const reEncryptedKey = await openpgp.encryptKey({
           privateKey,
@@ -2645,7 +3244,22 @@ export default function App() {
         });
         updatedPrivateKeyArmored = reEncryptedKey.armor();
       }
-      const updatedPublicKeyArmored = privateKey.toPublic().armor();
+
+      // Re-encrypt subkeys with their respective passwords
+      if (subkeyPassphrases.size > 0) {
+        const keyToReEncrypt = await openpgp.readPrivateKey({
+          armoredKey: updatedPrivateKeyArmored,
+        });
+        const subkeys = keyToReEncrypt.getSubkeys();
+
+        for (const [subkeyIndex, passphrase] of subkeyPassphrases) {
+          if (subkeys[subkeyIndex] && subkeys[subkeyIndex].isDecrypted()) {
+            await subkeys[subkeyIndex].keyPacket.encrypt(passphrase);
+          }
+        }
+
+        updatedPrivateKeyArmored = keyToReEncrypt.armor();
+      }
 
       await updateKeyInIndexeddb(user.id, {
         privateKey: updatedPrivateKeyArmored,
@@ -2697,6 +3311,69 @@ export default function App() {
           privateKey,
           passphrase: currentPassword,
         });
+      }
+
+      // Decrypt all encrypted subkeys
+      const subkeys = privateKey.getSubkeys();
+      const subkeyPassphrases = new Map(); // Store subkey passphrases for re-encryption
+
+      let primaryPassword;
+      const triedPasswords = new Set();
+
+      // Prime it with the primary key password
+      if (primaryPassword) {
+        triedPasswords.add(primaryPassword);
+      }
+
+      for (let i = 0; i < subkeys.length; i++) {
+        const subkey = subkeys[i];
+        if (await subkey.isRevoked()) continue;
+        if (subkey.isDecrypted()) continue; // top‑level guard
+
+        setsubkeyGlobalIndex(i);
+        let subkeyPass = null;
+
+        // Try every password we've already got cached
+        for (const pass of triedPasswords) {
+          if (subkey.isDecrypted()) break;
+          try {
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+            break;
+          } catch (err) {
+            // if it's "already decrypted", treat as success
+            if (/already decrypted/i.test(err.message)) {
+              subkeyPass = pass;
+              break;
+            }
+            // else wrong pass, keep going
+          }
+        }
+
+        // If we still haven't unlocked, prompt the user
+        if (!subkeyPass) {
+          try {
+            const pass = await triggerSubkeyPasswordModal(subkey);
+            triedPasswords.add(pass);
+
+            if (!subkey.isDecrypted()) {
+              await subkey.keyPacket.decrypt(pass);
+            }
+            subkeyPass = pass;
+          } catch (err) {
+            addToast({
+              title: "Failed to decrypt subkey",
+              color: "danger",
+            });
+            console.error(`Failed to decrypt subkey ${i}:`, err);
+            return;
+          }
+        }
+
+        // Store the passphrase we ended up using
+        subkeyPassphrases.set(i, subkeyPass);
       }
 
       // Preserve subkey revocations BEFORE modification
@@ -2780,6 +3457,22 @@ export default function App() {
           passphrase: currentPassword,
         });
         updatedPrivateArmored = reEncryptedKey.armor();
+      }
+
+      // Re-encrypt subkeys with their respective passwords
+      if (subkeyPassphrases.size > 0) {
+        const keyToReEncrypt = await openpgp.readPrivateKey({
+          armoredKey: updatedPrivateArmored,
+        });
+        const subkeys = keyToReEncrypt.getSubkeys();
+
+        for (const [subkeyIndex, passphrase] of subkeyPassphrases) {
+          if (subkeys[subkeyIndex] && subkeys[subkeyIndex].isDecrypted()) {
+            await subkeys[subkeyIndex].keyPacket.encrypt(passphrase);
+          }
+        }
+
+        updatedPrivateArmored = keyToReEncrypt.armor();
       }
 
       await updateKeyInIndexeddb(user.id, {
@@ -3196,6 +3889,15 @@ export default function App() {
       // Re‑armor both private and public full keys
       let newPrivateArmored = primaryKey.armor();
       let newPublicArmored = primaryKey.toPublic().armor();
+
+      // Re-encryption if needed
+      if (currentPassword !== null) {
+        const reProtected = await openpgp.encryptKey({
+          privateKey: primaryKey,
+          passphrase: currentPassword,
+        });
+        newPrivateArmored = reProtected.armor();
+      }
 
       await updateKeyInIndexeddb(selectedUserId.id, {
         privateKey: newPrivateArmored,
