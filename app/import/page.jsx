@@ -180,7 +180,7 @@ export default function ImportKeyPage() {
         <span className="text-center text-sm text-gray-300 sm:mt-3">Or</span>
 
         <Button
-          className="w-full sm:w-1/2 border-0"
+          className="w-full sm:w-1/2 border-0 hover:bg-[#3F3F46]"
           variant="faded"
           onPress={() => setIsModalOpen(true)}
         >

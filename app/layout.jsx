@@ -109,10 +109,6 @@ export default async function RootLayout({ children }) {
                     toastProps={{
                       timeout: 4000,
                       shouldShowTimeoutProgress: true,
-                      classNames: {
-                        closeButton:
-                          "opacity-100 absolute right-4 top-1/2 -translate-y-1/2",
-                      },
                     }}
                     toastOffset={30}
                     placement={"top-right"}
