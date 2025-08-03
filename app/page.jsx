@@ -52,6 +52,10 @@ import KeyServer from "@/components/keyserver";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
 import * as openpgp from "openpgp";
+import {
+  PasswordStatus,
+  usePasswordProtection,
+} from "@/context/password-protection";
 
 const statusColorMap = {
   active: "success",
@@ -488,46 +492,85 @@ const processKey = async (key) => {
 };
 
 const loadKeysFromIndexedDB = async () => {
+  console.log("loadKeysFromIndexedDB called");
   const db = await openDB();
-  const encryptionKey = await getEncryptionKey();
+  console.log("Database opened for key loading");
 
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(dbPgpKeys, "readonly");
-    const store = transaction.objectStore(dbPgpKeys);
-    const encryptedRecords = [];
-    const request = store.openCursor();
+  try {
+    console.log("Getting encryption key...");
+    const encryptionKey = await getEncryptionKey();
+    console.log("Encryption key retrieved successfully");
 
-    request.onsuccess = async (e) => {
-      const cursor = e.target.result;
-      if (cursor) {
-        encryptedRecords.push(cursor.value);
-        cursor.continue();
-      } else {
-        try {
-          const decryptedKeys = await Promise.all(
-            encryptedRecords.map(async (record) => {
-              return await decryptData(
-                record.encrypted,
-                encryptionKey,
-                record.iv
-              );
-            })
-          );
-          const processedKeys = await Promise.all(
-            decryptedKeys.map(processKey)
-          );
-          resolve(processedKeys.filter((key) => key !== null));
-        } catch (error) {
-          reject(error);
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(dbPgpKeys, "readonly");
+      const store = transaction.objectStore(dbPgpKeys);
+      const encryptedRecords = [];
+      const request = store.openCursor();
+
+      request.onsuccess = async (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+          encryptedRecords.push(cursor.value);
+          cursor.continue();
+        } else {
+          console.log(`Found ${encryptedRecords.length} encrypted records`);
+          console.log("Sample record structure:", {
+            id: encryptedRecords[0]?.id,
+            hasEncrypted: !!encryptedRecords[0]?.encrypted,
+            hasIv: !!encryptedRecords[0]?.iv,
+            encryptedLength: encryptedRecords[0]?.encrypted?.length,
+            ivLength: encryptedRecords[0]?.iv?.length,
+          });
+
+          try {
+            const decryptedKeys = await Promise.all(
+              encryptedRecords.map(async (record, index) => {
+                console.log(
+                  `Decrypting record ${index + 1}/${encryptedRecords.length}`
+                );
+                return await decryptData(
+                  record.encrypted,
+                  encryptionKey,
+                  record.iv
+                );
+              })
+            );
+            console.log(`Decrypted ${decryptedKeys.length} keys`);
+            const processedKeys = await Promise.all(
+              decryptedKeys.map(processKey)
+            );
+            const filteredKeys = processedKeys.filter((key) => key !== null);
+            console.log(`Processed ${filteredKeys.length} keys`);
+            resolve(filteredKeys);
+          } catch (error) {
+            console.error("Error processing keys:", error);
+            reject(error);
+          }
         }
-      }
-    };
+      };
 
-    request.onerror = (e) => reject(e.target.error);
-  });
+      request.onerror = (e) => {
+        console.error("Error reading from database:", e.target.error);
+        reject(e.target.error);
+      };
+    });
+  } catch (error) {
+    // If we can't get the encryption key (e.g., password protection enabled but not verified)
+    // Return an empty array instead of throwing an error
+    console.warn(
+      "Could not load keys due to encryption key access:",
+      error.message
+    );
+    return [];
+  }
 };
 
 export default function App() {
+  const {
+    isUnlocked,
+    isLoading: isPasswordLoading,
+    forcePasswordVerification,
+  } = usePasswordProtection();
   const [filterValue, setFilterValue] = useState("");
   const [users, setUsers] = useState([]);
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -1165,13 +1208,39 @@ export default function App() {
   };
 
   useEffect(() => {
+    console.log("Password protection state:", {
+      isPasswordLoading,
+      isUnlocked,
+    });
+
+    // Only fetch keys when password protection is ready and unlocked
+    if (isPasswordLoading || !isUnlocked) {
+      console.log("Skipping key fetch - password protection not ready", {
+        isPasswordLoading,
+        isUnlocked,
+      });
+      return;
+    }
+
+    console.log("Password protection ready, proceeding with key fetch");
     const fetchKeys = async () => {
+      console.log("Fetching keys...");
       setIsLoading(true);
       try {
         const pgpKeys = await loadKeysFromIndexedDB();
+        console.log("Keys loaded successfully:", pgpKeys.length);
         setUsers(pgpKeys);
       } catch (error) {
         console.error("Error loading keys:", error);
+        // If there's an error loading keys due to password protection,
+        // we might need to refresh the password protection state
+        if (
+          error.message.includes("Password-protected key requires verification")
+        ) {
+          console.log("Password verification required, keys cannot be loaded");
+          // Force password verification when keys can't be loaded
+          forcePasswordVerification();
+        }
       } finally {
         setIsLoading(false);
       }
@@ -1193,7 +1262,7 @@ export default function App() {
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  }, [isPasswordLoading, isUnlocked, forcePasswordVerification]);
 
   const filteredItems = useMemo(() => {
     let filteredUsers = [...users];
@@ -4334,7 +4403,7 @@ export default function App() {
 
   const bottomContent = useMemo(() => {
     return (
-      <div className="py-2 px-2 flex justify-between items-center">
+      <div className="py-12 px-2 flex justify-between items-center">
         <Pagination
           isCompact
           showControls
@@ -4344,6 +4413,9 @@ export default function App() {
           total={pages}
           onChange={setPage}
         />
+        <div className="sm:absolute sm:left-1/2 sm:transform sm:-translate-x-1/2">
+          <PasswordStatus />
+        </div>
         <div className="hidden sm:flex w-[30%] justify-end gap-2">
           <Button
             isDisabled={pages === 1}
