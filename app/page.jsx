@@ -48,14 +48,11 @@ import {
 } from "@/lib/indexeddb";
 import { today, getLocalTimeZone, CalendarDate } from "@internationalized/date";
 import { NProgressLink } from "@/components/nprogress";
+import { PasswordStatus } from "@/context/password-protection";
 import KeyServer from "@/components/keyserver";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
 import * as openpgp from "openpgp";
-import {
-  PasswordStatus,
-  usePasswordProtection,
-} from "@/context/password-protection";
 
 const statusColorMap = {
   active: "success",
@@ -491,86 +488,57 @@ const processKey = async (key) => {
   };
 };
 
-const loadKeysFromIndexedDB = async () => {
-  console.log("loadKeysFromIndexedDB called");
+const loadKeysFromIndexedDB = async (offset = 0, limit = 1000) => {
   const db = await openDB();
-  console.log("Database opened for key loading");
+  const encryptionKey = await getEncryptionKey();
 
-  try {
-    console.log("Getting encryption key...");
-    const encryptionKey = await getEncryptionKey();
-    console.log("Encryption key retrieved successfully");
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(dbPgpKeys, "readonly");
+    const store = transaction.objectStore(dbPgpKeys);
+    let results = [];
+    let skipped = 0;
+    const request = store.openCursor();
 
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(dbPgpKeys, "readonly");
-      const store = transaction.objectStore(dbPgpKeys);
-      const encryptedRecords = [];
-      const request = store.openCursor();
+    const finish = async () => {
+      try {
+        const decryptedKeys = await Promise.all(
+          results.map((record) =>
+            decryptData(record.encrypted, encryptionKey, record.iv)
+          )
+        );
+        const processedKeys = await Promise.all(decryptedKeys.map(processKey));
+        resolve(processedKeys.filter((key) => key !== null));
+      } catch (err) {
+        reject(err);
+      }
+    };
 
-      request.onsuccess = async (e) => {
-        const cursor = e.target.result;
-        if (cursor) {
-          encryptedRecords.push(cursor.value);
+    request.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        if (skipped < offset) {
+          skipped++;
+          cursor.continue();
+          return;
+        }
+        results.push(cursor.value);
+        if (results.length < limit) {
           cursor.continue();
         } else {
-          console.log(`Found ${encryptedRecords.length} encrypted records`);
-          console.log("Sample record structure:", {
-            id: encryptedRecords[0]?.id,
-            hasEncrypted: !!encryptedRecords[0]?.encrypted,
-            hasIv: !!encryptedRecords[0]?.iv,
-            encryptedLength: encryptedRecords[0]?.encrypted?.length,
-            ivLength: encryptedRecords[0]?.iv?.length,
-          });
-
-          try {
-            const decryptedKeys = await Promise.all(
-              encryptedRecords.map(async (record, index) => {
-                console.log(
-                  `Decrypting record ${index + 1}/${encryptedRecords.length}`
-                );
-                return await decryptData(
-                  record.encrypted,
-                  encryptionKey,
-                  record.iv
-                );
-              })
-            );
-            console.log(`Decrypted ${decryptedKeys.length} keys`);
-            const processedKeys = await Promise.all(
-              decryptedKeys.map(processKey)
-            );
-            const filteredKeys = processedKeys.filter((key) => key !== null);
-            console.log(`Processed ${filteredKeys.length} keys`);
-            resolve(filteredKeys);
-          } catch (error) {
-            console.error("Error processing keys:", error);
-            reject(error);
-          }
+          finish();
         }
-      };
+      } else {
+        finish();
+      }
+    };
 
-      request.onerror = (e) => {
-        console.error("Error reading from database:", e.target.error);
-        reject(e.target.error);
-      };
-    });
-  } catch (error) {
-    // If we can't get the encryption key (e.g., password protection enabled but not verified)
-    // Return an empty array instead of throwing an error
-    console.warn(
-      "Could not load keys due to encryption key access:",
-      error.message
-    );
-    return [];
-  }
+    request.onerror = (e) => {
+      reject(e.target.error);
+    };
+  });
 };
 
 export default function App() {
-  const {
-    isUnlocked,
-    isLoading: isPasswordLoading,
-    forcePasswordVerification,
-  } = usePasswordProtection();
   const [filterValue, setFilterValue] = useState("");
   const [users, setUsers] = useState([]);
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -653,6 +621,34 @@ export default function App() {
 
   useEffect(() => {
     openDB();
+  }, []);
+
+  useEffect(() => {
+    const fetchKeys = async () => {
+      setIsLoading(true);
+      try {
+        const pgpKeys = await loadKeysFromIndexedDB();
+        setUsers(pgpKeys);
+      } catch {}
+      setIsLoading(false);
+    };
+
+    fetchKeys();
+
+    const handleStorageChange = async () => {
+      setIsLoading(true);
+      try {
+        const updatedKeys = await loadKeysFromIndexedDB();
+        setUsers(updatedKeys);
+      } catch (error) {
+        console.error("Error loading keys:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const [isVisible, setIsVisible] = useState(false);
@@ -1207,63 +1203,6 @@ export default function App() {
     );
   };
 
-  useEffect(() => {
-    console.log("Password protection state:", {
-      isPasswordLoading,
-      isUnlocked,
-    });
-
-    // Only fetch keys when password protection is ready and unlocked
-    if (isPasswordLoading || !isUnlocked) {
-      console.log("Skipping key fetch - password protection not ready", {
-        isPasswordLoading,
-        isUnlocked,
-      });
-      return;
-    }
-
-    console.log("Password protection ready, proceeding with key fetch");
-    const fetchKeys = async () => {
-      console.log("Fetching keys...");
-      setIsLoading(true);
-      try {
-        const pgpKeys = await loadKeysFromIndexedDB();
-        console.log("Keys loaded successfully:", pgpKeys.length);
-        setUsers(pgpKeys);
-      } catch (error) {
-        console.error("Error loading keys:", error);
-        // If there's an error loading keys due to password protection,
-        // we might need to refresh the password protection state
-        if (
-          error.message.includes("Password-protected key requires verification")
-        ) {
-          console.log("Password verification required, keys cannot be loaded");
-          // Force password verification when keys can't be loaded
-          forcePasswordVerification();
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchKeys();
-
-    const handleStorageChange = async () => {
-      setIsLoading(true);
-      try {
-        const updatedKeys = await loadKeysFromIndexedDB();
-        setUsers(updatedKeys);
-      } catch (error) {
-        console.error("Error loading keys:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, [isPasswordLoading, isUnlocked, forcePasswordVerification]);
-
   const filteredItems = useMemo(() => {
     let filteredUsers = [...users];
 
@@ -1392,7 +1331,7 @@ export default function App() {
     setpublicKeyModal(true);
   };
 
-  const backupKeyring = async (user, password = null) => {
+  const backupKeyring = async (user) => {
     try {
       const keyid = user.keyid.replace(/\s/g, "");
 
@@ -2436,7 +2375,7 @@ export default function App() {
         try {
           currentSubkeyPassphrase =
             await triggerSubkeyPasswordModal(selectedSubkey);
-        } catch (err) {
+        } catch {
           return;
         }
       }
@@ -2642,7 +2581,7 @@ export default function App() {
         try {
           currentSubkeyPassphrase =
             await triggerSubkeyPasswordModal(selectedSubkey);
-        } catch (err) {
+        } catch {
           return;
         }
       }
@@ -4206,7 +4145,7 @@ export default function App() {
         try {
           currentSubkeyPassphrase =
             await triggerSubkeyPasswordModal(selectedSubkey);
-        } catch (err) {
+        } catch {
           return;
         }
       }

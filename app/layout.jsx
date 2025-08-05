@@ -100,6 +100,14 @@ export default async function RootLayout({ children }) {
         >
           <JsonLd item={websiteSchema} />
           <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
+            <ToastProvider
+              toastProps={{
+                timeout: 4000,
+                shouldShowTimeoutProgress: true,
+              }}
+              toastOffset={30}
+              placement={"top-right"}
+            />
             <AppUpdater />
             <VaultProvider>
               <PasswordProtectionProvider>
@@ -109,14 +117,6 @@ export default async function RootLayout({ children }) {
                   <div className="relative flex flex-col h-screen">
                     <Navbar />
                     <main className="container mx-auto max-w-7xl pt-6 px-6 flex-grow">
-                      <ToastProvider
-                        toastProps={{
-                          timeout: 4000,
-                          shouldShowTimeoutProgress: true,
-                        }}
-                        toastOffset={30}
-                        placement={"top-right"}
-                      />
                       {children}
                       <GoogleAnalytics gaId="G-EJ067X6M97" />
                     </main>

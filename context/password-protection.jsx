@@ -72,7 +72,7 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
       setPassword("");
       setConfirmPassword("");
       onClose();
-    } catch (error) {
+    } catch {
       setError("Failed to set password. Please try again.");
     } finally {
       setIsLoading(false);
@@ -103,8 +103,11 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
             </p>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Password</label>
+              <label htmlFor="password" className="text-sm font-medium">
+                Password
+              </label>
               <Input
+                id="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
                 value={password}
@@ -126,8 +129,11 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Confirm Password</label>
+              <label htmlFor="confirmPassword" className="text-sm font-medium">
+                Confirm Password
+              </label>
               <Input
+                id="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Confirm your password"
                 value={confirmPassword}
@@ -153,8 +159,8 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
             <div className="bg-danger-50 dark:bg-danger-200/20 p-3 rounded-lg">
               <p className="text-danger-700 dark:text-danger-500 text-sm">
                 <strong>Important:</strong> Make sure to remember this password.
-                If you forget it, you won't be able to access your encrypted
-                data.
+                If you forget it, you won&apos;t be able to access your
+                encrypted data.
               </p>
             </div>
           </div>
@@ -193,26 +199,20 @@ const PasswordUnlockModal = ({
     setError("");
     setIsLoading(true);
 
-    try {
-      await onPasswordVerified(password);
+    const result = await onPasswordVerified(password);
+    if (result.success) {
       setPassword("");
       onClose();
-    } catch (error) {
-      setError("Incorrect password. Please try again.");
+    } else {
       addToast({
         title: "Incorrect password",
         color: "danger",
       });
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
-  const handleClose = () => {
-    setPassword("");
-    setError("");
-    onClose();
-  };
+  // Remove the handleClose function since we don't want to allow closing
 
   const handleDeleteData = async () => {
     try {
@@ -228,9 +228,9 @@ const PasswordUnlockModal = ({
     <>
       <Modal
         isOpen={isOpen}
-        onClose={handleClose}
         size="md"
         isDismissable={false}
+        hideCloseButton={true}
       >
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
@@ -247,8 +247,11 @@ const PasswordUnlockModal = ({
               </p>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Password</label>
+                <label htmlFor="unlockPassword" className="text-sm font-medium">
+                  Password
+                </label>
                 <Input
+                  id="unlockPassword"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
@@ -271,7 +274,6 @@ const PasswordUnlockModal = ({
                       )}
                     </button>
                   }
-                  autoFocus
                 />
               </div>
 
@@ -323,16 +325,23 @@ const PasswordRemoveModal = ({ isOpen, onClose, onPasswordVerified }) => {
     setIsLoading(true);
 
     try {
-      await onPasswordVerified(password);
-      setPassword("");
-      onClose();
+      const result = await onPasswordVerified(password);
+      if (result && result.success) {
+        setPassword("");
+        onClose();
+      } else {
+        addToast({
+          title: "Incorrect password",
+          color: "danger",
+        });
+        setIsLoading(false);
+      }
     } catch (error) {
-      setError("Incorrect password. Please try again.");
+      console.error("Password verification error:", error);
       addToast({
         title: "Incorrect password",
         color: "danger",
       });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -360,8 +369,11 @@ const PasswordRemoveModal = ({ isOpen, onClose, onPasswordVerified }) => {
             </p>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Current Password</label>
+              <label htmlFor="removePassword" className="text-sm font-medium">
+                Current Password
+              </label>
               <Input
+                id="removePassword"
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your current password"
                 value={password}
@@ -384,7 +396,6 @@ const PasswordRemoveModal = ({ isOpen, onClose, onPasswordVerified }) => {
                     )}
                   </button>
                 }
-                autoFocus
               />
             </div>
 
@@ -430,7 +441,7 @@ const DeleteDataModal = ({ isOpen, onClose, onDeleteData }) => {
       await onDeleteData();
       setConfirmationText("");
       onClose();
-    } catch (error) {
+    } catch {
       setError("Failed to delete data. Please try again.");
     } finally {
       setIsLoading(false);
@@ -462,10 +473,11 @@ const DeleteDataModal = ({ isOpen, onClose, onDeleteData }) => {
             </p>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Type "DeleteMyData" to confirm
+              <label htmlFor="confirmationText" className="text-sm font-medium">
+                Type &quot;DeleteMyData&quot; to confirm
               </label>
               <Input
+                id="confirmationText"
                 type="text"
                 placeholder="Type DeleteMyData"
                 value={confirmationText}
@@ -475,7 +487,6 @@ const DeleteDataModal = ({ isOpen, onClose, onDeleteData }) => {
                     handleDelete();
                   }
                 }}
-                autoFocus
               />
             </div>
 
@@ -509,12 +520,7 @@ const DeleteDataModal = ({ isOpen, onClose, onDeleteData }) => {
 };
 
 const PasswordStatus = () => {
-  const {
-    isProtected,
-    setPassword,
-    removePassword,
-    refreshPasswordProtection,
-  } = usePasswordProtection();
+  const { isProtected, setPassword, removePassword } = usePasswordProtection();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const {
     isOpen: isRemoveOpen,
@@ -536,7 +542,7 @@ const PasswordStatus = () => {
     setIsLoading(true);
     try {
       await removePassword(password);
-    } catch (error) {
+    } catch {
       throw new Error("Invalid password");
     } finally {
       setIsLoading(false);
@@ -623,6 +629,7 @@ export const PasswordProtectionProvider = ({ children }) => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [appPassword, setAppPassword] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const {
     isOpen: isUnlockOpen,
     onOpen: onUnlockOpen,
@@ -637,17 +644,15 @@ export const PasswordProtectionProvider = ({ children }) => {
         setIsProtected(hasPassword);
 
         if (hasPassword) {
-          // Check if we have a valid session
           const sessionValid = isSessionValid();
 
           if (sessionValid) {
-            // Additional check: verify that we actually have the decrypted key
             const decryptedKey = getDecryptedMainKey();
 
             if (decryptedKey) {
               setIsUnlocked(true);
+              setRefreshKey((prev) => prev + 1);
             } else {
-              // Session is valid but no decrypted key - this is an inconsistent state
               sessionStorage.removeItem("appPasswordKey");
               clearDecryptedMainKey();
               onUnlockOpen();
@@ -664,9 +669,11 @@ export const PasswordProtectionProvider = ({ children }) => {
         } else {
           // If no password, app is ready
           setIsUnlocked(true);
+          setRefreshKey((prev) => prev + 1);
         }
-      } catch (error) {
+      } catch {
         setIsUnlocked(true); // Fallback to unlocked state
+        setRefreshKey((prev) => prev + 1);
       } finally {
         setIsLoading(false);
       }
@@ -697,6 +704,7 @@ export const PasswordProtectionProvider = ({ children }) => {
       await storeAppPasswordInMemory(password);
       setIsProtected(true);
       setIsUnlocked(true);
+      setRefreshKey((prev) => prev + 1);
       // The session is now valid since we just set the password
       sessionStorage.setItem("appPasswordKey", "true");
 
@@ -710,7 +718,7 @@ export const PasswordProtectionProvider = ({ children }) => {
       if (!decryptedKey) {
         throw new Error("Failed to store decrypted key");
       }
-    } catch (error) {
+    } catch {
       // Clear any partial state
       sessionStorage.removeItem("appPasswordKey");
       clearDecryptedMainKey();
@@ -722,15 +730,15 @@ export const PasswordProtectionProvider = ({ children }) => {
 
   const handleRemovePassword = async (password) => {
     try {
-      // First verify the password
       await verifyAppPassword(password);
-      // Then remove the password protection
       await removeAppPassword();
       clearAppPasswordFromMemory();
       setIsProtected(false);
       setIsUnlocked(true);
-    } catch (error) {
-      throw new Error("Invalid password");
+      setRefreshKey((prev) => prev + 1);
+      return { success: true };
+    } catch {
+      return { success: false };
     }
   };
 
@@ -739,17 +747,15 @@ export const PasswordProtectionProvider = ({ children }) => {
       await verifyAppPassword(password);
       await storeAppPasswordInMemory(password);
 
-      // Ensure session is properly set
       sessionStorage.setItem("appPasswordKey", "true");
 
-      // Verify session is valid
       if (!isSessionValid()) {
         throw new Error(
           "Failed to establish session after password verification"
         );
       }
 
-      // Verify the decrypted key is available
+      // Verify the decrypted main key
       const decryptedKey = getDecryptedMainKey();
       if (!decryptedKey) {
         throw new Error(
@@ -758,11 +764,12 @@ export const PasswordProtectionProvider = ({ children }) => {
       }
 
       setIsUnlocked(true);
-    } catch (error) {
-      // Clear any partial state
+      setRefreshKey((prev) => prev + 1);
+      return { success: true };
+    } catch {
       sessionStorage.removeItem("appPasswordKey");
       clearDecryptedMainKey();
-      throw new Error("Invalid password");
+      return { success: false };
     }
   };
 
@@ -772,7 +779,8 @@ export const PasswordProtectionProvider = ({ children }) => {
       clearAppPasswordFromMemory();
       setIsProtected(false);
       setIsUnlocked(true);
-    } catch (error) {
+      setRefreshKey((prev) => prev + 1);
+    } catch {
       throw new Error("Failed to delete data");
     }
   };
@@ -781,6 +789,7 @@ export const PasswordProtectionProvider = ({ children }) => {
     isProtected,
     isUnlocked,
     isLoading,
+    refreshKey,
     setPassword: handleSetPassword,
     removePassword: handleRemovePassword,
     verifyPassword: handlePasswordVerified,
@@ -799,6 +808,7 @@ export const PasswordProtectionProvider = ({ children }) => {
               const sessionValid = isSessionValid();
               if (sessionValid) {
                 setIsUnlocked(true);
+                setRefreshKey((prev) => prev + 1);
               } else {
                 sessionStorage.removeItem("appPasswordKey");
                 clearDecryptedMainKey();
@@ -806,9 +816,11 @@ export const PasswordProtectionProvider = ({ children }) => {
               }
             } else {
               setIsUnlocked(true);
+              setRefreshKey((prev) => prev + 1);
             }
-          } catch (error) {
+          } catch {
             setIsUnlocked(true);
+            setRefreshKey((prev) => prev + 1);
           } finally {
             setIsLoading(false);
           }
@@ -837,16 +849,8 @@ export const PasswordProtectionProvider = ({ children }) => {
     },
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Spinner size="lg" className="mx-auto mb-4" />
-          <p className="text-sm text-default-500">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // Don't render loading state here since PasswordProtectionWrapper handles it
+  // This ensures the layout and metadata are always preserved
 
   return (
     <PasswordProtectionContext.Provider value={value}>
