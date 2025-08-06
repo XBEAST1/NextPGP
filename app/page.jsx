@@ -4342,7 +4342,7 @@ export default function App() {
 
   const bottomContent = useMemo(() => {
     return (
-      <div className="py-12 px-2 flex justify-between items-center">
+      <div className="px-2 flex justify-between items-center py-2 sm:py-12 flex-col sm:flex-row gap-2 sm:gap-0">
         <Pagination
           isCompact
           showControls
@@ -4352,7 +4352,7 @@ export default function App() {
           total={pages}
           onChange={setPage}
         />
-        <div className="sm:absolute sm:left-1/2 sm:transform sm:-translate-x-1/2">
+        <div className="w-full flex justify-center mt-3 sm:mt-0 sm:absolute sm:left-1/2 sm:transform sm:-translate-x-1/2 sm:w-auto">
           <PasswordStatus />
         </div>
         <div className="hidden sm:flex w-[30%] justify-end gap-2">

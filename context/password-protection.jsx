@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 import {
   Modal,
   ModalContent,
@@ -112,6 +112,11 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    document.getElementById("confirmPassword")?.focus();
+                  }
+                }}
                 endContent={
                   <button
                     type="button"
@@ -138,6 +143,11 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
                 placeholder="Confirm your password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSubmit();
+                  }
+                }}
                 endContent={
                   <button
                     type="button"
@@ -172,9 +182,9 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
           <Button
             color="primary"
             onPress={handleSubmit}
-            isLoading={isLoading}
             isDisabled={!password || !confirmPassword}
           >
+            {isLoading && <Spinner size="sm" color="white" className="mr-2" />}
             Set Password
           </Button>
         </ModalFooter>
@@ -192,27 +202,25 @@ const PasswordUnlockModal = ({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const passwordInputRef = useRef(null);
 
   const handleSubmit = async () => {
-    setError("");
     setIsLoading(true);
 
     const result = await onPasswordVerified(password);
     if (result.success) {
       setPassword("");
+      setIsLoading(false);
       onClose();
     } else {
       addToast({
         title: "Incorrect password",
         color: "danger",
       });
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
-
-  // Remove the handleClose function since we don't want to allow closing
 
   const handleDeleteData = async () => {
     try {
@@ -223,6 +231,15 @@ const PasswordUnlockModal = ({
       console.error("Error deleting data:", error);
     }
   };
+
+  useEffect(() => {
+    if (isOpen && passwordInputRef.current) {
+      const timer = setTimeout(() => {
+        passwordInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   return (
     <>
@@ -251,6 +268,7 @@ const PasswordUnlockModal = ({
                   Password
                 </label>
                 <Input
+                  ref={passwordInputRef}
                   id="unlockPassword"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
@@ -276,17 +294,17 @@ const PasswordUnlockModal = ({
                   }
                 />
               </div>
-
-              {error && <div className="text-danger text-sm">{error}</div>}
             </div>
           </ModalBody>
           <ModalFooter className="flex flex-col gap-3">
             <Button
               onPress={handleSubmit}
-              isLoading={isLoading}
               isDisabled={!password}
               className="w-full rounded-full"
             >
+              {isLoading && (
+                <Spinner size="sm" color="white" className="mr-2" />
+              )}
               Unlock
             </Button>
             <div className="mt-4 flex items-center justify-between">
@@ -324,20 +342,12 @@ const PasswordRemoveModal = ({ isOpen, onClose, onPasswordVerified }) => {
     setError("");
     setIsLoading(true);
 
-    try {
-      const result = await onPasswordVerified(password);
-      if (result && result.success) {
-        setPassword("");
-        onClose();
-      } else {
-        addToast({
-          title: "Incorrect password",
-          color: "danger",
-        });
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.error("Password verification error:", error);
+    const result = await onPasswordVerified(password);
+    if (result && result.success) {
+      setPassword("");
+      setIsLoading(false);
+      onClose();
+    } else {
       addToast({
         title: "Incorrect password",
         color: "danger",
@@ -414,12 +424,8 @@ const PasswordRemoveModal = ({ isOpen, onClose, onPasswordVerified }) => {
           <Button variant="flat" onPress={handleClose}>
             Cancel
           </Button>
-          <Button
-            color="danger"
-            onPress={handleSubmit}
-            isLoading={isLoading}
-            isDisabled={!password}
-          >
+          <Button color="danger" onPress={handleSubmit} isDisabled={!password}>
+            {isLoading && <Spinner size="sm" color="white" className="mr-2" />}
             Remove Password
           </Button>
         </ModalFooter>
@@ -508,9 +514,9 @@ const DeleteDataModal = ({ isOpen, onClose, onDeleteData }) => {
           <Button
             className="bg-danger-300 text-white"
             onPress={handleDelete}
-            isLoading={isLoading}
             isDisabled={!isDeleteEnabled}
           >
+            {isLoading && <Spinner size="sm" color="white" className="mr-2" />}
             Delete All Data
           </Button>
         </ModalFooter>
@@ -541,9 +547,10 @@ const PasswordStatus = () => {
   const handleRemovePassword = async (password) => {
     setIsLoading(true);
     try {
-      await removePassword(password);
+      const result = await removePassword(password);
+      return result;
     } catch {
-      throw new Error("Invalid password");
+      return { success: false };
     } finally {
       setIsLoading(false);
     }
@@ -551,7 +558,7 @@ const PasswordStatus = () => {
 
   return (
     <>
-      <Card className="w-full mt-16">
+      <Card className="w-60 mt-16">
         <CardHeader className="flex gap-3">
           <div className="flex items-center gap-2">
             {isProtected ? (
@@ -589,18 +596,18 @@ const PasswordStatus = () => {
                     variant="flat"
                     color="danger"
                     onPress={onRemoveOpen}
-                    isLoading={isLoading}
                   >
+                    {isLoading && (
+                      <Spinner size="sm" color="white" className="mr-2" />
+                    )}
                     Remove Password
                   </Button>
                 </>
               ) : (
-                <Button
-                  size="sm"
-                  color="default"
-                  onPress={onOpen}
-                  isLoading={isLoading}
-                >
+                <Button size="sm" color="default" onPress={onOpen}>
+                  {isLoading && (
+                    <Spinner size="sm" color="white" className="mr-2" />
+                  )}
                   Set Password
                 </Button>
               )}
@@ -628,7 +635,6 @@ export const PasswordProtectionProvider = ({ children }) => {
   const [isProtected, setIsProtected] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [appPassword, setAppPassword] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const {
     isOpen: isUnlockOpen,
@@ -647,7 +653,7 @@ export const PasswordProtectionProvider = ({ children }) => {
           const sessionValid = isSessionValid();
 
           if (sessionValid) {
-            const decryptedKey = getDecryptedMainKey();
+            const decryptedKey = await getDecryptedMainKey();
 
             if (decryptedKey) {
               setIsUnlocked(true);
@@ -682,26 +688,9 @@ export const PasswordProtectionProvider = ({ children }) => {
     checkPasswordProtection();
   }, [onUnlockOpen]);
 
-  // Store the app password in memory
-  const storeAppPasswordInMemory = async (password) => {
-    setAppPassword(password);
-  };
-
-  // Get the app password from memory
-  const getAppPassword = async () => {
-    return appPassword;
-  };
-
-  // Clear app password from memory
-  const clearAppPasswordFromMemory = () => {
-    setAppPassword(null);
-    clearDecryptedMainKey();
-  };
-
   const handleSetPassword = async (password) => {
     try {
       await setAppPasswordInDB(password);
-      await storeAppPasswordInMemory(password);
       setIsProtected(true);
       setIsUnlocked(true);
       setRefreshKey((prev) => prev + 1);
@@ -714,7 +703,7 @@ export const PasswordProtectionProvider = ({ children }) => {
       }
 
       // Verify the decrypted key is available
-      const decryptedKey = getDecryptedMainKey();
+      const decryptedKey = await getDecryptedMainKey();
       if (!decryptedKey) {
         throw new Error("Failed to store decrypted key");
       }
@@ -732,7 +721,7 @@ export const PasswordProtectionProvider = ({ children }) => {
     try {
       await verifyAppPassword(password);
       await removeAppPassword();
-      clearAppPasswordFromMemory();
+      clearDecryptedMainKey();
       setIsProtected(false);
       setIsUnlocked(true);
       setRefreshKey((prev) => prev + 1);
@@ -745,7 +734,6 @@ export const PasswordProtectionProvider = ({ children }) => {
   const handlePasswordVerified = async (password) => {
     try {
       await verifyAppPassword(password);
-      await storeAppPasswordInMemory(password);
 
       sessionStorage.setItem("appPasswordKey", "true");
 
@@ -756,7 +744,7 @@ export const PasswordProtectionProvider = ({ children }) => {
       }
 
       // Verify the decrypted main key
-      const decryptedKey = getDecryptedMainKey();
+      const decryptedKey = await getDecryptedMainKey();
       if (!decryptedKey) {
         throw new Error(
           "Failed to store decrypted key after password verification"
@@ -776,7 +764,7 @@ export const PasswordProtectionProvider = ({ children }) => {
   const handleDeleteAllData = async () => {
     try {
       await deleteAllData();
-      clearAppPasswordFromMemory();
+      clearDecryptedMainKey();
       setIsProtected(false);
       setIsUnlocked(true);
       setRefreshKey((prev) => prev + 1);
@@ -794,39 +782,9 @@ export const PasswordProtectionProvider = ({ children }) => {
     removePassword: handleRemovePassword,
     verifyPassword: handlePasswordVerified,
     deleteAllData: handleDeleteAllData,
-    getAppPassword,
-    refreshPasswordProtection: () => {
-      setIsLoading(true);
-      // Force a re-check of password protection status
-      setTimeout(() => {
-        const checkPasswordProtection = async () => {
-          try {
-            const hasPassword = await checkIfPasswordProtected();
-            setIsProtected(hasPassword);
 
-            if (hasPassword) {
-              const sessionValid = isSessionValid();
-              if (sessionValid) {
-                setIsUnlocked(true);
-                setRefreshKey((prev) => prev + 1);
-              } else {
-                sessionStorage.removeItem("appPasswordKey");
-                clearDecryptedMainKey();
-                onUnlockOpen();
-              }
-            } else {
-              setIsUnlocked(true);
-              setRefreshKey((prev) => prev + 1);
-            }
-          } catch {
-            setIsUnlocked(true);
-            setRefreshKey((prev) => prev + 1);
-          } finally {
-            setIsLoading(false);
-          }
-        };
-        checkPasswordProtection();
-      }, 100);
+    refreshPasswordProtection: () => {
+      setRefreshKey((prev) => prev + 1);
     },
     forcePasswordVerification: () => {
       sessionStorage.removeItem("appPasswordKey");
@@ -836,7 +794,7 @@ export const PasswordProtectionProvider = ({ children }) => {
     },
     logout: () => {
       sessionStorage.removeItem("appPasswordKey");
-      clearAppPasswordFromMemory();
+      clearDecryptedMainKey();
       setIsUnlocked(false);
       if (isProtected) {
         onUnlockOpen();
@@ -844,13 +802,10 @@ export const PasswordProtectionProvider = ({ children }) => {
     },
     clearSession: () => {
       sessionStorage.removeItem("appPasswordKey");
-      clearAppPasswordFromMemory();
+      clearDecryptedMainKey();
       setIsUnlocked(false);
     },
   };
-
-  // Don't render loading state here since PasswordProtectionWrapper handles it
-  // This ensures the layout and metadata are always preserved
 
   return (
     <PasswordProtectionContext.Provider value={value}>
