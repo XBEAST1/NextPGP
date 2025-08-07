@@ -128,38 +128,38 @@
 ├─ Generate 16-byte random salt
 ├─ Derive 32-byte key from password + salt using PBKDF2-SHA256 (1,000,000 iterations)
 ├─ Get or generate main encryption key (AES-GCM 256-bit)
-├─ Export main key to raw bytes
-├─ Encrypt main key with password-derived key:
+├─ Export main crypto key to raw bytes
+├─ Encrypt main crypto key with password-derived key:
 │   ├─ Generate 12-byte random IV
-│   ├─ Encrypt main key bytes with AES-GCM + IV
-│   └─ Store encrypted main key + IV + salt + password hash
+│   ├─ Encrypt main crypto key bytes with AES-GCM + IV
+│   └─ Store encrypted main crypto key + IV + salt + password hash
 ├─ Generate password hash for verification (SHA-256)
 ├─ Store in IndexedDB:
-│   ├─ encrypted: encrypted main key bytes
+│   ├─ encrypted: encrypted main crypto key bytes
 │   ├─ iv: 12-byte IV
 │   ├─ salt: 16-byte salt
 │   ├─ passwordHash: SHA-256 hash of password
 │   └─ isPasswordProtected: true
-└─ Store decrypted main key in memory (encrypted with temporary key)
+└─ Store decrypted main crypto key in memory (encrypted with temporary key)
 ```
 
 #### App Password Login
 ```
 ├─ User enters app password
-├─ Fetch encrypted main key record from IndexedDB
+├─ Fetch encrypted main crypto key record from IndexedDB
 ├─ Validate password protection is enabled
 ├─ Derive 32-byte key from password + stored salt using PBKDF2-SHA256 (1M iterations)
-├─ Decrypt main key:
+├─ Decrypt main crypto key:
 │   ├─ Use derived key + stored IV
-│   ├─ Decrypt encrypted main key bytes with AES-GCM
+│   ├─ Decrypt encrypted main crypto key bytes with AES-GCM
 │   └─ Import decrypted bytes as AES-GCM key
 ├─ Verify password by checking if decryption succeeds
 │   ├─ If successful → correct password → unlock app
 │   └─ If fails → incorrect password → show error
-├─ Store decrypted main key in memory:
+├─ Store decrypted main crypto key in memory:
 │   ├─ Generate temporary AES-GCM key
-│   ├─ Encrypt decrypted main key with temporary key
-│   ├─ Store encrypted main key + IV + temp key in memory
+│   ├─ Encrypt decrypted main crypto key with temporary key
+│   ├─ Store encrypted main crypto key + IV + temp key in memory
 │   └─ Set session flag in sessionStorage
 └─ App is now unlocked and can access PGP keys
 ```
@@ -167,14 +167,14 @@
 #### App Password Removal
 ```
 ├─ User removes password protection
-├─ Verify current password (requires decrypted main key in memory)
-├─ Generate new unencrypted main key (AES-GCM 256-bit)
+├─ Verify current password (requires decrypted main crypto key in memory)
+├─ Generate new unencrypted main crypto key (AES-GCM 256-bit)
 ├─ Re-encrypt all PGP keys:
-│   ├─ Decrypt each PGP key with old main key
-│   ├─ Re-encrypt with new main key + random IV
+│   ├─ Decrypt each PGP key with old main crypto key
+│   ├─ Re-encrypt with new main crypto key + random IV
 │   └─ Update IndexedDB with new encrypted data
-├─ Store new unencrypted main key in IndexedDB:
-│   ├─ key: raw main key bytes
+├─ Store new unencrypted main crypto key in IndexedDB:
+│   ├─ key: raw main crypto key bytes
 │   └─ isPasswordProtected: false
 └─ Clear password protection completely
 ```
@@ -184,7 +184,7 @@
 ├─ Temporary session validation
 ├─ Auto-clear on page refresh
 ├─ Generate temporary AES-GCM key for memory storage
-├─ Re-encrypt decrypted main key with temporary key
+├─ Re-encrypt decrypted main crypto key with temporary key
 ├─ Store in memory (encrypted)
 └─ No persistent sessions
 ```
@@ -359,31 +359,32 @@
 
 <h2>📸 Screenshots</h2>
 <h3>💻 PC</h3>
-<img width="410px" src="https://github.com/user-attachments/assets/fa9308c8-5d8a-45b2-b79a-138b7fbd95af" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/2ec2473c-2069-4a26-b94a-99059e6354ec" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/6de8f672-c0d2-402b-9366-8bf92878da53" alt="Image">
 <img width="410px" src="https://github.com/user-attachments/assets/9e1cd403-3fe8-40de-a3e0-7935cc99725a" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/45e823b0-2218-482d-9e7f-3ee46dd547dd" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/eff9e7f5-4c86-44ec-953b-0e48b60eb952" alt="Image"/>
 <img width="410px" src="https://github.com/user-attachments/assets/e57d92bf-1b33-41e3-a1ce-2a6b1d59aca9" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/1baaf5bf-86b3-473f-a3d1-fcc05b9ff1c5" alt="Image">
 <img width="410px" src="https://github.com/user-attachments/assets/04948ea5-2328-4b39-bc99-d6be931174cc" alt="Image">
 <img width="410px" src="https://github.com/user-attachments/assets/0a2dddf8-426b-4f23-adb7-e5790d2560e6" alt="Image">
 <img width="410px" src="https://github.com/user-attachments/assets/9cb0ebde-8b48-4187-a67e-ebd7fa4c6917" alt="Image">
 <img width="410px" src="https://github.com/user-attachments/assets/069f1832-cb55-4dd4-b12d-44c6e08f07e4" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/5da76bcd-7aff-4155-91ba-75888078f326" alt="Image">
-<img width="410px" src="https://github.com/user-attachments/assets/d7ef3ee9-bc1e-43f3-b27c-b2546d3d3dad" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/fa7203e4-78f4-4368-a8f9-08eeb5f380db" alt="Image">
+<img width="410px" src="https://github.com/user-attachments/assets/be31fc3a-29c5-484f-8c74-1749a15f4f04" alt="Image">
 
 <h3>📱 Mobile</h3>
-<img width="270px" src="https://github.com/user-attachments/assets/7ccdc959-a201-4ddf-8c51-9847d85f4858" alt="Image">
+<img width="270px" src="https://github.com/user-attachments/assets/4860225b-cc2b-48d9-9b38-e548d8a15d40" alt="Image">
+<img width="270px" src="https://github.com/user-attachments/assets/dc30d81f-5163-4caa-9a66-b9dce9c6e7df" alt="Image">
 <img width="270px" src="https://github.com/user-attachments/assets/d1215c2c-1327-4751-99a3-399701c3a7f6" alt="Image">
 <img width="270px" src="https://github.com/user-attachments/assets/cb0b3fee-38fb-445d-a80b-b5e1fbfe7b41" alt="Image">
 <img width="270px" src="https://github.com/user-attachments/assets/6a7c5b74-ccc4-429e-92b6-26f7385da6a3" alt="Image">
-<img width="270px" src="https://github.com/user-attachments/assets/d33cbaf2-0375-40ab-93da-69b6d3b9056c" alt="Image">
 <img width="270px" src="https://github.com/user-attachments/assets/59c378c0-834a-48fb-96d6-078cdaa98d93" alt="Image">
 <img width="270px" src="https://github.com/user-attachments/assets/b4759faa-dbb5-4043-9cc5-fbe7b0f0d67f" alt="Image">
 <img width="270px" src="https://github.com/user-attachments/assets/24c1c8d5-4f5f-4805-afa4-39293dcbe977" alt="Image">
 <img width="270px" src="https://github.com/user-attachments/assets/591f26f5-7274-44b1-9677-8379aa7cf38e" alt="Image">
 <img width="270px" src="https://github.com/user-attachments/assets/450bfa8f-9fb8-47d9-b23e-4c843a27f04b" alt="Image">
-<img width="270px" src="https://github.com/user-attachments/assets/da3adcc4-6d38-4f1e-b212-413fbd2f6a13" alt="Image">
-<img width="270px" src="https://github.com/user-attachments/assets/ebbe3a23-56d2-409c-914d-68bc76ba6da5" alt="Image">
-
+<img width="270px" src="https://github.com/user-attachments/assets/ed40eb19-80ac-4297-a480-5d1185a73600" alt="Image">
+<img width="270px" src="https://github.com/user-attachments/assets/6a7c704c-cbc3-4873-941f-2677005467e7" alt="Image">
 
 <h2>📝 License</h2>
 <p>This project is licensed under the <a href="LICENSE">GPL-3.0 license</a>.</p>
