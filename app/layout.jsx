@@ -109,16 +109,16 @@ export default async function RootLayout({ children }) {
               placement={"top-right"}
             />
             <AppUpdater />
+            <SpeedInsights />
+            <NavigationProgress />
+            <GoogleAnalytics gaId="G-EJ067X6M97" />
             <VaultProvider>
               <PasswordProtectionProvider>
                 <PasswordProtectionWrapper>
-                  <SpeedInsights />
-                  <NavigationProgress />
                   <div className="relative flex flex-col h-screen">
                     <Navbar />
                     <main className="container mx-auto max-w-7xl pt-6 px-6 flex-grow">
                       {children}
-                      <GoogleAnalytics gaId="G-EJ067X6M97" />
                     </main>
                     <br />
                     <footer className="w-full flex flex-col items-center justify-center py-3 gap-1 text-sm">

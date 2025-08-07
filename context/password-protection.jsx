@@ -54,6 +54,7 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const confirmPasswordRef = useRef(null);
 
   const handleSubmit = async () => {
     setError("");
@@ -71,6 +72,10 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
       await onPasswordSet(password);
       setPassword("");
       setConfirmPassword("");
+      addToast({
+        title: "Password set successfully",
+        color: "success",
+      });
       onClose();
     } catch {
       setError("Failed to set password. Please try again.");
@@ -114,7 +119,7 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    document.getElementById("confirmPassword")?.focus();
+                    confirmPasswordRef.current?.focus();
                   }
                 }}
                 endContent={
@@ -138,6 +143,7 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
                 Confirm Password
               </label>
               <Input
+                ref={confirmPasswordRef}
                 id="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Confirm your password"
@@ -346,6 +352,10 @@ const PasswordRemoveModal = ({ isOpen, onClose, onPasswordVerified }) => {
     if (result && result.success) {
       setPassword("");
       setIsLoading(false);
+      addToast({
+        title: "Password removed successfully",
+        color: "success",
+      });
       onClose();
     } else {
       addToast({
@@ -782,29 +792,6 @@ export const PasswordProtectionProvider = ({ children }) => {
     removePassword: handleRemovePassword,
     verifyPassword: handlePasswordVerified,
     deleteAllData: handleDeleteAllData,
-
-    refreshPasswordProtection: () => {
-      setRefreshKey((prev) => prev + 1);
-    },
-    forcePasswordVerification: () => {
-      sessionStorage.removeItem("appPasswordKey");
-      clearDecryptedMainKey();
-      setIsUnlocked(false);
-      onUnlockOpen();
-    },
-    logout: () => {
-      sessionStorage.removeItem("appPasswordKey");
-      clearDecryptedMainKey();
-      setIsUnlocked(false);
-      if (isProtected) {
-        onUnlockOpen();
-      }
-    },
-    clearSession: () => {
-      sessionStorage.removeItem("appPasswordKey");
-      clearDecryptedMainKey();
-      setIsUnlocked(false);
-    },
   };
 
   return (
@@ -821,10 +808,4 @@ export const PasswordProtectionProvider = ({ children }) => {
   );
 };
 
-export {
-  PasswordSetupModal,
-  PasswordUnlockModal,
-  PasswordRemoveModal,
-  DeleteDataModal,
-  PasswordStatus,
-};
+export { PasswordStatus };
