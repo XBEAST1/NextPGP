@@ -120,6 +120,90 @@
 
 ---
 
+<h2>📚 App Security Overview (Zero-Knowledge Architecture)</h2>
+
+#### App Password Protection Setup
+```
+├─ User sets app password
+├─ Generate 16-byte random salt
+├─ Derive 32-byte key from password + salt using PBKDF2-SHA256 (1,000,000 iterations)
+├─ Get or generate main encryption key (AES-GCM 256-bit)
+├─ Export main key to raw bytes
+├─ Encrypt main key with password-derived key:
+│   ├─ Generate 12-byte random IV
+│   ├─ Encrypt main key bytes with AES-GCM + IV
+│   └─ Store encrypted main key + IV + salt + password hash
+├─ Generate password hash for verification (SHA-256)
+├─ Store in IndexedDB:
+│   ├─ encrypted: encrypted main key bytes
+│   ├─ iv: 12-byte IV
+│   ├─ salt: 16-byte salt
+│   ├─ passwordHash: SHA-256 hash of password
+│   └─ isPasswordProtected: true
+└─ Store decrypted main key in memory (encrypted with temporary key)
+```
+
+#### App Password Login
+```
+├─ User enters app password
+├─ Fetch encrypted main key record from IndexedDB
+├─ Validate password protection is enabled
+├─ Derive 32-byte key from password + stored salt using PBKDF2-SHA256 (1M iterations)
+├─ Decrypt main key:
+│   ├─ Use derived key + stored IV
+│   ├─ Decrypt encrypted main key bytes with AES-GCM
+│   └─ Import decrypted bytes as AES-GCM key
+├─ Verify password by checking if decryption succeeds
+│   ├─ If successful → correct password → unlock app
+│   └─ If fails → incorrect password → show error
+├─ Store decrypted main key in memory:
+│   ├─ Generate temporary AES-GCM key
+│   ├─ Encrypt decrypted main key with temporary key
+│   ├─ Store encrypted main key + IV + temp key in memory
+│   └─ Set session flag in sessionStorage
+└─ App is now unlocked and can access PGP keys
+```
+
+#### App Password Removal
+```
+├─ User removes password protection
+├─ Verify current password (requires decrypted main key in memory)
+├─ Generate new unencrypted main key (AES-GCM 256-bit)
+├─ Re-encrypt all PGP keys:
+│   ├─ Decrypt each PGP key with old main key
+│   ├─ Re-encrypt with new main key + random IV
+│   └─ Update IndexedDB with new encrypted data
+├─ Store new unencrypted main key in IndexedDB:
+│   ├─ key: raw main key bytes
+│   └─ isPasswordProtected: false
+└─ Clear password protection completely
+```
+
+#### Session Management
+```
+├─ Temporary session validation
+├─ Auto-clear on page refresh
+├─ Generate temporary AES-GCM key for memory storage
+├─ Re-encrypt decrypted main key with temporary key
+├─ Store in memory (encrypted)
+└─ No persistent sessions
+```
+
+#### Data Protection
+```
+├─ PGP keys encrypted with AES-GCM + random IV
+├─ IndexedDB encryption with main crypto key
+└─ Zero-knowledge architecture (client-side only)
+```
+
+#### Security Features
+```
+├─ Web Crypto API for all operations
+├─ HTTPS enforcement
+├─ AES-GCM encryption for data protection
+└─ PBKDF2 key derivation for password protection
+```
+
 <h2>📚 Vault & Cloud Flow Overview (Zero-Knowledge Architecture)</h2>
 
 #### Vault Creation

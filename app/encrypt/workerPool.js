@@ -1,3 +1,5 @@
+"use client";
+
 // NextPGP uses navigator.hardwareConcurrency to optimize worker pool size.
 // This info never leaves the client and is used only for performance.
 

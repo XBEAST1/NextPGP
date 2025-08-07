@@ -1,3 +1,5 @@
+"use client";
+
 import * as openpgp from "openpgp";
 
 onmessage = async function (e) {

@@ -24,10 +24,7 @@ import Logo from "@/assets/Logo.png";
 import LogoLight from "@/assets/Logo-Light.png";
 
 export const Navbar = () => {
-  const [isMenuOpen, setIsMenuOpen] = useReducer(
-    (current) => !current,
-    false
-  );
+  const [isMenuOpen, setIsMenuOpen] = useReducer((current) => !current, false);
 
   const { theme } = useTheme();
 

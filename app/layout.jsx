@@ -12,6 +12,8 @@ import { SessionProvider } from "next-auth/react";
 import { NavigationProgress } from "@/components/nprogress";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { VaultProvider } from "@/context/VaultContext";
+import { PasswordProtectionProvider } from "@/context/password-protection";
+import PasswordProtectionWrapper from "@/components/password-protection-wrapper";
 import { ToastProvider } from "@heroui/toast";
 import { JsonLd } from "react-schemaorg";
 
@@ -98,54 +100,58 @@ export default async function RootLayout({ children }) {
         >
           <JsonLd item={websiteSchema} />
           <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
+            <ToastProvider
+              toastProps={{
+                timeout: 4000,
+                shouldShowTimeoutProgress: true,
+              }}
+              toastOffset={30}
+              placement={"top-right"}
+            />
             <AppUpdater />
+            <SpeedInsights />
+            <NavigationProgress />
+            <GoogleAnalytics gaId="G-EJ067X6M97" />
             <VaultProvider>
-              <SpeedInsights />
-              <NavigationProgress />
-              <div className="relative flex flex-col h-screen">
-                <Navbar />
-                <main className="container mx-auto max-w-7xl pt-6 px-6 flex-grow">
-                  <ToastProvider
-                    toastProps={{
-                      timeout: 4000,
-                      shouldShowTimeoutProgress: true,
-                    }}
-                    toastOffset={30}
-                    placement={"top-right"}
-                  />
-                  {children}
-                  <GoogleAnalytics gaId="G-EJ067X6M97" />
-                </main>
-                <br />
-                <footer className="w-full flex flex-col items-center justify-center py-3 gap-1 text-sm">
-                  <div className="flex items-center gap-1 text-current">
-                    <span className="text-default-400">Developed By</span>
-                    <a
-                      href="https://github.com/XBEAST1"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-default-800"
-                    >
-                      XBEAST 🖤✨
-                    </a>
+              <PasswordProtectionProvider>
+                <PasswordProtectionWrapper>
+                  <div className="relative flex flex-col h-screen">
+                    <Navbar />
+                    <main className="container mx-auto max-w-7xl pt-6 px-6 flex-grow">
+                      {children}
+                    </main>
+                    <br />
+                    <footer className="w-full flex flex-col items-center justify-center py-3 gap-1 text-sm">
+                      <div className="flex items-center gap-1 text-current">
+                        <span className="text-default-400">Developed By</span>
+                        <a
+                          href="https://github.com/XBEAST1"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-default-800"
+                        >
+                          XBEAST 🖤✨
+                        </a>
+                      </div>
+                      <div className="text-xs flex gap-3">
+                        <NProgressLink
+                          href="/privacy"
+                          className="text-default-400 hover:text-default-600 transition-all"
+                        >
+                          Privacy Policy
+                        </NProgressLink>
+                        <NProgressLink
+                          href="/terms"
+                          className="text-default-400 hover:text-default-600 transition-all"
+                        >
+                          Terms of Service
+                        </NProgressLink>
+                      </div>
+                    </footer>
+                    <br />
                   </div>
-                  <div className="text-xs flex gap-3">
-                    <NProgressLink
-                      href="/privacy"
-                      className="text-default-400 hover:text-default-600 transition-all"
-                    >
-                      Privacy Policy
-                    </NProgressLink>
-                    <NProgressLink
-                      href="/terms"
-                      className="text-default-400 hover:text-default-600 transition-all"
-                    >
-                      Terms of Service
-                    </NProgressLink>
-                  </div>
-                </footer>
-                <br />
-              </div>
+                </PasswordProtectionWrapper>
+              </PasswordProtectionProvider>
             </VaultProvider>
           </Providers>
         </body>

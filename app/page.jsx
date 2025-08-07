@@ -48,6 +48,7 @@ import {
 } from "@/lib/indexeddb";
 import { today, getLocalTimeZone, CalendarDate } from "@internationalized/date";
 import { NProgressLink } from "@/components/nprogress";
+import { PasswordStatus } from "@/context/password-protection";
 import KeyServer from "@/components/keyserver";
 import Keyring from "@/assets/Keyring.png";
 import Public from "@/assets/Public.png";
@@ -494,36 +495,36 @@ const loadKeysFromIndexedDB = async () => {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(dbPgpKeys, "readonly");
     const store = transaction.objectStore(dbPgpKeys);
-    const encryptedRecords = [];
+    let results = [];
     const request = store.openCursor();
 
-    request.onsuccess = async (e) => {
-      const cursor = e.target.result;
-      if (cursor) {
-        encryptedRecords.push(cursor.value);
-        cursor.continue();
-      } else {
-        try {
-          const decryptedKeys = await Promise.all(
-            encryptedRecords.map(async (record) => {
-              return await decryptData(
-                record.encrypted,
-                encryptionKey,
-                record.iv
-              );
-            })
-          );
-          const processedKeys = await Promise.all(
-            decryptedKeys.map(processKey)
-          );
-          resolve(processedKeys.filter((key) => key !== null));
-        } catch (error) {
-          reject(error);
-        }
+    const finish = async () => {
+      try {
+        const decryptedKeys = await Promise.all(
+          results.map((record) =>
+            decryptData(record.encrypted, encryptionKey, record.iv)
+          )
+        );
+        const processedKeys = await Promise.all(decryptedKeys.map(processKey));
+        resolve(processedKeys.filter((key) => key !== null));
+      } catch (err) {
+        reject(err);
       }
     };
 
-    request.onerror = (e) => reject(e.target.error);
+    request.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        results.push(cursor.value);
+        cursor.continue();
+      } else {
+        finish();
+      }
+    };
+
+    request.onerror = (e) => {
+      reject(e.target.error);
+    };
   });
 };
 
@@ -610,6 +611,34 @@ export default function App() {
 
   useEffect(() => {
     openDB();
+  }, []);
+
+  useEffect(() => {
+    const fetchKeys = async () => {
+      setIsLoading(true);
+      try {
+        const pgpKeys = await loadKeysFromIndexedDB();
+        setUsers(pgpKeys);
+      } catch {}
+      setIsLoading(false);
+    };
+
+    fetchKeys();
+
+    const handleStorageChange = async () => {
+      setIsLoading(true);
+      try {
+        const updatedKeys = await loadKeysFromIndexedDB();
+        setUsers(updatedKeys);
+      } catch (error) {
+        console.error("Error loading keys:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const [isVisible, setIsVisible] = useState(false);
@@ -1164,37 +1193,6 @@ export default function App() {
     );
   };
 
-  useEffect(() => {
-    const fetchKeys = async () => {
-      setIsLoading(true);
-      try {
-        const pgpKeys = await loadKeysFromIndexedDB();
-        setUsers(pgpKeys);
-      } catch (error) {
-        console.error("Error loading keys:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchKeys();
-
-    const handleStorageChange = async () => {
-      setIsLoading(true);
-      try {
-        const updatedKeys = await loadKeysFromIndexedDB();
-        setUsers(updatedKeys);
-      } catch (error) {
-        console.error("Error loading keys:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
   const filteredItems = useMemo(() => {
     let filteredUsers = [...users];
 
@@ -1323,7 +1321,7 @@ export default function App() {
     setpublicKeyModal(true);
   };
 
-  const backupKeyring = async (user, password = null) => {
+  const backupKeyring = async (user) => {
     try {
       const keyid = user.keyid.replace(/\s/g, "");
 
@@ -2367,7 +2365,7 @@ export default function App() {
         try {
           currentSubkeyPassphrase =
             await triggerSubkeyPasswordModal(selectedSubkey);
-        } catch (err) {
+        } catch {
           return;
         }
       }
@@ -2573,7 +2571,7 @@ export default function App() {
         try {
           currentSubkeyPassphrase =
             await triggerSubkeyPasswordModal(selectedSubkey);
-        } catch (err) {
+        } catch {
           return;
         }
       }
@@ -4137,7 +4135,7 @@ export default function App() {
         try {
           currentSubkeyPassphrase =
             await triggerSubkeyPasswordModal(selectedSubkey);
-        } catch (err) {
+        } catch {
           return;
         }
       }
@@ -4334,7 +4332,7 @@ export default function App() {
 
   const bottomContent = useMemo(() => {
     return (
-      <div className="py-2 px-2 flex justify-between items-center">
+      <div className="px-2 flex justify-between items-center py-2 sm:py-12 flex-col sm:flex-row gap-2 sm:gap-0">
         <Pagination
           isCompact
           showControls
@@ -4344,6 +4342,9 @@ export default function App() {
           total={pages}
           onChange={setPage}
         />
+        <div className="w-full flex justify-center mt-3 sm:mt-0 sm:absolute sm:left-1/2 sm:transform sm:-translate-x-1/2 sm:w-auto">
+          <PasswordStatus />
+        </div>
         <div className="hidden sm:flex w-[30%] justify-end gap-2">
           <Button
             isDisabled={pages === 1}

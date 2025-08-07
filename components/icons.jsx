@@ -203,3 +203,39 @@ export const ChevronDownIcon = ({ strokeWidth = 1.5, ...otherProps }) => {
     </svg>
   );
 };
+
+export const LockIcon = ({ size = 24, width, height, ...props }) => (
+  <svg
+    aria-hidden="true"
+    fill="none"
+    focusable="false"
+    height={size || height}
+    role="presentation"
+    viewBox="0 0 24 24"
+    width={size || width}
+    {...props}
+  >
+    <path
+      d="M12 2C9.243 2 7 4.243 7 7v3H6c-1.103 0-2 .897-2 2v8c0 1.103.897 2 2 2h12c1.103 0 2-.897 2-2v-8c0-1.103-.897-2-2-2h-1V7c0-2.757-2.243-5-5-5zm6 10c.551 0 1 .449 1 1v8c0 .551-.449 1-1 1H6c-.551 0-1-.449-1-1v-8c0-.551.449-1 1-1h12zM9 10V7c0-1.654 1.346-3 3-3s3 1.346 3 3v3H9z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+export const ShieldIcon = ({ size = 24, width, height, ...props }) => (
+  <svg
+    aria-hidden="true"
+    fill="none"
+    focusable="false"
+    height={size || height}
+    role="presentation"
+    viewBox="0 0 24 24"
+    width={size || width}
+    {...props}
+  >
+    <path
+      d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5zM12 20c-4.41 0-8-3.59-8-8V8.5l8-4.5 8 4.5V12c0 4.41-3.59 8-8 8z"
+      fill="currentColor"
+    />
+  </svg>
+);
