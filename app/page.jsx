@@ -594,6 +594,7 @@ export default function App() {
   const [publicKeySnippet, setPublicKeySnippet] = useState("");
   const [deleteModal, setdeleteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
   const [revokeUsingCertificateModal, setrevokeUsingCertificateModal] =
     useState(false);
   const [visibleColumns, setVisibleColumns] = useState(
@@ -608,6 +609,8 @@ export default function App() {
   const [visibleColumnsModal4, setVisibleColumnsModal4] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS_MODAL4)
   );
+
+  const toggleVisibility = () => setIsVisible(!isVisible);
 
   useEffect(() => {
     openDB();
@@ -641,8 +644,35 @@ export default function App() {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  const [isVisible, setIsVisible] = useState(false);
-  const toggleVisibility = () => setIsVisible(!isVisible);
+  // Auto-focus effects for modals
+  useEffect(() => {
+    if (passwordModal && passwordInputRef.current) {
+      setTimeout(() => {
+        passwordInputRef.current?.focus();
+      }, 100);
+    }
+  }, [passwordModal]);
+
+  useEffect(() => {
+    if (newPasswordChangeModal && newPasswordInputRef.current) {
+      setTimeout(() => {
+        newPasswordInputRef.current?.focus();
+      }, 100);
+    }
+  }, [newPasswordChangeModal]);
+
+  useEffect(() => {
+    if (addUserIDModal && nameInputRef.current) {
+      setTimeout(() => {
+        nameInputRef.current?.focus();
+      }, 100);
+    }
+  }, [addUserIDModal]);
+
+  // Refs for auto-focusing inputs in modals
+  const passwordInputRef = useRef(null);
+  const newPasswordInputRef = useRef(null);
+  const nameInputRef = useRef(null);
 
   const UserActionsDropdown = ({ user }) => {
     const [isProtected, setIsProtected] = useState(null);
@@ -671,7 +701,15 @@ export default function App() {
               <VerticalDotsIcon className="text-default-300" />
             </Button>
           </DropdownTrigger>
-          <DropdownMenu>
+          <DropdownMenu
+            aria-label="User actions"
+            shouldBlockScroll={true}
+            closeOnSelect={true}
+            classNames={{
+              base: "max-w-[280px] sm:max-w-[320px]",
+              list: "max-h-[80vh] overflow-y-auto",
+            }}
+          >
             {user.status !== "revoked" ? null : (
               <DropdownItem
                 key="revocation-reason"
@@ -1054,7 +1092,15 @@ export default function App() {
               <VerticalDotsIcon className="text-default-300" />
             </Button>
           </DropdownTrigger>
-          <DropdownMenu>
+          <DropdownMenu
+            aria-label="Subkey actions"
+            shouldBlockScroll={true}
+            closeOnSelect={true}
+            classNames={{
+              base: "max-w-[280px] sm:max-w-[320px]",
+              list: "max-h-[80vh] overflow-y-auto",
+            }}
+          >
             <DropdownItem
               onPress={() => {
                 const subkeyIndex = parseInt(subkey.id.split("-subkey-")[1]);
@@ -5478,6 +5524,7 @@ export default function App() {
               : "Enter Password For Protected Key"}
           </h3>
           <Input
+            ref={passwordInputRef}
             id="passwordInput"
             name="password"
             placeholder="Enter Password"
@@ -5541,6 +5588,7 @@ export default function App() {
           </h3>
 
           <Input
+            ref={newPasswordInputRef}
             id="newPasswordInput"
             name="password"
             placeholder="Enter Password"
@@ -5629,6 +5677,7 @@ export default function App() {
       >
         <ModalContent className="p-5">
           <Input
+            ref={nameInputRef}
             isRequired
             label="Name"
             labelPlacement="outside"

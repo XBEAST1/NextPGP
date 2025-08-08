@@ -23,12 +23,7 @@ import {
   ModalContent,
   Spinner,
 } from "@heroui/react";
-import {
-  EyeFilledIcon,
-  EyeSlashFilledIcon,
-  SearchIcon,
-  ChevronDownIcon,
-} from "@/components/icons";
+import { SearchIcon, ChevronDownIcon } from "@/components/icons";
 import {
   openDB,
   getEncryptionKey,
@@ -242,7 +237,7 @@ const processKey = async (key, vaultPassword, storedKeys) => {
       }
     };
 
-    const passwordProtected = await isPasswordProtected(openpgpKey)
+    const passwordProtected = await isPasswordProtected(openpgpKey);
 
     const formatFingerprint = (fingerprint) => {
       const parts = fingerprint.match(/.{1,4}/g);
@@ -353,9 +348,6 @@ export default function App() {
   );
   const [totalKeys, setTotalKeys] = useState(0);
   const router = useRouter();
-
-  const [isVisible, setIsVisible] = useState(false);
-  const toggleVisibility = () => setIsVisible(!isVisible);
 
   const { getVaultPassword, lockVault } = useVault();
 
@@ -811,10 +803,6 @@ export default function App() {
     }
   };
 
-  const [passwordResolve, setPasswordResolve] = useState(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [password, setPassword] = useState("");
-
   const [DeleteModal, setDeleteModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedKeyName, setSelectedKeyName] = useState("");
@@ -1078,72 +1066,6 @@ export default function App() {
           )}
         </TableBody>
       </Table>
-      <Modal backdrop="blur" isOpen={isOpen} onClose={() => setIsOpen(false)}>
-        <ModalContent className="p-5">
-          <h3 className="mb-4">Enter Password for Protected Key</h3>
-          <Input
-            id="passwordInput"
-            name="password"
-            placeholder="Enter Password"
-            type={isVisible ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                if (password.trim() === "") {
-                  addToast({
-                    title: "Please Enter a Password",
-                    color: "danger",
-                  });
-                } else {
-                  if (passwordResolve) {
-                    passwordResolve(password);
-                    setPasswordResolve(null);
-                    setIsOpen(false);
-                    setPassword("");
-                  } else {
-                    console.error("passwordResolve is not set");
-                  }
-                }
-              }
-            }}
-            endContent={
-              <button
-                aria-label="toggle password visibility"
-                className="focus:outline-none"
-                type="button"
-                onClick={toggleVisibility}
-              >
-                {isVisible ? (
-                  <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
-                ) : (
-                  <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
-                )}
-              </button>
-            }
-          />
-          <Button
-            className="mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
-            onPress={() => {
-              if (password.trim() === "") {
-                addToast({
-                  title: "Please Enter a Password",
-                  color: "danger",
-                });
-              } else {
-                if (passwordResolve) {
-                  passwordResolve(password);
-                  setPasswordResolve(null);
-                  setIsOpen(false);
-                  setPassword("");
-                }
-              }
-            }}
-          >
-            Submit
-          </Button>
-        </ModalContent>
-      </Modal>
       <Modal backdrop="blur" isOpen={DeleteModal} onClose={closeDeleteModal}>
         <ModalContent className="p-5">
           <h3 className="mb-2">

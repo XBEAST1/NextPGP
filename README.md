@@ -26,10 +26,9 @@
     <ul>
       <li>Add, manage, delete, import, export, and backup keys</li>
       <li>Search, import, and publish public keys via PGP keyservers</li>
-      <li>Change key validity periods</li>
       <li>Add, change, and remove passphrases</li>
-      <li>Add, manage, and delete User IDs</li>
-      <li>Revoke keys securely when needed</li>
+      <li>Add, manage, and revoke User IDs</li>
+      <li>Add, manage, and revoke subkeys</li>
     </ul>
   </li>
 

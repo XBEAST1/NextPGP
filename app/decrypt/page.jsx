@@ -31,6 +31,7 @@ export default function App() {
   const [keyserverQuery, setKeyserverQuery] = useState("");
 
   const toggleVisibility = () => setIsVisible(!isVisible);
+  const passwordInputRef = useRef(null);
 
   useEffect(() => {
     openDB();
@@ -46,6 +47,15 @@ export default function App() {
 
     fetchKeysFromIndexedDB();
   }, []);
+
+  useEffect(() => {
+    if (isPasswordModalOpen && passwordInputRef.current) {
+      // Small delay to ensure modal is fully rendered
+      setTimeout(() => {
+        passwordInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isPasswordModalOpen]);
 
   const handleFileUpload = (event) => {
     const selectedFiles = Array.from(event.target.files);
@@ -433,11 +443,17 @@ export default function App() {
           <ModalContent className="p-5">
             <h3 className="mb-4">Password Required</h3>
             <Input
+              ref={passwordInputRef}
               placeholder="Enter Password"
               type={isVisible ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handlePasswordDecrypt()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handlePasswordDecrypt();
+                }
+              }}
               endContent={
                 <button
                   aria-label="toggle password visibility"

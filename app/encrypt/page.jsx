@@ -44,6 +44,7 @@ export default function App() {
   const [isInputHovered, setisInputHovered] = useState(false);
   const [encrypting, setEncrypting] = useState(false);
   const onSubmitPassword = useRef(null);
+  const keyPassphraseInputRef = useRef(null);
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
@@ -123,6 +124,15 @@ export default function App() {
 
     fetchKeysFromIndexedDB();
   }, []);
+
+  useEffect(() => {
+    if (isPasswordModalOpen && keyPassphraseInputRef.current) {
+      // Small delay to ensure modal is fully rendered
+      setTimeout(() => {
+        keyPassphraseInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isPasswordModalOpen]);
 
   useEffect(() => {
     const fetchSelectedKeys = async () => {
@@ -694,6 +704,7 @@ export default function App() {
         <ModalContent className="p-5">
           <h3 className="mb-4">Signing Key Is Password Protected</h3>
           <Input
+            ref={keyPassphraseInputRef}
             placeholder="Enter Password"
             type={isVisible ? "text" : "password"}
             value={keyPassphrase}

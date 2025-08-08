@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
   Table,
   TableHeader,
@@ -855,6 +855,16 @@ export default function App() {
   const [passwordResolve, setPasswordResolve] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [password, setPassword] = useState("");
+  const passwordInputRef = useRef(null);
+
+  // Auto-focus effect for password modal
+  useEffect(() => {
+    if (isOpen && passwordInputRef.current) {
+      setTimeout(() => {
+        passwordInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen]);
 
   const triggerPasswordModal = async (user) => {
     setIsOpen(true);
@@ -1128,6 +1138,7 @@ export default function App() {
         <ModalContent className="p-5">
           <h3 className="mb-4">Enter Password for Protected Key</h3>
           <Input
+            ref={passwordInputRef}
             id="passwordInput"
             name="password"
             placeholder="Enter Password"
