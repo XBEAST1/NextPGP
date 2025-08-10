@@ -234,7 +234,6 @@ onmessage = async function (e) {
         type: "addToast",
         payload: { title: "Message Successfully Verified!", color: "success" },
       });
-      postMessage({ type: "error", payload: { message: "error" } });
       return;
     }
 
@@ -706,6 +705,7 @@ onmessage = async function (e) {
             color: "success",
           },
         });
+        postMessage({ type: "complete", payload: null });
         return;
       } catch (error) {
         console.error(
@@ -867,6 +867,7 @@ onmessage = async function (e) {
         type: "addToast",
         payload: { title: "Message Successfully Decrypted!", color: "success" },
       });
+      postMessage({ type: "complete", payload: null });
     } catch {
       postMessage({
         type: "addToast",

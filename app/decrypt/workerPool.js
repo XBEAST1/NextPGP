@@ -22,9 +22,7 @@ let nextWorkerIndex = 0;
 export function workerPool(task) {
   return new Promise((resolve, reject) => {
     if (!workers.length) {
-      return reject(
-        new Error("Worker pool not initialized in this environment.")
-      );
+      return reject();
     }
 
     const worker = workers[nextWorkerIndex];
@@ -93,14 +91,14 @@ export function workerPool(task) {
         await onError(payload);
         hasError = true;
         worker.removeEventListener("message", handleMessage);
-        reject(new Error(payload?.message || "Worker error"));
+        reject();
         return;
       }
 
       if (type === "passworderror") {
         hasError = true;
         worker.removeEventListener("message", handleMessage);
-        reject(new Error(payload?.message || "Password error"));
+        reject();
         return;
       }
 
@@ -113,7 +111,8 @@ export function workerPool(task) {
       if (responseReceived && (detailsReceived || toastHandled)) {
         if (
           taskData.type !== "filePasswordDecrypt" &&
-          taskData.type !== "fileDecrypt"
+          taskData.type !== "fileDecrypt" &&
+          taskData.type !== "messagePasswordDecrypt"
         ) {
           worker.removeEventListener("message", handleMessage);
           resolve(responsePayload);

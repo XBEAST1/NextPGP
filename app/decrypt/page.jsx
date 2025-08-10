@@ -153,9 +153,7 @@ export default function App() {
           }
         } catch {}
       }
-    } catch (error) {
-      console.error("Decryption error:", error);
-      addToast({ title: "Decryption failed", color: "danger" });
+    } catch {
     } finally {
       setDecrypting(false);
     }
@@ -246,12 +244,18 @@ export default function App() {
             }).catch(reject);
           });
         } catch (error) {
-          console.error("Error processing files:", error);
+          if (error && error.message && error.message !== "error") {
+            console.error("Error processing files:", error);
+          }
         }
       }
     } catch (error) {
-      console.error("Password decryption error:", error);
-      addToast({ title: "Decryption failed", color: "danger" });
+      if (error && error.message && error.message !== "error") {
+        console.error("Password decryption error:", error);
+      }
+      if (error && error.message && error.message !== "error") {
+        addToast({ title: "Decryption failed", color: "danger" });
+      }
     } finally {
       setDecrypting(false);
     }
