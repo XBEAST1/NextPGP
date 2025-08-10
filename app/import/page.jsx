@@ -72,7 +72,9 @@ export default function ImportKeyPage() {
         privateKey: privateKey,
       };
 
-      let keyname = key.getUserIDs()[0]?.split("<")[0].trim() || "Unknown User";
+      const primaryUser = await key.getPrimaryUser();
+      const userID = primaryUser.user.userID.userID;
+      let keyname = userID.split("<")[0].trim() || "Unknown User";
 
       if (isPrivateKey) {
         keyData.privateKey = privateKey;

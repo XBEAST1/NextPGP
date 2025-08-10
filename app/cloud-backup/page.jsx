@@ -130,15 +130,18 @@ const processKey = async (key, decryptedBackedUpKeys) => {
 
   try {
     const userIDs = openpgpKey.getUserIDs();
-    const firstUserID = userIDs[0];
-    let name, email;
+    const userIdCount = userIDs.length;
 
-    const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
+    const primaryUser = await openpgpKey.getPrimaryUser();
+    const userID = primaryUser.user.userID.userID;
+
+    let name, email;
+    const match = userID.match(/^(.*?)\s*<(.+?)>$/);
     if (match) {
       name = match[1].trim();
       email = match[2].trim();
     } else {
-      name = firstUserID.trim();
+      name = userID.trim();
       email = "N/A";
     }
 
