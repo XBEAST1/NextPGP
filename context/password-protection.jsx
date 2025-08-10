@@ -55,6 +55,16 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const confirmPasswordRef = useRef(null);
+  const passwordInputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && passwordInputRef.current) {
+      const timer = setTimeout(() => {
+        passwordInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   const handleSubmit = async () => {
     setError("");
@@ -112,6 +122,7 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }) => {
                 Password
               </label>
               <Input
+                ref={passwordInputRef}
                 id="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
@@ -343,6 +354,16 @@ const PasswordRemoveModal = ({ isOpen, onClose, onPasswordVerified }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const passwordInputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && passwordInputRef.current) {
+      const timer = setTimeout(() => {
+        passwordInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   const handleSubmit = async () => {
     setError("");
@@ -393,6 +414,7 @@ const PasswordRemoveModal = ({ isOpen, onClose, onPasswordVerified }) => {
                 Current Password
               </label>
               <Input
+                ref={passwordInputRef}
                 id="removePassword"
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your current password"
@@ -448,6 +470,16 @@ const DeleteDataModal = ({ isOpen, onClose, onDeleteData }) => {
   const [confirmationText, setConfirmationText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const confirmationInputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && confirmationInputRef.current) {
+      const timer = setTimeout(() => {
+        confirmationInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   const handleDelete = async () => {
     setError("");
@@ -493,6 +525,7 @@ const DeleteDataModal = ({ isOpen, onClose, onDeleteData }) => {
                 Type &quot;DeleteMyData&quot; to confirm
               </label>
               <Input
+                ref={confirmationInputRef}
                 id="confirmationText"
                 type="text"
                 placeholder="Type DeleteMyData"

@@ -47,6 +47,7 @@ export function workerPool(task) {
     let toastHandled = false;
     let modalHandled = false;
     let responsePayload = null;
+    let hasError = false;
 
     const handleMessage = async (e) => {
       const { type, payload } = e.data;
@@ -90,17 +91,33 @@ export function workerPool(task) {
 
       if (type === "error" && typeof onError === "function") {
         await onError(payload);
+        hasError = true;
+        worker.removeEventListener("message", handleMessage);
+        reject(new Error(payload?.message || "Worker error"));
         return;
       }
 
       if (type === "passworderror") {
+        hasError = true;
         worker.removeEventListener("message", handleMessage);
+        reject(new Error(payload?.message || "Password error"));
         return;
       }
 
-      if (responseReceived && detailsReceived && toastHandled && modalHandled) {
+      if (type === "complete") {
         worker.removeEventListener("message", handleMessage);
         resolve(responsePayload);
+        return;
+      }
+
+      if (responseReceived && (detailsReceived || toastHandled)) {
+        if (
+          taskData.type !== "filePasswordDecrypt" &&
+          taskData.type !== "fileDecrypt"
+        ) {
+          worker.removeEventListener("message", handleMessage);
+          resolve(responsePayload);
+        }
       }
     };
 

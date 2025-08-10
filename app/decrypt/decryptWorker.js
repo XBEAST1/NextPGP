@@ -1269,6 +1269,9 @@ onmessage = async function (e) {
       return;
     }
 
+    // Track processed files to prevent duplicates
+    const processedFiles = new Set();
+
     for (const file of files) {
       let functionDetails = "";
 
@@ -1406,8 +1409,9 @@ onmessage = async function (e) {
 
           postMessage({ type: "setDetails", payload: functionDetails });
 
-          // Download decrypted file
-          if (decrypted) {
+          // Download decrypted file - only once per file
+          if (decrypted && !processedFiles.has(file.name)) {
+            processedFiles.add(file.name);
             postMessage({
               type: "downloadFile",
               payload: {
@@ -1585,7 +1589,9 @@ onmessage = async function (e) {
           },
         });
 
-        if (decrypted) {
+        // Download decrypted content - only once per file
+        if (decrypted && !processedFiles.has(file.name)) {
+          processedFiles.add(file.name);
           postMessage({
             type: "downloadFile",
             payload: {
@@ -1607,6 +1613,11 @@ onmessage = async function (e) {
           payload: { message: `Incorrect password for file ${file.name}` },
         });
       }
+    }
+
+    // Send completion signal for file decryption tasks
+    if (type === "filePasswordDecrypt" || type === "fileDecrypt") {
+      postMessage({ type: "complete", payload: null });
     }
   }
 };

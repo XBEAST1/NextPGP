@@ -215,44 +215,39 @@ export default function App() {
         }
       }
 
-      for (const file of uniqueFiles) {
-        let resolved = false;
-
+      // Process all files at once to avoid duplicate processing
+      if (uniqueFiles.length > 0) {
         try {
-          const payload = await new Promise((resolve, reject) => {
+          await new Promise((resolve, reject) => {
             workerPool({
               type: "filePasswordDecrypt",
-              files: [file],
+              files: uniqueFiles,
               pgpKeys,
               password,
               currentPrivateKey,
               responseType: "downloadFile",
-              onDecryptedFile: resolve,
+              onDecryptedFile: (filePayload) => {
+                if (filePayload?.decrypted) {
+                  saveAs(
+                    new Blob([filePayload.decrypted]),
+                    filePayload.fileName
+                  );
+                }
+              },
               onError: () => {
                 setDecrypting(false);
               },
               onDetails: appendDetail,
-              // Resolve here to avoid breaking the loop if password is incorrect,
-              // since onError doesn't always trigger so we're calling resolve(null) here
               onToast: (toast) => {
                 addToast(toast);
-                if (
-                  !resolved &&
-                  toast.title?.toLowerCase().includes("incorrect password")
-                ) {
-                  resolved = true;
-                  resolve(null);
-                }
               },
               onModal: setIsPasswordModalOpen,
               onCurrentPrivateKey: setCurrentPrivateKey,
             }).catch(reject);
           });
-
-          if (payload?.fileName && payload.decrypted) {
-            saveAs(new Blob([payload.decrypted]), payload.fileName);
-          }
-        } catch {}
+        } catch (error) {
+          console.error("Error processing files:", error);
+        }
       }
     } catch (error) {
       console.error("Password decryption error:", error);
