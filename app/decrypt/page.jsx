@@ -64,7 +64,8 @@ export default function App() {
 
   const appendDetail = (payload) => {
     setDetails((prev) => {
-      const combined = prev ? prev + "\n" + payload : payload;
+      // Add extra spacing between detail blocks
+      const combined = prev ? prev + "\n\n" + payload : payload;
       return removeDuplicateDetails(combined);
     });
   };
@@ -151,7 +152,9 @@ export default function App() {
           if (payload?.fileName && payload.decrypted) {
             saveAs(new Blob([payload.decrypted]), payload.fileName);
           }
-        } catch {}
+        } catch (error) {
+          console.error("File decryption error:", error);
+        }
       }
     } catch {
     } finally {
@@ -264,34 +267,52 @@ export default function App() {
   const removeDuplicateDetails = (detailsStr) => {
     if (!detailsStr) return "";
 
-    const blockRegex = /(👥 Recipients:[\s\S]*?)(?=👥 Recipients:|$)/g;
-    const blocks = [];
-    let match;
-
-    const firstRecipientsIndex = detailsStr.indexOf("👥 Recipients:");
-    if (firstRecipientsIndex > 0) {
-      const initialBlock = detailsStr.slice(0, firstRecipientsIndex).trim();
-      if (initialBlock) {
-        blocks.push(initialBlock);
-      }
-    } else if (firstRecipientsIndex === -1 && detailsStr.trim() !== "") {
-      blocks.push(detailsStr.trim());
-    }
-
-    while ((match = blockRegex.exec(detailsStr)) !== null) {
-      blocks.push(match[1].trim());
-    }
+    // Split by double newlines to separate blocks
+    const blocks = detailsStr.split(/\n\s*\n/).filter((block) => block.trim());
 
     const seen = new Set();
-    return blocks
-      .filter((block) => {
-        const match = block.match(/⏱️ Signature created on:\s*(.+)$/m);
-        const key = match ? match[1].trim() : block;
-        if (seen.has(key)) return false;
+    const uniqueBlocks = [];
+
+    for (const block of blocks) {
+      // Create a unique key for each block based on signature timestamp and type
+      let key = block;
+
+      // For signature blocks, use the timestamp as key
+      const signatureMatch = block.match(/⏱️ Signature created on:\s*(.+)$/m);
+      if (signatureMatch) {
+        key = signatureMatch[1].trim();
+      }
+
+      // For recipient blocks, use the entire block as key
+      if (block.includes("👥 Recipients:")) {
+        key = `recipients_${Date.now()}_${Math.random()}`;
+      }
+
+      // For "No recipients found" blocks, preserve them for each file
+      if (block.includes("👥 No recipients found")) {
+        // Always make "No recipients found" unique to preserve it for each file
+        key = `no_recipients_${Date.now()}_${Math.random()}`;
+      }
+
+      // For decryption success blocks, use the type (message/file) as key
+      const decryptionMatch = block.match(
+        /🔑 (Message|File) successfully decrypted/
+      );
+      if (decryptionMatch) {
+        const decryptionType = decryptionMatch[1];
+        const signatureTime = signatureMatch
+          ? signatureMatch[1].trim()
+          : "no_signature";
+        key = `${decryptionType}_decryption_${signatureTime}`;
+      }
+
+      if (!seen.has(key)) {
         seen.add(key);
-        return true;
-      })
-      .join("\n\n");
+        uniqueBlocks.push(block.trim());
+      }
+    }
+
+    return uniqueBlocks.join("\n\n");
   };
 
   const SearchSignerOnKeyserver = () => {
