@@ -912,6 +912,8 @@ onmessage = async function (e) {
     let functionDetails = "";
 
     for (const file of files) {
+      // Reset details per file
+      functionDetails = "";
       // If the file is a ".sig", treat it as a detached signature
       if (file.name.endsWith(".sig")) {
         try {
@@ -934,6 +936,8 @@ onmessage = async function (e) {
           });
 
           const extractedData = verificationResult.data;
+
+          functionDetails += `📄 File: ${file.name}\n`;
 
           if (verificationResult.signatures?.length) {
             for (const sig of verificationResult.signatures) {
@@ -1143,6 +1147,7 @@ onmessage = async function (e) {
                 }
               })
             );
+            functionDetails += `📄 File: ${file.name}\n`;
             functionDetails +=
               "👥 Recipients:\n" + recipients.join("\n") + "\n\n";
 
@@ -1362,9 +1367,10 @@ onmessage = async function (e) {
           );
 
           functionDetails =
-            recipients.length > 0
+            `📄 File: ${file.name}\n` +
+            (recipients.length > 0
               ? "👥 Recipients:\n" + recipients.join("\n") + "\n\n"
-              : "👥 No recipients found\n\n";
+              : "👥 No recipients found\n\n");
 
           if (signatures && signatures.length > 0) {
             for (const sig of signatures) {
@@ -1546,6 +1552,7 @@ onmessage = async function (e) {
           })
         );
 
+        functionDetails += `📄 File: ${file.name}\n`;
         functionDetails += "👥 Recipients:\n" + recipients.join("\n") + "\n\n";
 
         if (signatures && signatures.length > 0) {

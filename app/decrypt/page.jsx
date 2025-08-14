@@ -86,7 +86,23 @@ export default function App() {
   };
 
   const processNextPasswordFile = async (filesMap = null) => {
-    const filesToProcess = filesMap || passwordEncryptedFiles;
+    const filesToProcess = new Map(filesMap || passwordEncryptedFiles);
+
+    // Filter out files that have already been decrypted/downloaded
+    for (const file of Array.from(filesToProcess.keys())) {
+      try {
+        const expectedOutputName = file.name.replace(/\.(gpg|pgp|sig)$/i, "");
+        if (
+          downloadedFilesRef.current.has(expectedOutputName) ||
+          processedFilesRef.current.has(expectedOutputName)
+        ) {
+          filesToProcess.delete(file);
+        }
+      } catch {}
+    }
+
+    // Persist the filtered list
+    setPasswordEncryptedFiles(filesToProcess);
 
     if (filesToProcess.size === 0) {
       setIsPasswordModalOpen(false);
@@ -247,7 +263,11 @@ export default function App() {
         });
 
         setPasswordEncryptedFiles(filesNeedingPassword);
-        processNextPasswordFile(filesNeedingPassword);
+        // If a message password modal is open (message needs password),
+        // defer opening the file modal until after we try the same password on files.
+        if (!(isPasswordModalOpen && inputMessage && !currentPasswordFile)) {
+          processNextPasswordFile(filesNeedingPassword);
+        }
       }
     } catch {
     } finally {
@@ -396,7 +416,149 @@ export default function App() {
 
           // Close modal after successful message decryption
           setIsPasswordModalOpen(false);
-          setDecrypting(false);
+
+          // If files are also selected, process them next and prompt for file passwords if needed
+          let filesNeedingPassword = new Map();
+          let uniqueFiles = [];
+
+          if (files && files.length) {
+            // De-duplicate selected files
+            const seenInputHashes = new Set();
+            for (const file of files) {
+              try {
+                const buf = await file.arrayBuffer();
+                const hashBuf = await crypto.subtle.digest("SHA-256", buf);
+                const hashHex = Array.from(new Uint8Array(hashBuf))
+                  .map((b) => b.toString(16).padStart(2, "0"))
+                  .join("");
+                if (!seenInputHashes.has(hashHex)) {
+                  seenInputHashes.add(hashHex);
+                  uniqueFiles.push(file);
+                }
+              } catch {}
+            }
+
+            // First, try the same password used for the message on all selected files
+            const decryptedWithMsgPassword = new Set();
+            for (const file of uniqueFiles) {
+              try {
+                await new Promise((resolve) => {
+                  workerPool({
+                    type: "filePasswordDecrypt",
+                    files: [file],
+                    pgpKeys,
+                    password,
+                    currentPrivateKey,
+                    responseType: "downloadFile",
+                    onDecryptedFile: (filePayload) => {
+                      if (filePayload?.decrypted) {
+                        if (
+                          !downloadedFilesRef.current.has(filePayload.fileName)
+                        ) {
+                          saveAs(
+                            new Blob([filePayload.decrypted]),
+                            filePayload.fileName
+                          );
+                          downloadedFilesRef.current.add(filePayload.fileName);
+                          processedFilesRef.current.add(filePayload.fileName);
+                        }
+                        decryptedWithMsgPassword.add(file.name);
+                      }
+                      resolve();
+                    },
+                    onError: () => {
+                      resolve();
+                    },
+                    onDetails: appendDetail,
+                    onToast: () => {},
+                    onModal: () => {
+                      resolve();
+                    },
+                    onCurrentPrivateKey: setCurrentPrivateKey,
+                  }).catch(() => resolve());
+                });
+              } catch (error) {
+                console.error(
+                  "Error trying message password for file:",
+                  file.name,
+                  error
+                );
+              }
+            }
+
+            // For files not decrypted with the message password, try key-based decryption
+            const remainingFiles = uniqueFiles.filter(
+              (f) => !decryptedWithMsgPassword.has(f.name)
+            );
+            const successfullyDecryptedFiles = new Set();
+
+            for (const file of remainingFiles) {
+              try {
+                await new Promise((resolve) => {
+                  workerPool({
+                    type: "fileDecrypt",
+                    files: [file],
+                    pgpKeys,
+                    password,
+                    currentPrivateKey,
+                    responseType: "downloadFile",
+                    onDecryptedFile: (filePayload) => {
+                      if (filePayload?.fileName && filePayload.decrypted) {
+                        if (
+                          !downloadedFilesRef.current.has(filePayload.fileName)
+                        ) {
+                          saveAs(
+                            new Blob([filePayload.decrypted]),
+                            filePayload.fileName
+                          );
+                          successfullyDecryptedFiles.add(file.name);
+                          processedFilesRef.current.add(filePayload.fileName);
+                          downloadedFilesRef.current.add(filePayload.fileName);
+                        }
+                      }
+                      resolve();
+                    },
+                    onError: () => {
+                      resolve();
+                    },
+                    onDetails: appendDetail,
+                    onToast: () => {
+                      // suppress individual file toasts here
+                    },
+                    onModal: (isOpen) => {
+                      if (isOpen) {
+                        filesNeedingPassword.set(file, true);
+                      }
+                      resolve();
+                    },
+                    onCurrentPrivateKey: setCurrentPrivateKey,
+                  }).catch(() => resolve());
+                });
+              } catch (error) {
+                console.error("Error processing file:", file.name, error);
+              }
+            }
+
+            if (successfullyDecryptedFiles.size > 0) {
+              addToast({
+                title: `Successfully decrypted ${successfullyDecryptedFiles.size} file(s) with available keys`,
+                color: "success",
+              });
+            }
+
+            if (filesNeedingPassword.size > 0) {
+              addToast({
+                title: `${filesNeedingPassword.size} file(s) require password for decryption`,
+                color: "primary",
+              });
+              setPasswordEncryptedFiles(filesNeedingPassword);
+              processNextPasswordFile(filesNeedingPassword);
+            } else {
+              setDecrypting(false);
+            }
+          } else {
+            setDecrypting(false);
+          }
         } catch (error) {
           addToast({ title: "Incorrect password", color: "danger" });
           setDecrypting(false);
@@ -422,10 +584,20 @@ export default function App() {
     let currentGroup = [];
 
     for (const block of blocks) {
-      currentGroup.push(block.trim());
+      const trimmed = block.trim();
+
+      // If a new file header starts, close the previous group first
+      if (trimmed.startsWith("📄 File:")) {
+        if (currentGroup.length > 0) {
+          fileGroups.push(currentGroup);
+          currentGroup = [];
+        }
+      }
+
+      currentGroup.push(trimmed);
 
       // End a group when we see a signature timestamp (last item in a file's details)
-      if (block.includes("⏱️ Signature created on:")) {
+      if (trimmed.includes("⏱️ Signature created on:")) {
         fileGroups.push(currentGroup);
         currentGroup = [];
       }
@@ -441,17 +613,10 @@ export default function App() {
     const uniqueGroups = [];
 
     for (const group of fileGroups) {
-      // Create a key based on the signature timestamp if available
+      // Use the full group text (including 📄 File header when present) as key
+      // This avoids dropping different files that happen to share identical timestamps
       const groupText = group.join("\n\n");
-      let key = groupText;
-
-      // For groups with signatures, use timestamp as key to allow different files
-      const signatureMatch = groupText.match(
-        /⏱️ Signature created on:\s*(.+)$/m
-      );
-      if (signatureMatch) {
-        key = signatureMatch[1].trim();
-      }
+      const key = groupText;
 
       if (!seen.has(key)) {
         seen.add(key);
@@ -610,10 +775,8 @@ export default function App() {
           backdrop="blur"
           isOpen={isPasswordModalOpen}
           onClose={() => {
-            if (passwordEncryptedFiles.size === 0) {
-              setIsPasswordModalOpen(false);
-              setDecrypting(false);
-            }
+            setIsPasswordModalOpen(false);
+            setDecrypting(false);
           }}
         >
           <ModalContent className="p-5">
