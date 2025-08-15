@@ -1,13 +1,13 @@
 # NextPGP Manual Test Matrix
 
 Each test case should be verified in the following modes:
-- [ ] 📄 PGP Message  
-- [ ] 🗂️ Single File  
-- [ ] 🗃️ Multiple Files  
-- [ ] 📁 Folder With Files  
-- [ ] 📄🗂️ PGP Message And Single File  
-- [ ] 📄🗃️ PGP Message And Multiple Files  
-- [ ] 📄📁 PGP Message And Folder With Files  
+- [ ] 📄 PGP Message
+- [ ] 🗂️ Single File
+- [ ] 🗃️ Multiple Files (Different Password For Each File)
+- [ ] 📁 Folder With Files
+- [ ] 📄🗂️ PGP Message And Single File
+- [ ] 📄🗃️ PGP Message And Multiple Files (Different Password For Each File)
+- [ ] 📄📁 PGP Message And Folder With Files
 
 ---
 

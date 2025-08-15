@@ -226,9 +226,10 @@ export default function App() {
                 resolve(); // Continue to next file
               },
               onDetails: appendDetail,
-              onToast: () => {
-                // Suppress individual file toasts during initial processing
-                // We'll show a summary toast at the end
+              onToast: (toast) => {
+                if (toast.color === "danger") {
+                  addToast(toast);
+                }
               },
               onModal: (isOpen) => {
                 if (isOpen) {
@@ -249,7 +250,7 @@ export default function App() {
       // Show summary toast for initial file processing
       if (successfullyDecryptedFiles.size > 0) {
         addToast({
-          title: `Successfully decrypted ${successfullyDecryptedFiles.size} file(s) with available keys`,
+          title: `Successfully decrypted ${successfullyDecryptedFiles.size} ${successfullyDecryptedFiles.size === 1 ? "file" : "files"} with available keys`,
           color: "success",
         });
       }
@@ -258,7 +259,7 @@ export default function App() {
       if (filesNeedingPassword.size > 0) {
         // Show info about password-encrypted files
         addToast({
-          title: `${filesNeedingPassword.size} file(s) require password for decryption`,
+          title: `${filesNeedingPassword.size} ${filesNeedingPassword.size === 1 ? "file" : "files"} require password for decryption`,
           color: "primary",
         });
 
@@ -360,16 +361,10 @@ export default function App() {
         setPasswordEncryptedFiles(updatedFiles);
 
         if (currentFileDecrypted) {
-          // Show success toast only for the current file
-          addToast({
-            title: `Successfully decrypted ${currentPasswordFile.name}`,
-            color: "success",
-          });
-
           if (successfullyDecryptedFiles.length > 1) {
             // Show additional info if multiple files were decrypted
             addToast({
-              title: `${successfullyDecryptedFiles.length - 1} other file(s) also decrypted with the same password!`,
+              title: `${successfullyDecryptedFiles.length - 1} other ${successfullyDecryptedFiles.length - 1 === 1 ? "file" : "files"} also decrypted with the same password!`,
               color: "success",
             });
           }
@@ -383,10 +378,6 @@ export default function App() {
           // Process next file or finish
           processNextPasswordFile(updatedFiles);
         } else {
-          addToast({
-            title: `Incorrect password for ${currentPasswordFile.name}`,
-            color: "danger",
-          });
           setDecrypting(false);
           return;
         }
@@ -470,7 +461,11 @@ export default function App() {
                       resolve();
                     },
                     onDetails: appendDetail,
-                    onToast: () => {},
+                    onToast: (toast) => {
+                      if (toast.color === "danger") {
+                        addToast(toast);
+                      }
+                    },
                     onModal: () => {
                       resolve();
                     },
@@ -522,8 +517,10 @@ export default function App() {
                       resolve();
                     },
                     onDetails: appendDetail,
-                    onToast: () => {
-                      // suppress individual file toasts here
+                    onToast: (toast) => {
+                      if (toast.color === "danger") {
+                        addToast(toast);
+                      }
                     },
                     onModal: (isOpen) => {
                       if (isOpen) {
@@ -541,14 +538,14 @@ export default function App() {
 
             if (successfullyDecryptedFiles.size > 0) {
               addToast({
-                title: `Successfully decrypted ${successfullyDecryptedFiles.size} file(s) with available keys`,
+                title: `Successfully decrypted ${successfullyDecryptedFiles.size} ${successfullyDecryptedFiles.size === 1 ? "file" : "files"} with available keys`,
                 color: "success",
               });
             }
 
             if (filesNeedingPassword.size > 0) {
               addToast({
-                title: `${filesNeedingPassword.size} file(s) require password for decryption`,
+                title: `${filesNeedingPassword.size} ${filesNeedingPassword.size === 1 ? "file" : "files"} require password for decryption`,
                 color: "primary",
               });
               setPasswordEncryptedFiles(filesNeedingPassword);
