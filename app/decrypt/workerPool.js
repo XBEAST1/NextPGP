@@ -43,9 +43,7 @@ export function workerPool(task) {
     let responseReceived = false;
     let detailsReceived = false;
     let toastHandled = false;
-    let modalHandled = false;
     let responsePayload = null;
-    let hasError = false;
 
     const handleMessage = async (e) => {
       const { type, payload } = e.data;
@@ -84,19 +82,16 @@ export function workerPool(task) {
 
       if (type === "setIsPasswordModalOpen" && typeof onModal === "function") {
         await onModal(payload);
-        modalHandled = true;
       }
 
       if (type === "error" && typeof onError === "function") {
         await onError(payload);
-        hasError = true;
         worker.removeEventListener("message", handleMessage);
         reject();
         return;
       }
 
       if (type === "passworderror") {
-        hasError = true;
         worker.removeEventListener("message", handleMessage);
         reject();
         return;

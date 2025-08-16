@@ -190,9 +190,6 @@ const processKey = async (key, vaultPassword, storedKeys) => {
       armoredKey: decryptedCloudPrivateKey || decryptedCloudPublicKey,
     });
 
-    const userIDs = openpgpKey.getUserIDs();
-    const userIdCount = userIDs.length;
-
     const primaryUser = await openpgpKey.getPrimaryUser();
     const userID = primaryUser.user.userID.userID;
 

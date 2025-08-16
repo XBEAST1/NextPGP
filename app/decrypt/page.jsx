@@ -39,6 +39,7 @@ export default function App() {
   // Refs for tracking processed and downloaded files
   const processedFilesRef = useRef(new Set());
   const downloadedFilesRef = useRef(new Set());
+  const downloadLockRef = useRef(new Set()); // Lock for preventing concurrent downloads of the same file
 
   const toggleVisibility = () => setIsVisible(!isVisible);
   const passwordInputRef = useRef(null);
@@ -75,6 +76,7 @@ export default function App() {
     setCurrentPasswordFile(null);
     processedFilesRef.current = new Set();
     downloadedFilesRef.current = new Set();
+    downloadLockRef.current = new Set();
   };
 
   const appendDetail = (payload) => {
@@ -118,6 +120,60 @@ export default function App() {
     setIsPasswordModalOpen(true);
   };
 
+  // Centralized download queue function to prevent duplicate downloads
+  const downloadQueue = async (filePayload = null) => {
+    if (!filePayload?.fileName || !filePayload?.decrypted) {
+      return false;
+    }
+
+    // Always use the payload fileName for tracking since it's the actual output name
+    const trackingName = filePayload.fileName;
+
+    // Check if this file is currently being downloaded by another worker
+    if (downloadLockRef.current.has(trackingName)) {
+      console.log(
+        `File ${trackingName} is being downloaded by another worker, skipping`
+      );
+      return false;
+    }
+
+    // Check if this file has already been downloaded
+    if (downloadedFilesRef.current.has(trackingName)) {
+      console.log(`File ${trackingName} already downloaded, skipping`);
+      return false;
+    }
+
+    // Acquire download lock to prevent other workers from downloading the same file
+    downloadLockRef.current.add(trackingName);
+    console.log(`Acquired download lock for: ${filePayload.fileName}`);
+
+    try {
+      // Small delay to ensure proper coordination between workers
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Download the file
+      await new Promise((resolveDownload) => {
+        saveAs(new Blob([filePayload.decrypted]), filePayload.fileName);
+        // Small delay to ensure download starts before continuing
+        setTimeout(resolveDownload, 100);
+      });
+
+      // Mark as downloaded to prevent future duplicates
+      downloadedFilesRef.current.add(trackingName);
+      processedFilesRef.current.add(trackingName);
+
+      console.log(`Successfully downloaded: ${filePayload.fileName}`);
+      return true;
+    } catch (error) {
+      console.error(`Error downloading ${filePayload.fileName}:`, error);
+      return false;
+    } finally {
+      // Always release the download lock
+      downloadLockRef.current.delete(trackingName);
+      console.log(`Released download lock for: ${filePayload.fileName}`);
+    }
+  };
+
   const handleDecrypt = async () => {
     setDecrypting(true);
     setDetails("");
@@ -127,6 +183,7 @@ export default function App() {
     setCurrentPasswordFile(null);
     processedFilesRef.current = new Set();
     downloadedFilesRef.current = new Set();
+    downloadLockRef.current = new Set();
 
     // Track files that need passwords
     let filesNeedingPassword = new Map();
@@ -193,10 +250,12 @@ export default function App() {
 
       for (const file of uniqueFiles) {
         try {
-          let fileNeedsPassword = false;
-          let fileSuccessfullyDecrypted = false;
+          // Skip files that have already been processed
+          if (processedFilesRef.current.has(file.name)) {
+            continue;
+          }
 
-          await new Promise((resolve, reject) => {
+          await new Promise((resolve) => {
             workerPool({
               type: "fileDecrypt",
               files: [file], // Process one file at a time
@@ -204,20 +263,12 @@ export default function App() {
               password,
               currentPrivateKey,
               responseType: "downloadFile",
-              onDecryptedFile: (filePayload) => {
+              onDecryptedFile: async (filePayload) => {
                 if (filePayload?.fileName && filePayload.decrypted) {
-                  // Check if this file has already been downloaded
-                  if (!downloadedFilesRef.current.has(filePayload.fileName)) {
-                    // File hasn't been downloaded yet, download it
-                    saveAs(
-                      new Blob([filePayload.decrypted]),
-                      filePayload.fileName
-                    );
+                  // Use download queue to prevent duplicates
+                  const downloaded = await downloadQueue(filePayload);
+                  if (downloaded) {
                     successfullyDecryptedFiles.add(file.name);
-                    fileSuccessfullyDecrypted = true;
-                    processedFilesRef.current.add(filePayload.fileName);
-                    // Add to downloaded files to prevent future duplicates
-                    downloadedFilesRef.current.add(filePayload.fileName);
                   }
                 }
                 resolve();
@@ -234,7 +285,6 @@ export default function App() {
               onModal: (isOpen) => {
                 if (isOpen) {
                   // This file needs a password
-                  fileNeedsPassword = true;
                   filesNeedingPassword.set(file, true);
                 }
                 resolve(); // Continue processing
@@ -298,7 +348,7 @@ export default function App() {
         // Try the password on all remaining files
         for (const file of allPasswordFiles) {
           try {
-            const payload = await new Promise((resolve, reject) => {
+            await new Promise((resolve, reject) => {
               workerPool({
                 type: "filePasswordDecrypt",
                 files: [file],
@@ -306,18 +356,10 @@ export default function App() {
                 password,
                 currentPrivateKey,
                 responseType: "downloadFile",
-                onDecryptedFile: (filePayload) => {
+                onDecryptedFile: async (filePayload) => {
                   if (filePayload?.decrypted) {
-                    // Check if this file has already been downloaded
-                    if (!downloadedFilesRef.current.has(filePayload.fileName)) {
-                      // File hasn't been downloaded yet, download it
-                      saveAs(
-                        new Blob([filePayload.decrypted]),
-                        filePayload.fileName
-                      );
-                      // Add to downloaded files to prevent future duplicates
-                      downloadedFilesRef.current.add(filePayload.fileName);
-                    }
+                    // Use download queue to prevent duplicates
+                    await downloadQueue(filePayload);
                   }
                   resolve(filePayload);
                 },
@@ -343,7 +385,7 @@ export default function App() {
             if (file === currentPasswordFile) {
               currentFileDecrypted = true;
             }
-          } catch (error) {
+          } catch {
             // This file couldn't be decrypted with this password
             console.log("Password didn't work for file:", file.name);
           }
@@ -441,19 +483,12 @@ export default function App() {
                     password,
                     currentPrivateKey,
                     responseType: "downloadFile",
-                    onDecryptedFile: (filePayload) => {
+                    onDecryptedFile: async (filePayload) => {
                       if (filePayload?.decrypted) {
-                        if (
-                          !downloadedFilesRef.current.has(filePayload.fileName)
-                        ) {
-                          saveAs(
-                            new Blob([filePayload.decrypted]),
-                            filePayload.fileName
-                          );
-                          downloadedFilesRef.current.add(filePayload.fileName);
-                          processedFilesRef.current.add(filePayload.fileName);
+                        const downloaded = await downloadQueue(filePayload);
+                        if (downloaded) {
+                          decryptedWithMsgPassword.add(file.name);
                         }
-                        decryptedWithMsgPassword.add(file.name);
                       }
                       resolve();
                     },
@@ -472,7 +507,7 @@ export default function App() {
                     onCurrentPrivateKey: setCurrentPrivateKey,
                   }).catch(() => resolve());
                 });
-              } catch (error) {
+              } catch {
                 console.error(
                   "Error trying message password for file:",
                   file.name,
@@ -497,18 +532,11 @@ export default function App() {
                     password,
                     currentPrivateKey,
                     responseType: "downloadFile",
-                    onDecryptedFile: (filePayload) => {
+                    onDecryptedFile: async (filePayload) => {
                       if (filePayload?.fileName && filePayload.decrypted) {
-                        if (
-                          !downloadedFilesRef.current.has(filePayload.fileName)
-                        ) {
-                          saveAs(
-                            new Blob([filePayload.decrypted]),
-                            filePayload.fileName
-                          );
+                        const downloaded = await downloadQueue(filePayload);
+                        if (downloaded) {
                           successfullyDecryptedFiles.add(file.name);
-                          processedFilesRef.current.add(filePayload.fileName);
-                          downloadedFilesRef.current.add(filePayload.fileName);
                         }
                       }
                       resolve();
@@ -556,7 +584,7 @@ export default function App() {
           } else {
             setDecrypting(false);
           }
-        } catch (error) {
+        } catch {
           addToast({ title: "Incorrect password", color: "danger" });
           setDecrypting(false);
           return;

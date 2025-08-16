@@ -129,9 +129,6 @@ const processKey = async (key, decryptedBackedUpKeys) => {
   const openpgpKey = await openpgp.readKey({ armoredKey: key.publicKey });
 
   try {
-    const userIDs = openpgpKey.getUserIDs();
-    const userIdCount = userIDs.length;
-
     const primaryUser = await openpgpKey.getPrimaryUser();
     const userID = primaryUser.user.userID.userID;
 
