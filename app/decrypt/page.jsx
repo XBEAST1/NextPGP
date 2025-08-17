@@ -106,6 +106,7 @@ export default function App() {
     // Persist the filtered list
     setPasswordEncryptedFiles(filesToProcess);
 
+    // Only open modal if there are files left to process
     if (filesToProcess.size === 0) {
       setIsPasswordModalOpen(false);
       setDecrypting(false);
@@ -130,21 +131,16 @@ export default function App() {
 
     // Check if this file is currently being downloaded by another worker
     if (downloadLockRef.current.has(trackingName)) {
-      console.log(
-        `File ${trackingName} is being downloaded by another worker, skipping`
-      );
       return false;
     }
 
     // Check if this file has already been downloaded
     if (downloadedFilesRef.current.has(trackingName)) {
-      console.log(`File ${trackingName} already downloaded, skipping`);
       return false;
     }
 
     // Acquire download lock to prevent other workers from downloading the same file
     downloadLockRef.current.add(trackingName);
-    console.log(`Acquired download lock for: ${filePayload.fileName}`);
 
     try {
       // Small delay to ensure proper coordination between workers
@@ -156,11 +152,16 @@ export default function App() {
         setTimeout(resolveDownload, 100);
       });
 
-      // Mark as downloaded to prevent future duplicates
+      // Mark as downloaded and processed to prevent future duplicates
       downloadedFilesRef.current.add(trackingName);
       processedFilesRef.current.add(trackingName);
 
-      console.log(`Successfully downloaded: ${filePayload.fileName}`);
+      // Check if all files are done and close modal if needed
+      if (!checkFilesRemaining()) {
+        setIsPasswordModalOpen(false);
+        setDecrypting(false);
+      }
+
       return true;
     } catch (error) {
       console.error(`Error downloading ${filePayload.fileName}:`, error);
@@ -168,7 +169,6 @@ export default function App() {
     } finally {
       // Always release the download lock
       downloadLockRef.current.delete(trackingName);
-      console.log(`Released download lock for: ${filePayload.fileName}`);
     }
   };
 
@@ -267,6 +267,8 @@ export default function App() {
                   const downloaded = await downloadQueue(filePayload);
                   if (downloaded) {
                     successfullyDecryptedFiles.add(file.name);
+                    // Mark as processed to prevent re-processing
+                    processedFilesRef.current.add(file.name);
                   }
                 }
                 resolve();
@@ -345,54 +347,49 @@ export default function App() {
 
         // Try the password on all remaining files
         for (const file of allPasswordFiles) {
-          try {
-            await new Promise((resolve, reject) => {
-              workerPool({
-                type: "filePasswordDecrypt",
-                files: [file],
-                pgpKeys,
-                password,
-                currentPrivateKey,
-                responseType: "downloadFile",
-                onDecryptedFile: async (filePayload) => {
-                  if (filePayload?.decrypted) {
-                    // Use download queue to prevent duplicates
-                    await downloadQueue(filePayload);
-                  }
-                  resolve(filePayload);
-                },
-                onError: () => {
-                  reject(new Error("Worker error"));
-                },
-                onDetails: appendDetail,
-                onToast: (toast) => {
-                  // Only show toast for the current file to avoid spam
-                  if (file === currentPasswordFile) {
-                    addToast(toast);
-                  }
-                },
-                onModal: (isOpen) => {
-                  // Don't auto-close modal during multi-file processing
-                  console.log("Worker modal signal:", isOpen);
-                },
-                onCurrentPrivateKey: setCurrentPrivateKey,
-              }).catch(reject);
-            });
+          await new Promise((resolve, reject) => {
+            workerPool({
+              type: "filePasswordDecrypt",
+              files: [file],
+              pgpKeys,
+              password,
+              currentPrivateKey,
+              responseType: "downloadFile",
+              onDecryptedFile: async (filePayload) => {
+                if (filePayload?.decrypted) {
+                  // Use download queue to prevent duplicates
+                  await downloadQueue(filePayload);
+                }
+                resolve(filePayload);
+              },
+              onError: () => {
+                reject(new Error("Worker error"));
+              },
+              onDetails: appendDetail,
+              onToast: (toast) => {
+                // Only show toast for the current file to avoid spam
+                if (file === currentPasswordFile) {
+                  addToast(toast);
+                }
+              },
+              onModal: () => {},
+              onCurrentPrivateKey: setCurrentPrivateKey,
+            }).catch(reject);
+          });
 
-            successfullyDecryptedFiles.push(file);
-            if (file === currentPasswordFile) {
-              currentFileDecrypted = true;
-            }
-          } catch {
-            // This file couldn't be decrypted with this password
-            console.log("Password didn't work for file:", file.name);
+          successfullyDecryptedFiles.push(file);
+          if (file === currentPasswordFile) {
+            currentFileDecrypted = true;
           }
         }
 
         // Update processed files and remove successfully decrypted files
-        successfullyDecryptedFiles.forEach((file) =>
-          processedFilesRef.current.add(file.name)
-        );
+        successfullyDecryptedFiles.forEach((file) => {
+          processedFilesRef.current.add(file.name);
+          // Also mark as downloaded since the download happens in the worker
+          const expectedOutputName = file.name.replace(/\.(gpg|pgp|sig)$/i, "");
+          downloadedFilesRef.current.add(expectedOutputName);
+        });
 
         const updatedFiles = new Map(passwordEncryptedFiles);
         successfullyDecryptedFiles.forEach((file) => {
@@ -415,8 +412,14 @@ export default function App() {
           // Reset decrypting state after successful decryption
           setDecrypting(false);
 
-          // Process next file or finish
-          processNextPasswordFile(updatedFiles);
+          // Process next file or finish - only if there are files left
+          if (updatedFiles.size > 0) {
+            processNextPasswordFile(updatedFiles);
+          } else {
+            // All files are done
+            setIsPasswordModalOpen(false);
+            setDecrypting(false);
+          }
         } else {
           setDecrypting(false);
           return;
@@ -486,6 +489,8 @@ export default function App() {
                         const downloaded = await downloadQueue(filePayload);
                         if (downloaded) {
                           decryptedWithMsgPassword.add(file.name);
+                          // Mark as processed to prevent re-processing
+                          processedFilesRef.current.add(file.name);
                         }
                       }
                       resolve();
@@ -496,7 +501,10 @@ export default function App() {
                     onDetails: appendDetail,
                     onToast: (toast) => {
                       if (toast.color === "danger") {
-                        addToast(toast);
+                      addToast({
+                        title: `The Password For ${file.name} may be different from the message password`,
+                          color: "danger",
+                        });
                       }
                     },
                     onModal: () => {
@@ -535,6 +543,8 @@ export default function App() {
                         const downloaded = await downloadQueue(filePayload);
                         if (downloaded) {
                           successfullyDecryptedFiles.add(file.name);
+                          // Mark as processed to prevent re-processing
+                          processedFilesRef.current.add(file.name);
                         }
                       }
                       resolve();
@@ -593,6 +603,22 @@ export default function App() {
       addToast({ title: "Decryption failed", color: "danger" });
       setDecrypting(false);
     }
+  };
+
+  const checkFilesRemaining = () => {
+    if (passwordEncryptedFiles.size === 0) return false;
+
+    const remainingFiles = new Map(passwordEncryptedFiles);
+    for (const file of Array.from(remainingFiles.keys())) {
+      const expectedOutputName = file.name.replace(/\.(gpg|pgp|sig)$/i, "");
+      if (
+        downloadedFilesRef.current.has(expectedOutputName) ||
+        processedFilesRef.current.has(expectedOutputName)
+      ) {
+        remainingFiles.delete(file);
+      }
+    }
+    return remainingFiles.size > 0;
   };
 
   const removeDuplicateDetails = (detailsStr) => {
@@ -669,8 +695,6 @@ export default function App() {
     if (fingerprints.size > 0) {
       setKeyserverQuery([...fingerprints].join(", "));
       setkeyServerModal(true);
-    } else {
-      console.log("Fingerprint not found.");
     }
   };
 
@@ -686,8 +710,6 @@ export default function App() {
     if (keyIds.size > 0) {
       setKeyserverQuery([...keyIds].join(", "));
       setkeyServerModal(true);
-    } else {
-      console.log("No Unknown key IDs found.");
     }
   };
 
@@ -874,7 +896,14 @@ export default function App() {
                       title: `Skipped ${currentPasswordFile.name}`,
                       color: "warning",
                     });
-                    processNextPasswordFile(updatedFiles);
+
+                    // Process next file or finish if none left
+                    if (updatedFiles.size > 0) {
+                      processNextPasswordFile(updatedFiles);
+                    } else {
+                      setIsPasswordModalOpen(false);
+                      setDecrypting(false);
+                    }
                   }}
                 >
                   Skip File
