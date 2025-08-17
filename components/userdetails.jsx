@@ -39,7 +39,7 @@ const UserDetails = () => {
 
   return (
     <div className="flex flex-col items-center">
-      <h1 className="text-center text-2xl dm-serif-text-regular mb-3">
+      <h1 className="text-center text-2xl font-serif mb-3">
         {session?.user?.name}
       </h1>
       {session?.user?.image && (

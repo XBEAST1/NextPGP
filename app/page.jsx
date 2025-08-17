@@ -4305,9 +4305,7 @@ export default function App() {
   const topContent = useMemo(() => {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-center text-4xl dm-serif-text-regular">
-          Manage Keyrings
-        </h1>
+        <h1 className="text-center text-4xl font-serif">Manage Keyrings</h1>
         <br />
         <div className="flex justify-between gap-3 items-end">
           <Input

@@ -739,7 +739,7 @@ export default function App() {
 
   return (
     <>
-      <h1 className="text-center text-4xl dm-serif-text-regular">Decrypt</h1>
+      <h1 className="text-center text-4xl font-serif">Decrypt</h1>
       <br />
       <br />
       <Textarea

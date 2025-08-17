@@ -852,7 +852,7 @@ export default function App() {
   const topContent = useMemo(() => {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-center text-4xl dm-serif-text-regular">
+        <h1 className="text-center text-4xl font-serif">
           Manage Keyrings On Cloud
         </h1>
         <br />

@@ -74,7 +74,7 @@ const Page = () => {
 
       // Store the verification text with a prefix to identify it
       const combinedText = `VERIFY:${verificationText}`;
-      
+
       const verificationCipher = await workerPool(
         {
           type: "encrypt",
@@ -121,7 +121,7 @@ const Page = () => {
   return (
     <div>
       <ConnectivityCheck />
-      <div className="sm:mt-10 sm:me-32 text-center dm-serif-text-regular">
+      <div className="sm:mt-10 sm:me-32 text-center font-serif">
         <h1 className="text-4xl mb-6">Create Vault</h1>
         <span className="text-xl text-gray-400 flex justify-center items-center gap-2">
           <span className="glow-pulse">🔒</span>

@@ -168,7 +168,7 @@ export default function ImportKeyPage() {
 
   return (
     <>
-      <h1 className="text-center text-4xl dm-serif-text-regular">Import Key</h1>
+      <h1 className="text-center text-4xl font-serif">Import Key</h1>
       <br />
       <div className="flex flex-col sm:flex-row gap-3 mt-6 w-full">
         <Input
