@@ -51,9 +51,7 @@ export default function App() {
       try {
         const storedKeys = await getStoredKeys();
         setPgpKeys(storedKeys);
-      } catch (error) {
-        console.error("Error fetching keys:", error);
-      }
+      } catch {}
     };
 
     fetchKeysFromIndexedDB();
@@ -163,8 +161,7 @@ export default function App() {
       }
 
       return true;
-    } catch (error) {
-      console.error(`Error downloading ${filePayload.fileName}:`, error);
+    } catch {
       return false;
     } finally {
       // Always release the download lock
@@ -292,9 +289,7 @@ export default function App() {
               onCurrentPrivateKey: setCurrentPrivateKey,
             }).catch(() => resolve()); // Continue even if this file fails
           });
-        } catch (error) {
-          console.error("Error processing file:", file.name, error);
-        }
+        } catch {}
       }
 
       // Show summary toast for initial file processing
@@ -501,8 +496,8 @@ export default function App() {
                     onDetails: appendDetail,
                     onToast: (toast) => {
                       if (toast.color === "danger") {
-                      addToast({
-                        title: `The Password For ${file.name} may be different from the message password`,
+                        addToast({
+                          title: `The Password For ${file.name} may be different from the message password`,
                           color: "danger",
                         });
                       }
@@ -513,13 +508,7 @@ export default function App() {
                     onCurrentPrivateKey: setCurrentPrivateKey,
                   }).catch(() => resolve());
                 });
-              } catch {
-                console.error(
-                  "Error trying message password for file:",
-                  file.name,
-                  error
-                );
-              }
+              } catch {}
             }
 
             // For files not decrypted with the message password, try key-based decryption
@@ -567,9 +556,7 @@ export default function App() {
                     onCurrentPrivateKey: setCurrentPrivateKey,
                   }).catch(() => resolve());
                 });
-              } catch (error) {
-                console.error("Error processing file:", file.name, error);
-              }
+              } catch {}
             }
 
             if (successfullyDecryptedFiles.size > 0) {
@@ -598,9 +585,7 @@ export default function App() {
           return;
         }
       }
-    } catch (error) {
-      console.error("Unexpected password decryption error:", error);
-      addToast({ title: "Decryption failed", color: "danger" });
+    } catch {
       setDecrypting(false);
     }
   };
