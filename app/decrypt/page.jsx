@@ -120,7 +120,6 @@ export default function App() {
     setIsPasswordModalOpen(true);
   };
 
-  // Centralized download queue function to prevent duplicate downloads
   const downloadQueue = async (filePayload = null) => {
     if (!filePayload?.fileName || !filePayload?.decrypted) {
       return false;
@@ -151,7 +150,6 @@ export default function App() {
       // Small delay to ensure proper coordination between workers
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      // Download the file
       await new Promise((resolveDownload) => {
         saveAs(new Blob([filePayload.decrypted]), filePayload.fileName);
         // Small delay to ensure download starts before continuing
