@@ -154,12 +154,6 @@ export default function App() {
       downloadedFilesRef.current.add(trackingName);
       processedFilesRef.current.add(trackingName);
 
-      // Check if all files are done and close modal if needed
-      if (!checkFilesRemaining()) {
-        setIsPasswordModalOpen(false);
-        setDecrypting(false);
-      }
-
       return true;
     } catch {
       return false;
@@ -342,40 +336,45 @@ export default function App() {
 
         // Try the password on all remaining files
         for (const file of allPasswordFiles) {
-          await new Promise((resolve, reject) => {
-            workerPool({
-              type: "filePasswordDecrypt",
-              files: [file],
-              pgpKeys,
-              password,
-              currentPrivateKey,
-              responseType: "downloadFile",
-              onDecryptedFile: async (filePayload) => {
-                if (filePayload?.decrypted) {
-                  // Use download queue to prevent duplicates
-                  await downloadQueue(filePayload);
-                }
-                resolve(filePayload);
-              },
-              onError: () => {
-                reject(new Error("Worker error"));
-              },
-              onDetails: appendDetail,
-              onToast: (toast) => {
-                // Only show toast for the current file to avoid spam
-                if (file === currentPasswordFile) {
-                  addToast(toast);
-                }
-              },
-              onModal: () => {},
-              onCurrentPrivateKey: setCurrentPrivateKey,
-            }).catch(reject);
-          });
+          try {
+            const result = await new Promise((resolve, reject) => {
+              workerPool({
+                type: "filePasswordDecrypt",
+                files: [file],
+                pgpKeys,
+                password,
+                currentPrivateKey,
+                responseType: "downloadFile",
+                onDecryptedFile: async (filePayload) => {
+                  if (filePayload?.decrypted) {
+                    // Use download queue to prevent duplicates
+                    await downloadQueue(filePayload);
+                  }
+                  resolve(filePayload);
+                },
+                onError: () => {
+                  reject(new Error("Worker error"));
+                },
+                onDetails: appendDetail,
+                onToast: (toast) => {
+                  // Only show toast for the current file to avoid spam
+                  if (file === currentPasswordFile) {
+                    addToast(toast);
+                  }
+                },
+                onModal: () => {},
+                onCurrentPrivateKey: setCurrentPrivateKey,
+              }).catch(reject);
+            });
 
-          successfullyDecryptedFiles.push(file);
-          if (file === currentPasswordFile) {
-            currentFileDecrypted = true;
-          }
+            // Only add to successfullyDecryptedFiles if decryption was successful
+            if (result && result.decrypted) {
+              successfullyDecryptedFiles.push(file);
+              if (file === currentPasswordFile) {
+                currentFileDecrypted = true;
+              }
+            }
+          } catch {}
         }
 
         // Update processed files and remove successfully decrypted files
@@ -408,7 +407,7 @@ export default function App() {
           setDecrypting(false);
 
           // Process next file or finish - only if there are files left
-          if (updatedFiles.size > 0) {
+          if (checkFilesRemaining()) {
             processNextPasswordFile(updatedFiles);
           } else {
             // All files are done
@@ -591,19 +590,22 @@ export default function App() {
   };
 
   const checkFilesRemaining = () => {
-    if (passwordEncryptedFiles.size === 0) return false;
-
-    const remainingFiles = new Map(passwordEncryptedFiles);
-    for (const file of Array.from(remainingFiles.keys())) {
-      const expectedOutputName = file.name.replace(/\.(gpg|pgp|sig)$/i, "");
-      if (
-        downloadedFilesRef.current.has(expectedOutputName) ||
-        processedFilesRef.current.has(expectedOutputName)
-      ) {
-        remainingFiles.delete(file);
+    // Only check files in the passwordEncryptedFiles state that still need processing
+    if (passwordEncryptedFiles.size > 0) {
+      const remainingFiles = new Map(passwordEncryptedFiles);
+      for (const file of Array.from(remainingFiles.keys())) {
+        const expectedOutputName = file.name.replace(/\.(gpg|pgp|sig)$/i, "");
+        if (
+          downloadedFilesRef.current.has(expectedOutputName) ||
+          processedFilesRef.current.has(expectedOutputName)
+        ) {
+          remainingFiles.delete(file);
+        }
       }
+      return remainingFiles.size > 0;
     }
-    return remainingFiles.size > 0;
+
+    return false;
   };
 
   const removeDuplicateDetails = (detailsStr) => {
