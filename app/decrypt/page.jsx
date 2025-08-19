@@ -470,7 +470,7 @@ export default function App() {
             const decryptedWithMsgPassword = new Set();
             for (const file of uniqueFiles) {
               try {
-                await new Promise((resolve) => {
+                const result = await new Promise((resolve) => {
                   workerPool({
                     type: "filePasswordDecrypt",
                     files: [file],
@@ -480,14 +480,10 @@ export default function App() {
                     responseType: "downloadFile",
                     onDecryptedFile: async (filePayload) => {
                       if (filePayload?.decrypted) {
-                        const downloaded = await downloadQueue(filePayload);
-                        if (downloaded) {
-                          decryptedWithMsgPassword.add(file.name);
-                          // Mark as processed to prevent re-processing
-                          processedFilesRef.current.add(file.name);
-                        }
+                        // Use download queue to prevent duplicates
+                        await downloadQueue(filePayload);
                       }
-                      resolve();
+                      resolve(filePayload);
                     },
                     onError: () => {
                       resolve();
@@ -507,6 +503,14 @@ export default function App() {
                     onCurrentPrivateKey: setCurrentPrivateKey,
                   }).catch(() => resolve());
                 });
+
+                // Only add to successfullyDecryptedFiles if decryption was successful
+                if (result && result.decrypted) {
+                  successfullyDecryptedFiles.push(file);
+                  if (file === currentPasswordFile) {
+                    currentFileDecrypted = true;
+                  }
+                }
               } catch {}
             }
 
@@ -518,7 +522,7 @@ export default function App() {
 
             for (const file of remainingFiles) {
               try {
-                await new Promise((resolve) => {
+                const result = await new Promise((resolve) => {
                   workerPool({
                     type: "fileDecrypt",
                     files: [file],
@@ -527,15 +531,11 @@ export default function App() {
                     currentPrivateKey,
                     responseType: "downloadFile",
                     onDecryptedFile: async (filePayload) => {
-                      if (filePayload?.fileName && filePayload.decrypted) {
-                        const downloaded = await downloadQueue(filePayload);
-                        if (downloaded) {
-                          successfullyDecryptedFiles.add(file.name);
-                          // Mark as processed to prevent re-processing
-                          processedFilesRef.current.add(file.name);
-                        }
+                      if (filePayload?.decrypted) {
+                        // Use download queue to prevent duplicates
+                        await downloadQueue(filePayload);
                       }
-                      resolve();
+                      resolve(filePayload);
                     },
                     onError: () => {
                       resolve();
@@ -555,8 +555,33 @@ export default function App() {
                     onCurrentPrivateKey: setCurrentPrivateKey,
                   }).catch(() => resolve());
                 });
+
+                // Only add to successfullyDecryptedFiles if decryption was successful
+                if (result && result.decrypted) {
+                  successfullyDecryptedFiles.push(file);
+                  if (file === currentPasswordFile) {
+                    currentFileDecrypted = true;
+                  }
+                }
               } catch {}
             }
+
+            // Update processed files and remove successfully decrypted files
+            successfullyDecryptedFiles.forEach((file) => {
+              processedFilesRef.current.add(file.name);
+              // Also mark as downloaded since the download happens in the worker
+              const expectedOutputName = file.name.replace(
+                /\.(gpg|pgp|sig)$/i,
+                ""
+              );
+              downloadedFilesRef.current.add(expectedOutputName);
+            });
+
+            const updatedFiles = new Map(passwordEncryptedFiles);
+            successfullyDecryptedFiles.forEach((file) => {
+              updatedFiles.delete(file);
+            });
+            setPasswordEncryptedFiles(updatedFiles);
 
             if (successfullyDecryptedFiles.size > 0) {
               addToast({
