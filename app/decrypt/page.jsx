@@ -94,14 +94,15 @@ export default function App() {
         const expectedOutputName = file.name.replace(/\.(gpg|pgp|sig)$/i, "");
         if (
           downloadedFilesRef.current.has(expectedOutputName) ||
-          processedFilesRef.current.has(expectedOutputName)
+          processedFilesRef.current.has(expectedOutputName) ||
+          processedFilesRef.current.has(file.name)
         ) {
           filesToProcess.delete(file);
         }
       } catch {}
     }
 
-    // Persist the filtered list
+    // Persist the filtered list immediately
     setPasswordEncryptedFiles(filesToProcess);
 
     // Only open modal if there are files left to process
@@ -522,6 +523,8 @@ export default function App() {
                     ""
                   );
                   downloadedFilesRef.current.add(expectedOutputName);
+                  // Also mark the expected output name as processed for consistency
+                  processedFilesRef.current.add(expectedOutputName);
                 }
               } catch {}
             }
@@ -579,6 +582,8 @@ export default function App() {
                     ""
                   );
                   downloadedFilesRef.current.add(expectedOutputName);
+                  // Also mark the expected output name as processed for consistency
+                  processedFilesRef.current.add(expectedOutputName);
                 } else if (!fileDecrypted) {
                   // If the file wasn't decrypted, it needs a password
                   filesNeedingPassword.set(file, true);
@@ -607,8 +612,25 @@ export default function App() {
                 title: `${filesNeedingPassword.size} ${filesNeedingPassword.size === 1 ? "file" : "files"} require password for decryption`,
                 color: "primary",
               });
-              setPasswordEncryptedFiles(filesNeedingPassword);
-              processNextPasswordFile(filesNeedingPassword);
+
+              // Filter out any files that have already been processed before setting the state
+              const filteredFilesNeedingPassword = new Map();
+              for (const [file, value] of filesNeedingPassword) {
+                const expectedOutputName = file.name.replace(
+                  /\.(gpg|pgp|sig)$/i,
+                  ""
+                );
+                if (
+                  !downloadedFilesRef.current.has(expectedOutputName) &&
+                  !processedFilesRef.current.has(expectedOutputName) &&
+                  !processedFilesRef.current.has(file.name)
+                ) {
+                  filteredFilesNeedingPassword.set(file, value);
+                }
+              }
+
+              setPasswordEncryptedFiles(filteredFilesNeedingPassword);
+              processNextPasswordFile(filteredFilesNeedingPassword);
             } else {
               setDecrypting(false);
             }
@@ -634,7 +656,8 @@ export default function App() {
         const expectedOutputName = file.name.replace(/\.(gpg|pgp|sig)$/i, "");
         if (
           downloadedFilesRef.current.has(expectedOutputName) ||
-          processedFilesRef.current.has(expectedOutputName)
+          processedFilesRef.current.has(expectedOutputName) ||
+          processedFilesRef.current.has(file.name)
         ) {
           remainingFiles.delete(file);
         }
@@ -855,16 +878,33 @@ export default function App() {
                 <p className="text-sm text-gray-600">
                   <strong>File:</strong> {currentPasswordFile.name}
                 </p>
-                {passwordEncryptedFiles.size > 1 && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {passwordEncryptedFiles.size} files remaining to decrypt
-                  </p>
-                )}
-                {passwordEncryptedFiles.size > 1 && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    💡 Each file may have a different password
-                  </p>
-                )}
+                {(() => {
+                  // Calculate actual remaining files by filtering out already processed ones
+                  const actualRemaining = Array.from(
+                    passwordEncryptedFiles.keys()
+                  ).filter((file) => {
+                    const expectedOutputName = file.name.replace(
+                      /\.(gpg|pgp|sig)$/i,
+                      ""
+                    );
+                    return (
+                      !downloadedFilesRef.current.has(expectedOutputName) &&
+                      !processedFilesRef.current.has(expectedOutputName) &&
+                      !processedFilesRef.current.has(file.name)
+                    );
+                  }).length;
+
+                  return actualRemaining > 1 ? (
+                    <>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {actualRemaining} files remaining to decrypt
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        💡 Each file may have a different password
+                      </p>
+                    </>
+                  ) : null;
+                })()}
               </div>
             ) : inputMessage ? (
               <p className="mb-4 text-sm text-gray-600">
@@ -906,33 +946,50 @@ export default function App() {
               >
                 {decrypting ? <Spinner color="white" size="sm" /> : "Submit"}
               </Button>
-              {currentPasswordFile && passwordEncryptedFiles.size > 1 && (
-                <Button
-                  className="px-4 py-2 bg-gray-500 text-white rounded-full"
-                  onPress={() => {
-                    // Skip this file and move to next
-                    const updatedFiles = new Map(passwordEncryptedFiles);
-                    updatedFiles.delete(currentPasswordFile);
-                    setPasswordEncryptedFiles(updatedFiles);
-                    processedFilesRef.current.add(currentPasswordFile.name);
-                    setPassword(""); // Clear password for next file
-                    addToast({
-                      title: `Skipped ${currentPasswordFile.name}`,
-                      color: "warning",
-                    });
+              {currentPasswordFile &&
+                (() => {
+                  // Calculate actual remaining files by filtering out already processed ones
+                  const actualRemaining = Array.from(
+                    passwordEncryptedFiles.keys()
+                  ).filter((file) => {
+                    const expectedOutputName = file.name.replace(
+                      /\.(gpg|pgp|sig)$/i,
+                      ""
+                    );
+                    return (
+                      !downloadedFilesRef.current.has(expectedOutputName) &&
+                      !processedFilesRef.current.has(expectedOutputName) &&
+                      !processedFilesRef.current.has(file.name)
+                    );
+                  }).length;
+                  return actualRemaining > 1;
+                })() && (
+                  <Button
+                    className="px-4 py-2 bg-gray-500 text-white rounded-full"
+                    onPress={() => {
+                      // Skip this file and move to next
+                      const updatedFiles = new Map(passwordEncryptedFiles);
+                      updatedFiles.delete(currentPasswordFile);
+                      setPasswordEncryptedFiles(updatedFiles);
+                      processedFilesRef.current.add(currentPasswordFile.name);
+                      setPassword(""); // Clear password for next file
+                      addToast({
+                        title: `Skipped ${currentPasswordFile.name}`,
+                        color: "warning",
+                      });
 
-                    // Process next file or finish if none left
-                    if (updatedFiles.size > 0) {
-                      processNextPasswordFile(updatedFiles);
-                    } else {
-                      setIsPasswordModalOpen(false);
-                      setDecrypting(false);
-                    }
-                  }}
-                >
-                  Skip File
-                </Button>
-              )}
+                      // Process next file or finish if none left
+                      if (updatedFiles.size > 0) {
+                        processNextPasswordFile(updatedFiles);
+                      } else {
+                        setIsPasswordModalOpen(false);
+                        setDecrypting(false);
+                      }
+                    }}
+                  >
+                    Skip File
+                  </Button>
+                )}
             </div>
           </ModalContent>
         </Modal>
