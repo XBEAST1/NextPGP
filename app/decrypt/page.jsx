@@ -244,6 +244,8 @@ export default function App() {
             continue;
           }
 
+          let fileDecrypted = false;
+
           await new Promise((resolve) => {
             workerPool({
               type: "fileDecrypt",
@@ -257,6 +259,7 @@ export default function App() {
                   // Use download queue to prevent duplicates
                   const downloaded = await downloadQueue(filePayload);
                   if (downloaded) {
+                    fileDecrypted = true;
                     successfullyDecryptedFiles.add(file.name);
                     // Mark as processed to prevent re-processing
                     processedFilesRef.current.add(file.name);
@@ -273,16 +276,17 @@ export default function App() {
                   addToast(toast);
                 }
               },
-              onModal: (isOpen) => {
-                if (isOpen) {
-                  // This file needs a password
-                  filesNeedingPassword.set(file, true);
-                }
+              onModal: () => {
                 resolve(); // Continue processing
               },
               onCurrentPrivateKey: setCurrentPrivateKey,
             }).catch(() => resolve()); // Continue even if this file fails
           });
+
+          // Only add to filesNeedingPassword if the file wasn't successfully decrypted
+          if (!fileDecrypted) {
+            filesNeedingPassword.set(file, true);
+          }
         } catch {}
       }
 
@@ -468,6 +472,8 @@ export default function App() {
 
             // First, try the same password used for the message on all selected files
             const decryptedWithMsgPassword = new Set();
+            const successfullyDecryptedWithMsgPassword = [];
+
             for (const file of uniqueFiles) {
               try {
                 const result = await new Promise((resolve) => {
@@ -506,10 +512,16 @@ export default function App() {
 
                 // Only add to successfullyDecryptedFiles if decryption was successful
                 if (result && result.decrypted) {
-                  successfullyDecryptedFiles.push(file);
-                  if (file === currentPasswordFile) {
-                    currentFileDecrypted = true;
-                  }
+                  decryptedWithMsgPassword.add(file.name);
+                  successfullyDecryptedWithMsgPassword.push(file);
+                  // Mark as processed to prevent re-processing
+                  processedFilesRef.current.add(file.name);
+                  // Also mark as downloaded since the download happens in the worker
+                  const expectedOutputName = file.name.replace(
+                    /\.(gpg|pgp|sig)$/i,
+                    ""
+                  );
+                  downloadedFilesRef.current.add(expectedOutputName);
                 }
               } catch {}
             }
@@ -518,10 +530,12 @@ export default function App() {
             const remainingFiles = uniqueFiles.filter(
               (f) => !decryptedWithMsgPassword.has(f.name)
             );
-            const successfullyDecryptedFiles = new Set();
+            const successfullyDecryptedWithKeys = [];
 
             for (const file of remainingFiles) {
               try {
+                let fileDecrypted = false;
+
                 const result = await new Promise((resolve) => {
                   workerPool({
                     type: "fileDecrypt",
@@ -534,6 +548,7 @@ export default function App() {
                       if (filePayload?.decrypted) {
                         // Use download queue to prevent duplicates
                         await downloadQueue(filePayload);
+                        fileDecrypted = true;
                       }
                       resolve(filePayload);
                     },
@@ -546,10 +561,7 @@ export default function App() {
                         addToast(toast);
                       }
                     },
-                    onModal: (isOpen) => {
-                      if (isOpen) {
-                        filesNeedingPassword.set(file, true);
-                      }
+                    onModal: () => {
                       resolve();
                     },
                     onCurrentPrivateKey: setCurrentPrivateKey,
@@ -558,34 +570,34 @@ export default function App() {
 
                 // Only add to successfullyDecryptedFiles if decryption was successful
                 if (result && result.decrypted) {
-                  successfullyDecryptedFiles.push(file);
-                  if (file === currentPasswordFile) {
-                    currentFileDecrypted = true;
-                  }
+                  successfullyDecryptedWithKeys.push(file);
+                  // Mark as processed to prevent re-processing
+                  processedFilesRef.current.add(file.name);
+                  // Also mark as downloaded since the download happens in the worker
+                  const expectedOutputName = file.name.replace(
+                    /\.(gpg|pgp|sig)$/i,
+                    ""
+                  );
+                  downloadedFilesRef.current.add(expectedOutputName);
+                } else if (!fileDecrypted) {
+                  // If the file wasn't decrypted, it needs a password
+                  filesNeedingPassword.set(file, true);
                 }
               } catch {}
             }
 
-            // Update processed files and remove successfully decrypted files
-            successfullyDecryptedFiles.forEach((file) => {
-              processedFilesRef.current.add(file.name);
-              // Also mark as downloaded since the download happens in the worker
-              const expectedOutputName = file.name.replace(
-                /\.(gpg|pgp|sig)$/i,
-                ""
-              );
-              downloadedFilesRef.current.add(expectedOutputName);
-            });
-
-            const updatedFiles = new Map(passwordEncryptedFiles);
-            successfullyDecryptedFiles.forEach((file) => {
-              updatedFiles.delete(file);
-            });
-            setPasswordEncryptedFiles(updatedFiles);
-
-            if (successfullyDecryptedFiles.size > 0) {
+            // Show summary for files decrypted with message password
+            if (successfullyDecryptedWithMsgPassword.length > 0) {
               addToast({
-                title: `Successfully decrypted ${successfullyDecryptedFiles.size} ${successfullyDecryptedFiles.size === 1 ? "file" : "files"} with available keys`,
+                title: `Successfully decrypted ${successfullyDecryptedWithMsgPassword.length} ${successfullyDecryptedWithMsgPassword.length === 1 ? "file" : "files"} with message password`,
+                color: "success",
+              });
+            }
+
+            // Show summary for files decrypted with keys
+            if (successfullyDecryptedWithKeys.length > 0) {
+              addToast({
+                title: `Successfully decrypted ${successfullyDecryptedWithKeys.length} ${successfullyDecryptedWithKeys.length === 1 ? "file" : "files"} with available keys`,
                 color: "success",
               });
             }

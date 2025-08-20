@@ -6,9 +6,18 @@ import { Progress, Modal, ModalContent } from "@heroui/react";
 export default function AppUpdater() {
   const [show, setShow] = useState(false);
 
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "production") return;
+  const isProduction = process.env.NODE_ENV === "production";
+  const isNotLocalhost =
+    typeof window !== "undefined" &&
+    window.location.hostname !== "localhost" &&
+    !window.location.hostname.startsWith("127.") &&
+    !window.location.hostname.startsWith("192.168.") &&
+    !window.location.hostname.startsWith("10.");
 
+  useEffect(() => {
+    if (!isProduction || !isNotLocalhost) {
+      return;
+    }
     const BUILD_TIMESTAMP = __BUILD_TIMESTAMP__;
     const stored = localStorage.getItem("build_version");
 
@@ -82,6 +91,11 @@ export default function AppUpdater() {
       });
     }
   }, []);
+
+  // Don't render anything if not in production or on localhost
+  if (!isProduction || !isNotLocalhost) {
+    return null;
+  }
 
   return (
     <Modal isOpen={show} hideCloseButton backdrop="blur">
