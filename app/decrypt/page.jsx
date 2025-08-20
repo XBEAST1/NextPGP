@@ -40,6 +40,8 @@ export default function App() {
   const processedFilesRef = useRef(new Set());
   const downloadedFilesRef = useRef(new Set());
   const downloadLockRef = useRef(new Set()); // Lock for preventing concurrent downloads of the same file
+  const downloadQueueRef = useRef([]); // Global download queue to ensure sequential downloads
+  const isDownloadingRef = useRef(false); // Flag to track if download is in progress
 
   const toggleVisibility = () => setIsVisible(!isVisible);
   const passwordInputRef = useRef(null);
@@ -75,6 +77,8 @@ export default function App() {
     processedFilesRef.current = new Set();
     downloadedFilesRef.current = new Set();
     downloadLockRef.current = new Set();
+    downloadQueueRef.current = [];
+    isDownloadingRef.current = false;
   };
 
   const appendDetail = (payload) => {
@@ -94,15 +98,14 @@ export default function App() {
         const expectedOutputName = file.name.replace(/\.(gpg|pgp|sig)$/i, "");
         if (
           downloadedFilesRef.current.has(expectedOutputName) ||
-          processedFilesRef.current.has(expectedOutputName) ||
-          processedFilesRef.current.has(file.name)
+          processedFilesRef.current.has(expectedOutputName)
         ) {
           filesToProcess.delete(file);
         }
       } catch {}
     }
 
-    // Persist the filtered list immediately
+    // Persist the filtered list
     setPasswordEncryptedFiles(filesToProcess);
 
     // Only open modal if there are files left to process
@@ -128,40 +131,55 @@ export default function App() {
     // Always use the payload fileName for tracking since it's the actual output name
     const trackingName = filePayload.fileName;
 
-    // Check if this file is currently being downloaded by another worker
-    if (downloadLockRef.current.has(trackingName)) {
-      return false;
-    }
-
     // Check if this file has already been downloaded
     if (downloadedFilesRef.current.has(trackingName)) {
       return false;
     }
 
-    // Acquire download lock to prevent other workers from downloading the same file
-    downloadLockRef.current.add(trackingName);
+    // Add to global download queue
+    downloadQueueRef.current.push(filePayload);
 
-    try {
-      // Small delay to ensure proper coordination between workers
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      await new Promise((resolveDownload) => {
-        saveAs(new Blob([filePayload.decrypted]), filePayload.fileName);
-        // Small delay to ensure download starts before continuing
-        setTimeout(resolveDownload, 100);
-      });
-
-      // Mark as downloaded and processed to prevent future duplicates
-      downloadedFilesRef.current.add(trackingName);
-      processedFilesRef.current.add(trackingName);
-
-      return true;
-    } catch {
-      return false;
-    } finally {
-      // Always release the download lock
-      downloadLockRef.current.delete(trackingName);
+    // Start processing the queue if not already running
+    if (!isDownloadingRef.current) {
+      processDownloadQueue();
     }
+
+    return true;
+  };
+
+  const processDownloadQueue = async () => {
+    if (isDownloadingRef.current || downloadQueueRef.current.length === 0) {
+      return;
+    }
+
+    isDownloadingRef.current = true;
+
+    while (downloadQueueRef.current.length > 0) {
+      const filePayload = downloadQueueRef.current.shift();
+      const trackingName = filePayload.fileName;
+
+      // Double-check if already downloaded
+      if (downloadedFilesRef.current.has(trackingName)) {
+        continue;
+      }
+
+      try {
+        // Consistent delay for all files to ensure proper coordination
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        await new Promise((resolveDownload) => {
+          saveAs(new Blob([filePayload.decrypted]), filePayload.fileName);
+          // Consistent delay to ensure download starts before continuing
+          setTimeout(resolveDownload, 150);
+        });
+
+        // Mark as downloaded and processed
+        downloadedFilesRef.current.add(trackingName);
+        processedFilesRef.current.add(trackingName);
+      } catch {}
+    }
+
+    isDownloadingRef.current = false;
   };
 
   const handleDecrypt = async () => {
@@ -174,6 +192,8 @@ export default function App() {
     processedFilesRef.current = new Set();
     downloadedFilesRef.current = new Set();
     downloadLockRef.current = new Set();
+    downloadQueueRef.current = [];
+    isDownloadingRef.current = false;
 
     // Track files that need passwords
     let filesNeedingPassword = new Map();
@@ -245,8 +265,6 @@ export default function App() {
             continue;
           }
 
-          let fileDecrypted = false;
-
           await new Promise((resolve) => {
             workerPool({
               type: "fileDecrypt",
@@ -260,7 +278,6 @@ export default function App() {
                   // Use download queue to prevent duplicates
                   const downloaded = await downloadQueue(filePayload);
                   if (downloaded) {
-                    fileDecrypted = true;
                     successfullyDecryptedFiles.add(file.name);
                     // Mark as processed to prevent re-processing
                     processedFilesRef.current.add(file.name);
@@ -277,17 +294,16 @@ export default function App() {
                   addToast(toast);
                 }
               },
-              onModal: () => {
+              onModal: (isOpen) => {
+                if (isOpen) {
+                  // This file needs a password
+                  filesNeedingPassword.set(file, true);
+                }
                 resolve(); // Continue processing
               },
               onCurrentPrivateKey: setCurrentPrivateKey,
             }).catch(() => resolve()); // Continue even if this file fails
           });
-
-          // Only add to filesNeedingPassword if the file wasn't successfully decrypted
-          if (!fileDecrypted) {
-            filesNeedingPassword.set(file, true);
-          }
         } catch {}
       }
 
@@ -318,6 +334,10 @@ export default function App() {
     } finally {
       // Only finish if no password files are being processed
       if (filesNeedingPassword.size === 0) {
+        // Ensure any remaining downloads in the queue are processed
+        if (downloadQueueRef.current.length > 0 && !isDownloadingRef.current) {
+          processDownloadQueue();
+        }
         setDecrypting(false);
       }
     }
@@ -382,12 +402,9 @@ export default function App() {
           } catch {}
         }
 
-        // Update processed files and remove successfully decrypted files
+        // Update processed files - downloads will be handled by the download queue
         successfullyDecryptedFiles.forEach((file) => {
           processedFilesRef.current.add(file.name);
-          // Also mark as downloaded since the download happens in the worker
-          const expectedOutputName = file.name.replace(/\.(gpg|pgp|sig)$/i, "");
-          downloadedFilesRef.current.add(expectedOutputName);
         });
 
         const updatedFiles = new Map(passwordEncryptedFiles);
@@ -473,8 +490,6 @@ export default function App() {
 
             // First, try the same password used for the message on all selected files
             const decryptedWithMsgPassword = new Set();
-            const successfullyDecryptedWithMsgPassword = [];
-
             for (const file of uniqueFiles) {
               try {
                 const result = await new Promise((resolve) => {
@@ -513,18 +528,10 @@ export default function App() {
 
                 // Only add to successfullyDecryptedFiles if decryption was successful
                 if (result && result.decrypted) {
-                  decryptedWithMsgPassword.add(file.name);
-                  successfullyDecryptedWithMsgPassword.push(file);
-                  // Mark as processed to prevent re-processing
-                  processedFilesRef.current.add(file.name);
-                  // Also mark as downloaded since the download happens in the worker
-                  const expectedOutputName = file.name.replace(
-                    /\.(gpg|pgp|sig)$/i,
-                    ""
-                  );
-                  downloadedFilesRef.current.add(expectedOutputName);
-                  // Also mark the expected output name as processed for consistency
-                  processedFilesRef.current.add(expectedOutputName);
+                  successfullyDecryptedFiles.push(file);
+                  if (file === currentPasswordFile) {
+                    currentFileDecrypted = true;
+                  }
                 }
               } catch {}
             }
@@ -533,12 +540,10 @@ export default function App() {
             const remainingFiles = uniqueFiles.filter(
               (f) => !decryptedWithMsgPassword.has(f.name)
             );
-            const successfullyDecryptedWithKeys = [];
+            const successfullyDecryptedFiles = new Set();
 
             for (const file of remainingFiles) {
               try {
-                let fileDecrypted = false;
-
                 const result = await new Promise((resolve) => {
                   workerPool({
                     type: "fileDecrypt",
@@ -551,7 +556,6 @@ export default function App() {
                       if (filePayload?.decrypted) {
                         // Use download queue to prevent duplicates
                         await downloadQueue(filePayload);
-                        fileDecrypted = true;
                       }
                       resolve(filePayload);
                     },
@@ -564,7 +568,10 @@ export default function App() {
                         addToast(toast);
                       }
                     },
-                    onModal: () => {
+                    onModal: (isOpen) => {
+                      if (isOpen) {
+                        filesNeedingPassword.set(file, true);
+                      }
                       resolve();
                     },
                     onCurrentPrivateKey: setCurrentPrivateKey,
@@ -573,36 +580,28 @@ export default function App() {
 
                 // Only add to successfullyDecryptedFiles if decryption was successful
                 if (result && result.decrypted) {
-                  successfullyDecryptedWithKeys.push(file);
-                  // Mark as processed to prevent re-processing
-                  processedFilesRef.current.add(file.name);
-                  // Also mark as downloaded since the download happens in the worker
-                  const expectedOutputName = file.name.replace(
-                    /\.(gpg|pgp|sig)$/i,
-                    ""
-                  );
-                  downloadedFilesRef.current.add(expectedOutputName);
-                  // Also mark the expected output name as processed for consistency
-                  processedFilesRef.current.add(expectedOutputName);
-                } else if (!fileDecrypted) {
-                  // If the file wasn't decrypted, it needs a password
-                  filesNeedingPassword.set(file, true);
+                  successfullyDecryptedFiles.push(file);
+                  if (file === currentPasswordFile) {
+                    currentFileDecrypted = true;
+                  }
                 }
               } catch {}
             }
 
-            // Show summary for files decrypted with message password
-            if (successfullyDecryptedWithMsgPassword.length > 0) {
-              addToast({
-                title: `Successfully decrypted ${successfullyDecryptedWithMsgPassword.length} ${successfullyDecryptedWithMsgPassword.length === 1 ? "file" : "files"} with message password`,
-                color: "success",
-              });
-            }
+            // Update processed files - downloads will be handled by the download queue
+            successfullyDecryptedFiles.forEach((file) => {
+              processedFilesRef.current.add(file.name);
+            });
 
-            // Show summary for files decrypted with keys
-            if (successfullyDecryptedWithKeys.length > 0) {
+            const updatedFiles = new Map(passwordEncryptedFiles);
+            successfullyDecryptedFiles.forEach((file) => {
+              updatedFiles.delete(file);
+            });
+            setPasswordEncryptedFiles(updatedFiles);
+
+            if (successfullyDecryptedFiles.size > 0) {
               addToast({
-                title: `Successfully decrypted ${successfullyDecryptedWithKeys.length} ${successfullyDecryptedWithKeys.length === 1 ? "file" : "files"} with available keys`,
+                title: `Successfully decrypted ${successfullyDecryptedFiles.size} ${successfullyDecryptedFiles.size === 1 ? "file" : "files"} with available keys`,
                 color: "success",
               });
             }
@@ -612,38 +611,46 @@ export default function App() {
                 title: `${filesNeedingPassword.size} ${filesNeedingPassword.size === 1 ? "file" : "files"} require password for decryption`,
                 color: "primary",
               });
-
-              // Filter out any files that have already been processed before setting the state
-              const filteredFilesNeedingPassword = new Map();
-              for (const [file, value] of filesNeedingPassword) {
-                const expectedOutputName = file.name.replace(
-                  /\.(gpg|pgp|sig)$/i,
-                  ""
-                );
-                if (
-                  !downloadedFilesRef.current.has(expectedOutputName) &&
-                  !processedFilesRef.current.has(expectedOutputName) &&
-                  !processedFilesRef.current.has(file.name)
-                ) {
-                  filteredFilesNeedingPassword.set(file, value);
-                }
-              }
-
-              setPasswordEncryptedFiles(filteredFilesNeedingPassword);
-              processNextPasswordFile(filteredFilesNeedingPassword);
+              setPasswordEncryptedFiles(filesNeedingPassword);
+              processNextPasswordFile(filesNeedingPassword);
             } else {
+              // Ensure any remaining downloads in the queue are processed
+              if (
+                downloadQueueRef.current.length > 0 &&
+                !isDownloadingRef.current
+              ) {
+                processDownloadQueue();
+              }
               setDecrypting(false);
             }
           } else {
+            // Ensure any remaining downloads in the queue are processed
+            if (
+              downloadQueueRef.current.length > 0 &&
+              !isDownloadingRef.current
+            ) {
+              processDownloadQueue();
+            }
             setDecrypting(false);
           }
         } catch {
           addToast({ title: "Incorrect password", color: "danger" });
+          // Ensure any remaining downloads in the queue are processed
+          if (
+            downloadQueueRef.current.length > 0 &&
+            !isDownloadingRef.current
+          ) {
+            processDownloadQueue();
+          }
           setDecrypting(false);
           return;
         }
       }
     } catch {
+      // Ensure any remaining downloads in the queue are processed
+      if (downloadQueueRef.current.length > 0 && !isDownloadingRef.current) {
+        processDownloadQueue();
+      }
       setDecrypting(false);
     }
   };
@@ -653,12 +660,8 @@ export default function App() {
     if (passwordEncryptedFiles.size > 0) {
       const remainingFiles = new Map(passwordEncryptedFiles);
       for (const file of Array.from(remainingFiles.keys())) {
-        const expectedOutputName = file.name.replace(/\.(gpg|pgp|sig)$/i, "");
-        if (
-          downloadedFilesRef.current.has(expectedOutputName) ||
-          processedFilesRef.current.has(expectedOutputName) ||
-          processedFilesRef.current.has(file.name)
-        ) {
+        // Only check if processed, not downloaded, since downloads are handled by the queue
+        if (processedFilesRef.current.has(file.name)) {
           remainingFiles.delete(file);
         }
       }
@@ -878,33 +881,16 @@ export default function App() {
                 <p className="text-sm text-gray-600">
                   <strong>File:</strong> {currentPasswordFile.name}
                 </p>
-                {(() => {
-                  // Calculate actual remaining files by filtering out already processed ones
-                  const actualRemaining = Array.from(
-                    passwordEncryptedFiles.keys()
-                  ).filter((file) => {
-                    const expectedOutputName = file.name.replace(
-                      /\.(gpg|pgp|sig)$/i,
-                      ""
-                    );
-                    return (
-                      !downloadedFilesRef.current.has(expectedOutputName) &&
-                      !processedFilesRef.current.has(expectedOutputName) &&
-                      !processedFilesRef.current.has(file.name)
-                    );
-                  }).length;
-
-                  return actualRemaining > 1 ? (
-                    <>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {actualRemaining} files remaining to decrypt
-                      </p>
-                      <p className="text-xs text-blue-600 mt-1">
-                        💡 Each file may have a different password
-                      </p>
-                    </>
-                  ) : null;
-                })()}
+                {passwordEncryptedFiles.size > 1 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {passwordEncryptedFiles.size} files remaining to decrypt
+                  </p>
+                )}
+                {passwordEncryptedFiles.size > 1 && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    💡 Each file may have a different password
+                  </p>
+                )}
               </div>
             ) : inputMessage ? (
               <p className="mb-4 text-sm text-gray-600">
@@ -946,50 +932,33 @@ export default function App() {
               >
                 {decrypting ? <Spinner color="white" size="sm" /> : "Submit"}
               </Button>
-              {currentPasswordFile &&
-                (() => {
-                  // Calculate actual remaining files by filtering out already processed ones
-                  const actualRemaining = Array.from(
-                    passwordEncryptedFiles.keys()
-                  ).filter((file) => {
-                    const expectedOutputName = file.name.replace(
-                      /\.(gpg|pgp|sig)$/i,
-                      ""
-                    );
-                    return (
-                      !downloadedFilesRef.current.has(expectedOutputName) &&
-                      !processedFilesRef.current.has(expectedOutputName) &&
-                      !processedFilesRef.current.has(file.name)
-                    );
-                  }).length;
-                  return actualRemaining > 1;
-                })() && (
-                  <Button
-                    className="px-4 py-2 bg-gray-500 text-white rounded-full"
-                    onPress={() => {
-                      // Skip this file and move to next
-                      const updatedFiles = new Map(passwordEncryptedFiles);
-                      updatedFiles.delete(currentPasswordFile);
-                      setPasswordEncryptedFiles(updatedFiles);
-                      processedFilesRef.current.add(currentPasswordFile.name);
-                      setPassword(""); // Clear password for next file
-                      addToast({
-                        title: `Skipped ${currentPasswordFile.name}`,
-                        color: "warning",
-                      });
+              {currentPasswordFile && passwordEncryptedFiles.size > 1 && (
+                <Button
+                  className="px-4 py-2 bg-gray-500 text-white rounded-full"
+                  onPress={() => {
+                    // Skip this file and move to next
+                    const updatedFiles = new Map(passwordEncryptedFiles);
+                    updatedFiles.delete(currentPasswordFile);
+                    setPasswordEncryptedFiles(updatedFiles);
+                    processedFilesRef.current.add(currentPasswordFile.name);
+                    setPassword(""); // Clear password for next file
+                    addToast({
+                      title: `Skipped ${currentPasswordFile.name}`,
+                      color: "warning",
+                    });
 
-                      // Process next file or finish if none left
-                      if (updatedFiles.size > 0) {
-                        processNextPasswordFile(updatedFiles);
-                      } else {
-                        setIsPasswordModalOpen(false);
-                        setDecrypting(false);
-                      }
-                    }}
-                  >
-                    Skip File
-                  </Button>
-                )}
+                    // Process next file or finish if none left
+                    if (updatedFiles.size > 0) {
+                      processNextPasswordFile(updatedFiles);
+                    } else {
+                      setIsPasswordModalOpen(false);
+                      setDecrypting(false);
+                    }
+                  }}
+                >
+                  Skip File
+                </Button>
+              )}
             </div>
           </ModalContent>
         </Modal>
