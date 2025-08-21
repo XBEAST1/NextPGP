@@ -165,12 +165,12 @@ export default function App() {
 
       try {
         // Consistent delay for all files to ensure proper coordination
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 50));
 
         await new Promise((resolveDownload) => {
           saveAs(new Blob([filePayload.decrypted]), filePayload.fileName);
           // Consistent delay to ensure download starts before continuing
-          setTimeout(resolveDownload, 150);
+          setTimeout(resolveDownload, 100);
         });
 
         // Mark as downloaded and processed
@@ -490,6 +490,7 @@ export default function App() {
 
             // First, try the same password used for the message on all selected files
             const decryptedWithMsgPassword = new Set();
+            const successfullyDecryptedWithMsgPassword = new Set();
             for (const file of uniqueFiles) {
               try {
                 const result = await new Promise((resolve) => {
@@ -526,9 +527,10 @@ export default function App() {
                   }).catch(() => resolve());
                 });
 
-                // Only add to successfullyDecryptedFiles if decryption was successful
+                // Track files that were successfully decrypted with message password
                 if (result && result.decrypted) {
-                  successfullyDecryptedFiles.push(file);
+                  decryptedWithMsgPassword.add(file.name);
+                  successfullyDecryptedWithMsgPassword.add(file);
                   if (file === currentPasswordFile) {
                     currentFileDecrypted = true;
                   }
@@ -540,7 +542,7 @@ export default function App() {
             const remainingFiles = uniqueFiles.filter(
               (f) => !decryptedWithMsgPassword.has(f.name)
             );
-            const successfullyDecryptedFiles = new Set();
+            const successfullyDecryptedWithKeys = new Set();
 
             for (const file of remainingFiles) {
               try {
@@ -578,9 +580,9 @@ export default function App() {
                   }).catch(() => resolve());
                 });
 
-                // Only add to successfullyDecryptedFiles if decryption was successful
+                // Track files that were successfully decrypted with keys
                 if (result && result.decrypted) {
-                  successfullyDecryptedFiles.push(file);
+                  successfullyDecryptedWithKeys.add(file);
                   if (file === currentPasswordFile) {
                     currentFileDecrypted = true;
                   }
@@ -588,20 +590,31 @@ export default function App() {
               } catch {}
             }
 
+            // Combine all successfully decrypted files
+            const allSuccessfullyDecrypted = new Set([
+              ...successfullyDecryptedWithMsgPassword,
+              ...successfullyDecryptedWithKeys,
+            ]);
+
             // Update processed files - downloads will be handled by the download queue
-            successfullyDecryptedFiles.forEach((file) => {
+            allSuccessfullyDecrypted.forEach((file) => {
               processedFilesRef.current.add(file.name);
             });
 
+            // Remove successfully decrypted files from filesNeedingPassword
+            allSuccessfullyDecrypted.forEach((file) => {
+              filesNeedingPassword.delete(file);
+            });
+
             const updatedFiles = new Map(passwordEncryptedFiles);
-            successfullyDecryptedFiles.forEach((file) => {
+            allSuccessfullyDecrypted.forEach((file) => {
               updatedFiles.delete(file);
             });
             setPasswordEncryptedFiles(updatedFiles);
 
-            if (successfullyDecryptedFiles.size > 0) {
+            if (allSuccessfullyDecrypted.size > 0) {
               addToast({
-                title: `Successfully decrypted ${successfullyDecryptedFiles.size} ${successfullyDecryptedFiles.size === 1 ? "file" : "files"} with available keys`,
+                title: `Successfully decrypted ${allSuccessfullyDecrypted.size} ${allSuccessfullyDecrypted.size === 1 ? "file" : "files"}`,
                 color: "success",
               });
             }
