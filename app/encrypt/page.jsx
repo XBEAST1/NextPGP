@@ -490,7 +490,7 @@ export default function App() {
 
   return (
     <>
-      <h1 className="text-center text-4xl dm-serif-text-regular">Encrypt</h1>
+      <h1 className="text-center text-4xl font-serif">Encrypt</h1>
       <br />
       <br />
       <div className="flex flex-row gap-0 flex-wrap md:gap-4">

@@ -55,7 +55,9 @@ onmessage = async function (e) {
                 k.getKeyID().toHex() === hex ||
                 k.getSubkeys().some((s) => s.getKeyID().toHex() === hex)
             );
-            const userID = matched?.getUserIDs()[0] ?? "Unknown Key";
+            const userID = matched
+              ? (await matched.getPrimaryUser()).user.userID.userID
+              : "Unknown Key";
             const formatted = hex.replace(/(.{4})/g, "$1 ").trim();
 
             const signaturePacket = resolved.packets[0];
@@ -176,7 +178,9 @@ onmessage = async function (e) {
               k.getKeyID().toHex() === hex ||
               k.getSubkeys().some((s) => s.getKeyID().toHex() === hex)
           );
-          const userID = matched?.getUserIDs()[0] ?? "Unknown Key";
+          const userID = matched
+            ? (await matched.getPrimaryUser()).user.userID.userID
+            : "Unknown Key";
           const formatted = hex.replace(/(.{4})/g, "$1 ").trim();
 
           const signaturePacket = resolved.packets[0];
@@ -234,7 +238,6 @@ onmessage = async function (e) {
         type: "addToast",
         payload: { title: "Message Successfully Verified!", color: "success" },
       });
-      postMessage({ type: "error", payload: { message: "error" } });
       return;
     }
 
@@ -355,35 +358,39 @@ onmessage = async function (e) {
             );
             if (matchedKey) {
               decryptionKeyName =
-                matchedKey.getUserIDs()[0] || decryptionKeyName;
+                (await matchedKey.getPrimaryUser()).user.userID.userID ||
+                decryptionKeyName;
             }
           } catch {}
 
           // Extract encryption key IDs for recipient matching
           const encryptionKeyIDs = message.getEncryptionKeyIDs();
-          const recipients = encryptionKeyIDs.map((keyID) => {
-            const matchedKey = publicKeys.find((key) => {
-              return (
-                key.getKeyID().equals(keyID) ||
-                key
-                  .getSubkeys()
-                  .some((subkey) => subkey.getKeyID().equals(keyID))
-              );
-            });
+          const recipients = await Promise.all(
+            encryptionKeyIDs.map(async (keyID) => {
+              const matchedKey = publicKeys.find((key) => {
+                return (
+                  key.getKeyID().equals(keyID) ||
+                  key
+                    .getSubkeys()
+                    .some((subkey) => subkey.getKeyID().equals(keyID))
+                );
+              });
 
-            if (matchedKey) {
-              const userID = matchedKey.getUserIDs()[0];
-              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
-                .toHex()
-                .match(/.{1,4}/g)
-                .join(" ")})`;
-            } else {
-              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
-                .toHex()
-                .match(/.{1,4}/g)
-                .join(" ")})`;
-            }
-          });
+              if (matchedKey) {
+                const userID = (await matchedKey.getPrimaryUser()).user.userID
+                  .userID;
+                return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
+                  .toHex()
+                  .match(/.{1,4}/g)
+                  .join(" ")})`;
+              } else {
+                return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
+                  .toHex()
+                  .match(/.{1,4}/g)
+                  .join(" ")})`;
+              }
+            })
+          );
 
           functionDetails +=
             "👥 Recipients:\n" + recipients.join("\n") + "\n\n";
@@ -451,7 +458,9 @@ onmessage = async function (e) {
                 );
 
                 if (matchedKey) {
-                  userID = matchedKey.getUserIDs()[0] || "Unnamed Key";
+                  userID =
+                    (await matchedKey.getPrimaryUser()).user.userID.userID ||
+                    "Unnamed Key";
                 }
               }
 
@@ -591,27 +600,32 @@ onmessage = async function (e) {
         const encryptionKeyIDs = message.getEncryptionKeyIDs();
 
         // Match recipients
-        const recipients = encryptionKeyIDs.map((keyID) => {
-          const matchedKey = publicKeys.find((key) => {
-            return (
-              key.getKeyID().equals(keyID) ||
-              key.getSubkeys().some((subkey) => subkey.getKeyID().equals(keyID))
-            );
-          });
+        const recipients = await Promise.all(
+          encryptionKeyIDs.map(async (keyID) => {
+            const matchedKey = publicKeys.find((key) => {
+              return (
+                key.getKeyID().equals(keyID) ||
+                key
+                  .getSubkeys()
+                  .some((subkey) => subkey.getKeyID().equals(keyID))
+              );
+            });
 
-          if (matchedKey) {
-            const userID = matchedKey.getUserIDs()[0];
-            return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
-              .toHex()
-              .match(/.{1,4}/g)
-              .join(" ")})`;
-          } else {
-            return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
-              .toHex()
-              .match(/.{1,4}/g)
-              .join(" ")})`;
-          }
-        });
+            if (matchedKey) {
+              const userID = (await matchedKey.getPrimaryUser()).user.userID
+                .userID;
+              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
+                .toHex()
+                .match(/.{1,4}/g)
+                .join(" ")})`;
+            } else {
+              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
+                .toHex()
+                .match(/.{1,4}/g)
+                .join(" ")})`;
+            }
+          })
+        );
 
         functionDetails =
           recipients.length > 0
@@ -680,7 +694,9 @@ onmessage = async function (e) {
               );
 
               if (matchedKey) {
-                userID = matchedKey.getUserIDs()[0] || "Unnamed Key";
+                userID =
+                  (await matchedKey.getPrimaryUser()).user.userID.userID ||
+                  "Unnamed Key";
               }
             }
 
@@ -706,6 +722,7 @@ onmessage = async function (e) {
             color: "success",
           },
         });
+        postMessage({ type: "complete", payload: null });
         return;
       } catch (error) {
         console.error(
@@ -753,33 +770,38 @@ onmessage = async function (e) {
               .some((sub) => sub.getKeyID().toHex() === privateKeyID)
         );
         if (matchedKey) {
-          decryptionKeyName = matchedKey.getUserIDs()[0] || decryptionKeyName;
+          decryptionKeyName =
+            (await matchedKey.getPrimaryUser()).user.userID.userID ||
+            decryptionKeyName;
         }
       } catch {}
 
       const encryptionKeyIDs = message.getEncryptionKeyIDs();
 
-      const recipients = encryptionKeyIDs.map((keyID) => {
-        const matchedKey = publicKeys.find((key) => {
-          return (
-            key.getKeyID().equals(keyID) ||
-            key.getSubkeys().some((subkey) => subkey.getKeyID().equals(keyID))
-          );
-        });
+      const recipients = await Promise.all(
+        encryptionKeyIDs.map(async (keyID) => {
+          const matchedKey = publicKeys.find((key) => {
+            return (
+              key.getKeyID().equals(keyID) ||
+              key.getSubkeys().some((subkey) => subkey.getKeyID().equals(keyID))
+            );
+          });
 
-        if (matchedKey) {
-          const userID = matchedKey.getUserIDs()[0];
-          return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
-            .toHex()
-            .match(/.{1,4}/g)
-            .join(" ")})`;
-        } else {
-          return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
-            .toHex()
-            .match(/.{1,4}/g)
-            .join(" ")})`;
-        }
-      });
+          if (matchedKey) {
+            const userID = (await matchedKey.getPrimaryUser()).user.userID
+              .userID;
+            return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
+              .toHex()
+              .match(/.{1,4}/g)
+              .join(" ")})`;
+          } else {
+            return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
+              .toHex()
+              .match(/.{1,4}/g)
+              .join(" ")})`;
+          }
+        })
+      );
 
       functionDetails += "👥 Recipients:\n" + recipients.join("\n") + "\n\n";
 
@@ -846,7 +868,9 @@ onmessage = async function (e) {
                   .some((sub) => sub.getKeyID().toHex() === signingKeyID)
             );
             if (matchedKey) {
-              userID = matchedKey.getUserIDs()[0] || "Unnamed Key";
+              userID =
+                (await matchedKey.getPrimaryUser()).user.userID.userID ||
+                "Unnamed Key";
             }
           }
 
@@ -867,6 +891,7 @@ onmessage = async function (e) {
         type: "addToast",
         payload: { title: "Message Successfully Decrypted!", color: "success" },
       });
+      postMessage({ type: "complete", payload: null });
     } catch {
       postMessage({
         type: "addToast",
@@ -887,6 +912,8 @@ onmessage = async function (e) {
     let functionDetails = "";
 
     for (const file of files) {
+      // Reset details per file
+      functionDetails = "";
       // If the file is a ".sig", treat it as a detached signature
       if (file.name.endsWith(".sig")) {
         try {
@@ -910,6 +937,8 @@ onmessage = async function (e) {
 
           const extractedData = verificationResult.data;
 
+          functionDetails += `📄 File: ${file.name}\n`;
+
           if (verificationResult.signatures?.length) {
             for (const sig of verificationResult.signatures) {
               const resolved = await sig.signature;
@@ -919,7 +948,9 @@ onmessage = async function (e) {
                   k.getKeyID().toHex() === hex ||
                   k.getSubkeys().some((s) => s.getKeyID().toHex() === hex)
               );
-              const userID = matched?.getUserIDs()[0] ?? "Unknown Key";
+              const userID = matched
+                ? (await matched.getPrimaryUser()).user.userID.userID
+                : "Unknown Key";
               const formatted = hex.replace(/(.{4})/g, "$1 ").trim();
 
               const signaturePacket = resolved.packets[0];
@@ -1084,34 +1115,39 @@ onmessage = async function (e) {
               );
               if (matchedKey) {
                 decryptionKeyName =
-                  matchedKey.getUserIDs()[0] || decryptionKeyName;
+                  (await matchedKey.getPrimaryUser()).user.userID.userID ||
+                  decryptionKeyName;
               }
             } catch {}
 
             // Extract recipients information
             const encryptionKeyIDs = message.getEncryptionKeyIDs();
-            const recipients = encryptionKeyIDs.map((keyID) => {
-              const matchedKey = publicKeys.find((key) => {
-                return (
-                  key.getKeyID().equals(keyID) ||
-                  key
-                    .getSubkeys()
-                    .some((subkey) => subkey.getKeyID().equals(keyID))
-                );
-              });
-              if (matchedKey) {
-                const userID = matchedKey.getUserIDs()[0];
-                return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
-                  .toHex()
-                  .match(/.{1,4}/g)
-                  .join(" ")})`;
-              } else {
-                return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
-                  .toHex()
-                  .match(/.{1,4}/g)
-                  .join(" ")})`;
-              }
-            });
+            const recipients = await Promise.all(
+              encryptionKeyIDs.map(async (keyID) => {
+                const matchedKey = publicKeys.find((key) => {
+                  return (
+                    key.getKeyID().equals(keyID) ||
+                    key
+                      .getSubkeys()
+                      .some((subkey) => subkey.getKeyID().equals(keyID))
+                  );
+                });
+                if (matchedKey) {
+                  const userID = (await matchedKey.getPrimaryUser()).user.userID
+                    .userID;
+                  return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
+                    .toHex()
+                    .match(/.{1,4}/g)
+                    .join(" ")})`;
+                } else {
+                  return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
+                    .toHex()
+                    .match(/.{1,4}/g)
+                    .join(" ")})`;
+                }
+              })
+            );
+            functionDetails += `📄 File: ${file.name}\n`;
             functionDetails +=
               "👥 Recipients:\n" + recipients.join("\n") + "\n\n";
 
@@ -1177,7 +1213,9 @@ onmessage = async function (e) {
                         .some((sub) => sub.getKeyID().toHex() === signingKeyID)
                   );
                   if (matchedKey) {
-                    userID = matchedKey.getUserIDs()[0] || "Unnamed Key";
+                    userID =
+                      (await matchedKey.getPrimaryUser()).user.userID.userID ||
+                      "Unnamed Key";
                   }
                 }
 
@@ -1301,34 +1339,38 @@ onmessage = async function (e) {
 
           // Extract encryption key IDs for recipient matching
           const encryptionKeyIDs = message.getEncryptionKeyIDs();
-          const recipients = encryptionKeyIDs.map((keyID) => {
-            const matchedKey = publicKeys.find((key) => {
-              return (
-                key.getKeyID().equals(keyID) ||
-                key
-                  .getSubkeys()
-                  .some((subkey) => subkey.getKeyID().equals(keyID))
-              );
-            });
+          const recipients = await Promise.all(
+            encryptionKeyIDs.map(async (keyID) => {
+              const matchedKey = publicKeys.find((key) => {
+                return (
+                  key.getKeyID().equals(keyID) ||
+                  key
+                    .getSubkeys()
+                    .some((subkey) => subkey.getKeyID().equals(keyID))
+                );
+              });
 
-            if (matchedKey) {
-              const userID = matchedKey.getUserIDs()[0];
-              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
-                .toHex()
-                .match(/.{1,4}/g)
-                .join(" ")})`;
-            } else {
-              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
-                .toHex()
-                .match(/.{1,4}/g)
-                .join(" ")})`;
-            }
-          });
+              if (matchedKey) {
+                const userID = (await matchedKey.getPrimaryUser()).user.userID
+                  .userID;
+                return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
+                  .toHex()
+                  .match(/.{1,4}/g)
+                  .join(" ")})`;
+              } else {
+                return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
+                  .toHex()
+                  .match(/.{1,4}/g)
+                  .join(" ")})`;
+              }
+            })
+          );
 
           functionDetails =
-            recipients.length > 0
+            `📄 File: ${file.name}\n` +
+            (recipients.length > 0
               ? "👥 Recipients:\n" + recipients.join("\n") + "\n\n"
-              : "👥 No recipients found\n\n";
+              : "👥 No recipients found\n\n");
 
           if (signatures && signatures.length > 0) {
             for (const sig of signatures) {
@@ -1390,7 +1432,9 @@ onmessage = async function (e) {
                       .some((sub) => sub.getKeyID().toHex() === signingKeyID)
                 );
                 if (matchedKey) {
-                  userID = matchedKey.getUserIDs()[0] || "Unnamed Key";
+                  userID =
+                    (await matchedKey.getPrimaryUser()).user.userID.userID ||
+                    "Unnamed Key";
                 }
               }
 
@@ -1475,32 +1519,40 @@ onmessage = async function (e) {
                 .some((sub) => sub.getKeyID().toHex() === privateKeyID)
           );
           if (matchedKey) {
-            decryptionKeyName = matchedKey.getUserIDs()[0] || decryptionKeyName;
+            decryptionKeyName =
+              (await matchedKey.getPrimaryUser()).user.userID.userID ||
+              decryptionKeyName;
           }
         } catch {}
 
         const encryptionKeyIDs = message.getEncryptionKeyIDs();
-        const recipients = encryptionKeyIDs.map((keyID) => {
-          const matchedKey = publicKeys.find((key) => {
-            return (
-              key.getKeyID().equals(keyID) ||
-              key.getSubkeys().some((subkey) => subkey.getKeyID().equals(keyID))
-            );
-          });
-          if (matchedKey) {
-            const userID = matchedKey.getUserIDs()[0];
-            return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
-              .toHex()
-              .match(/.{1,4}/g)
-              .join(" ")})`;
-          } else {
-            return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
-              .toHex()
-              .match(/.{1,4}/g)
-              .join(" ")})`;
-          }
-        });
+        const recipients = await Promise.all(
+          encryptionKeyIDs.map(async (keyID) => {
+            const matchedKey = publicKeys.find((key) => {
+              return (
+                key.getKeyID().equals(keyID) ||
+                key
+                  .getSubkeys()
+                  .some((subkey) => subkey.getKeyID().equals(keyID))
+              );
+            });
+            if (matchedKey) {
+              const userID = (await matchedKey.getPrimaryUser()).user.userID
+                .userID;
+              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - ${userID} (${keyID
+                .toHex()
+                .match(/.{1,4}/g)
+                .join(" ")})`;
+            } else {
+              return `\u00A0\u00A0\u00A0\u00A0\u00A0  - Unknown (${keyID
+                .toHex()
+                .match(/.{1,4}/g)
+                .join(" ")})`;
+            }
+          })
+        );
 
+        functionDetails += `📄 File: ${file.name}\n`;
         functionDetails += "👥 Recipients:\n" + recipients.join("\n") + "\n\n";
 
         if (signatures && signatures.length > 0) {
@@ -1564,7 +1616,9 @@ onmessage = async function (e) {
                     .some((sub) => sub.getKeyID().toHex() === signingKeyID)
               );
               if (matchedKey) {
-                userID = matchedKey.getUserIDs()[0] || "Unnamed Key";
+                userID =
+                  (await matchedKey.getPrimaryUser()).user.userID.userID ||
+                  "Unnamed Key";
               }
             }
             functionDetails += `🔑 File successfully decrypted using key: ${decryptionKeyName}\n`;

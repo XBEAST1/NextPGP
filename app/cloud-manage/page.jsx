@@ -190,17 +190,16 @@ const processKey = async (key, vaultPassword, storedKeys) => {
       armoredKey: decryptedCloudPrivateKey || decryptedCloudPublicKey,
     });
 
-    const userIDs = openpgpKey.getUserIDs();
+    const primaryUser = await openpgpKey.getPrimaryUser();
+    const userID = primaryUser.user.userID.userID;
 
-    const firstUserID = userIDs[0];
     let name, email;
-
-    const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
+    const match = userID.match(/^(.*?)\s*<(.+?)>$/);
     if (match) {
       name = match[1].trim();
       email = match[2].trim();
     } else {
-      name = firstUserID.trim();
+      name = userID.trim();
       email = "N/A";
     }
 
@@ -532,9 +531,9 @@ export default function App() {
           });
           const publicKeyObj = privateKeyObj.toPublic();
           publicKey = publicKeyObj.armor();
-          keyname =
-            privateKeyObj.getUserIDs()[0]?.split("<")[0].trim() ||
-            "Unknown User";
+          const primaryUser = await privateKeyObj.getPrimaryUser();
+          const userID = primaryUser.user.userID.userID;
+          keyname = userID.split("<")[0].trim() || "Unknown User";
         } catch (err) {
           console.error("Error generating public key:", err);
           throw new Error("Failed to generate public key from private key");
@@ -544,9 +543,9 @@ export default function App() {
       if (!keyname && publicKey && publicKey.trim() !== "") {
         try {
           const publicKeyObj = await openpgp.readKey({ armoredKey: publicKey });
-          keyname =
-            publicKeyObj.getUserIDs()[0]?.split("<")[0].trim() ||
-            "Unknown User";
+          const primaryUser = await publicKeyObj.getPrimaryUser();
+          const userID = primaryUser.user.userID.userID;
+          keyname = userID.split("<")[0].trim() || "Unknown User";
         } catch (err) {
           console.error("Error reading public key for user name:", err);
           keyname = "Unknown User";
@@ -853,7 +852,7 @@ export default function App() {
   const topContent = useMemo(() => {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-center text-4xl dm-serif-text-regular">
+        <h1 className="text-center text-4xl font-serif">
           Manage Keyrings On Cloud
         </h1>
         <br />

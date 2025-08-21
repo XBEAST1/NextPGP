@@ -129,16 +129,16 @@ const processKey = async (key, decryptedBackedUpKeys) => {
   const openpgpKey = await openpgp.readKey({ armoredKey: key.publicKey });
 
   try {
-    const userIDs = openpgpKey.getUserIDs();
-    const firstUserID = userIDs[0];
-    let name, email;
+    const primaryUser = await openpgpKey.getPrimaryUser();
+    const userID = primaryUser.user.userID.userID;
 
-    const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
+    let name, email;
+    const match = userID.match(/^(.*?)\s*<(.+?)>$/);
     if (match) {
       name = match[1].trim();
       email = match[2].trim();
     } else {
-      name = firstUserID.trim();
+      name = userID.trim();
       email = "N/A";
     }
 
@@ -922,7 +922,7 @@ export default function App() {
   const topContent = useMemo(() => {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-center text-4xl dm-serif-text-regular">
+        <h1 className="text-center text-4xl font-serif">
           Backup Keyrings On Cloud
         </h1>
         <br />

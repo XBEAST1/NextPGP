@@ -400,14 +400,17 @@ const processKey = async (key) => {
 
   const userIDs = openpgpKey.getUserIDs();
   const userIdCount = userIDs.length;
-  const firstUserID = userIDs[0];
+
+  const primaryUser = await openpgpKey.getPrimaryUser();
+  const userID = primaryUser.user.userID.userID;
+
   let name, email;
-  const match = firstUserID.match(/^(.*?)\s*<(.+?)>$/);
+  const match = userID.match(/^(.*?)\s*<(.+?)>$/);
   if (match) {
     name = match[1].trim();
     email = match[2].trim();
   } else {
-    name = firstUserID.trim();
+    name = userID.trim();
     email = "N/A";
   }
 
@@ -4302,9 +4305,7 @@ export default function App() {
   const topContent = useMemo(() => {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-center text-4xl dm-serif-text-regular">
-          Manage Keyrings
-        </h1>
+        <h1 className="text-center text-4xl font-serif">Manage Keyrings</h1>
         <br />
         <div className="flex justify-between gap-3 items-end">
           <Input

@@ -1,11 +1,13 @@
-import { Fira_Code as FontMono, Inter as FontSans } from "next/font/google";
+import localFont from "next/font/local";
 
-export const fontSans = FontSans({
-  subsets: ["latin"],
+export const fontSans = localFont({
+  src: "../public/fonts/Inter-latin.woff2",
   variable: "--font-sans",
+  display: "swap",
 });
 
-export const fontMono = FontMono({
-  subsets: ["latin"],
-  variable: "--font-mono",
+export const fontSerif = localFont({
+  src: "../public/fonts/dm-serif-text-regular.woff2",
+  variable: "--font-serif",
+  display: "swap",
 });

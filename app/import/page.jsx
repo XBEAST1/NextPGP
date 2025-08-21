@@ -72,7 +72,9 @@ export default function ImportKeyPage() {
         privateKey: privateKey,
       };
 
-      let keyname = key.getUserIDs()[0]?.split("<")[0].trim() || "Unknown User";
+      const primaryUser = await key.getPrimaryUser();
+      const userID = primaryUser.user.userID.userID;
+      let keyname = userID.split("<")[0].trim() || "Unknown User";
 
       if (isPrivateKey) {
         keyData.privateKey = privateKey;
@@ -166,7 +168,7 @@ export default function ImportKeyPage() {
 
   return (
     <>
-      <h1 className="text-center text-4xl dm-serif-text-regular">Import Key</h1>
+      <h1 className="text-center text-4xl font-serif">Import Key</h1>
       <br />
       <div className="flex flex-col sm:flex-row gap-3 mt-6 w-full">
         <Input

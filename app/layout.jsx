@@ -3,7 +3,7 @@ import clsx from "clsx";
 import Logo from "@/assets/Logo2.jpg";
 import AppUpdater from "@/components/app-updater";
 import { Providers } from "./providers";
-import { fontSans } from "@/config/fonts";
+import { fontSans, fontSerif } from "@/config/fonts";
 import { Navbar } from "@/components/navbar";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { auth } from "@/auth";
@@ -95,7 +95,8 @@ export default async function RootLayout({ children }) {
         <body
           className={clsx(
             "min-h-screen bg-background font-sans antialiased",
-            fontSans.variable
+            fontSans.variable,
+            fontSerif.variable
           )}
         >
           <JsonLd item={websiteSchema} />
