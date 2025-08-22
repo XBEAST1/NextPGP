@@ -6,20 +6,22 @@ import { Progress, Modal, ModalContent } from "@heroui/react";
 export default function AppUpdater() {
   const [show, setShow] = useState(false);
 
-  const isProduction = process.env.NODE_ENV === "production";
-  const isNotLocalhost =
-    typeof window !== "undefined" &&
-    window.location.hostname !== "localhost" &&
-    !window.location.hostname.startsWith("127.") &&
-    !window.location.hostname.startsWith("192.168.") &&
-    !window.location.hostname.startsWith("10.");
-
   useEffect(() => {
-    if (!isProduction || !isNotLocalhost) {
+    if (process.env.NODE_ENV !== "production") return;
+
+    if (
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1")
+    )
       return;
-    }
+
     const BUILD_TIMESTAMP = __BUILD_TIMESTAMP__;
     const stored = localStorage.getItem("build_version");
+
+    if (!stored || stored !== BUILD_TIMESTAMP) {
+      localStorage.setItem("build_version", BUILD_TIMESTAMP);
+    }
 
     const shouldShowModal = stored && stored !== BUILD_TIMESTAMP;
 
@@ -64,7 +66,6 @@ export default function AppUpdater() {
             const checkRequests = async () => {
               const requests = await cache.keys();
               if (requests.length > 100) {
-                localStorage.setItem("build_version", BUILD_TIMESTAMP);
                 doReload();
                 return;
               }
@@ -91,11 +92,6 @@ export default function AppUpdater() {
       });
     }
   }, []);
-
-  // Don't render anything if not in production or on localhost
-  if (!isProduction || !isNotLocalhost) {
-    return null;
-  }
 
   return (
     <Modal isOpen={show} hideCloseButton backdrop="blur">
