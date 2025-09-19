@@ -5,17 +5,29 @@ const fs = require("fs");
 const path = require("path");
 
 const dev = process.env.NODE_ENV !== "production";
-const hostname = "localhost.com";
+const hostname = "nextpgp-dev.com";
 const port = process.env.PORT || 3000;
 
+if (dev) {
+  process.env.NODE_ENV = "development";
+  process.env.AUTH_URL = `https://${hostname}:${port}`;
+  // Allow self-signed certificates in development
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
+
 // Initialize Next.js app
-const app = next({ dev, hostname, port });
+const app = next({
+  dev,
+  hostname,
+  port,
+  ...(dev && { turbo: true }),
+});
 const handle = app.getRequestHandler();
 
 // SSL certificate paths
 const certDir = path.join(__dirname, "certs");
-const keyPath = path.join(certDir, "localhost.com-key.pem");
-const certPath = path.join(certDir, "localhost.com.pem");
+const keyPath = path.join(certDir, "nextpgp-dev.com-key.pem");
+const certPath = path.join(certDir, "nextpgp-dev.com.pem");
 
 // Check if certificates exist
 if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
@@ -49,6 +61,6 @@ app.prepare().then(() => {
       console.log(`🚀 Ready on https://${hostname}:${port}`);
       console.log("🔐 HTTPS enabled - Web Crypto API available!");
       console.log("\n📝 Make sure to add this to your /etc/hosts file:");
-      console.log("   127.0.0.1 localhost.com");
+      console.log("   127.0.0.1 nextpgp-dev.com");
     });
 });

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🔐 Setting up HTTPS development environment for localhost.com"
+echo "🔐 Setting up HTTPS development environment for nextpgp-dev.com"
 echo "=============================================================="
 
 # Check if running as root (needed for hosts file modification)
@@ -22,13 +22,13 @@ fi
 echo ""
 echo "📋 Updating /etc/hosts file..."
 
-# Check if localhost.com is already in hosts file
-if grep -q "localhost.com" /etc/hosts; then
-    echo "✅ localhost.com already exists in /etc/hosts"
+# Check if nextpgp-dev.com is already in hosts file
+if grep -q "nextpgp-dev.com" /etc/hosts; then
+    echo "✅ nextpgp-dev.com already exists in /etc/hosts"
 else
-    echo "🔧 Adding localhost.com to /etc/hosts..."
-    echo "127.0.0.1 localhost.com" | sudo tee -a /etc/hosts
-    echo "✅ Added localhost.com to /etc/hosts"
+    echo "🔧 Adding nextpgp-dev.com to /etc/hosts..."
+    echo "127.0.0.1 nextpgp-dev.com" | sudo tee -a /etc/hosts
+    echo "✅ Added nextpgp-dev.com to /etc/hosts"
 fi
 
 echo ""
@@ -38,7 +38,7 @@ echo "1. Start the HTTPS development server:"
 echo "   yarn dev:https"
 echo ""
 echo "2. Open your browser and go to:"
-echo "   https://localhost.com:3000"
+echo "   https://nextpgp-dev.com:3000"
 echo ""
 echo "3. Accept the self-signed certificate warning in your browser"
 echo ""

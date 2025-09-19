@@ -5,8 +5,8 @@ const path = require("path");
 const { execSync } = require("child_process");
 
 const certDir = path.join(__dirname, "..", "certs");
-const keyPath = path.join(certDir, "localhost.com-key.pem");
-const certPath = path.join(certDir, "localhost.com.pem");
+const keyPath = path.join(certDir, "nextpgp-dev.com-key.pem");
+const certPath = path.join(certDir, "nextpgp-dev.com.pem");
 
 // Create certs directory if it doesn't exist
 if (!fs.existsSync(certDir)) {
@@ -19,16 +19,16 @@ if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
   process.exit(0);
 }
 
-console.log("🔐 Generating SSL certificates for localhost.com...");
+console.log("🔐 Generating SSL certificates for nextpgp-dev.com...");
 
 try {
   // Generate private key
   execSync(`openssl genrsa -out "${keyPath}" 2048`, { stdio: "inherit" });
 
   // Generate certificate signing request
-  const csrPath = path.join(certDir, "localhost.com.csr");
+  const csrPath = path.join(certDir, "nextpgp-dev.com.csr");
   execSync(
-    `openssl req -new -key "${keyPath}" -out "${csrPath}" -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost.com"`,
+    `openssl req -new -key "${keyPath}" -out "${csrPath}" -subj "/C=US/ST=State/L=City/O=Organization/CN=nextpgp-dev.com"`,
     { stdio: "inherit" }
   );
 

@@ -1,10 +1,10 @@
-# HTTPS Development Setup for localhost.com
+# HTTPS Development Setup for nextpgp-dev.com
 
-This guide will help you set up your Next.js app to run on `localhost.com` with HTTPS, enabling the Web Crypto API for development.
+This guide will help you set up your Next.js app to run on `nextpgp-dev.com` with HTTPS, enabling the Web Crypto API for development.
 
-## Why HTTPS for localhost.com?
+## Why HTTPS for nextpgp-dev.com?
 
-The Web Crypto API requires a secure context (HTTPS) to work. By setting up `localhost.com` with HTTPS, you can:
+The Web Crypto API requires a secure context (HTTPS) to work. By setting up `nextpgp-dev.com` with HTTPS, you can:
 
 - Use the Web Crypto API in your development environment
 - Test cryptographic features locally
@@ -33,21 +33,21 @@ yarn setup:https
 Add this line to your `/etc/hosts` file:
 
 ```
-127.0.0.1 localhost.com
+127.0.0.1 nextpgp-dev.com
 ```
 
 **Linux/macOS:**
 
 ```bash
 sudo nano /etc/hosts
-# Add: 127.0.0.1 localhost.com
+# Add: 127.0.0.1 nextpgp-dev.com
 ```
 
 **Windows:**
 
 1. Open Notepad as Administrator
 2. Open `C:\Windows\System32\drivers\etc\hosts`
-3. Add: `127.0.0.1 localhost.com`
+3. Add: `127.0.0.1 nextpgp-dev.com`
 
 #### Step 3: Start HTTPS Development Server
 
@@ -65,12 +65,12 @@ yarn dev:https
    ```
 
 2. **Open your browser:**
-   Go to `https://localhost.com:3000`
+   Go to `https://nextpgp-dev.com:3000`
 
 3. **Accept the certificate warning:**
 
    - Your browser will show a security warning because we're using a self-signed certificate
-   - Click "Advanced" → "Proceed to localhost.com (unsafe)" or similar
+   - Click "Advanced" → "Proceed to nextpgp-dev.com (unsafe)" or similar
    - This is safe for development
 
 4. **Verify Web Crypto API:**
@@ -97,9 +97,9 @@ If you get certificate errors:
 
 ### Hosts File Issues
 
-If `localhost.com` doesn't resolve:
+If `nextpgp-dev.com` doesn't resolve:
 
-1. Check hosts file: `cat /etc/hosts | grep localhost.com`
+1. Check hosts file: `cat /etc/hosts | grep nextpgp-dev.com`
 2. Flush DNS cache:
    - **Linux:** `sudo systemctl restart systemd-resolved`
    - **macOS:** `sudo dscacheutil -flushcache`
@@ -126,8 +126,8 @@ This is normal for self-signed certificates. The warnings are safe to ignore in 
 
 ```
 ├── certs/                    # SSL certificates (auto-generated)
-│   ├── localhost.com-key.pem # Private key
-│   └── localhost.com.pem     # Certificate
+│   ├── nextpgp-dev.com-key.pem # Private key
+│   └── nextpgp-dev.com.pem     # Certificate
 ├── scripts/
 │   ├── generate-cert.js      # Certificate generator
 │   └── setup-https.sh        # Automated setup script

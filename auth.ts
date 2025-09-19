@@ -12,6 +12,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth(async () => {
     session: { strategy: "jwt" },
     adapter: MongooseAdapter(process.env.MONGODB_URI || ""),
     providers: [Google, GitHub],
+    trustHost: true,
     callbacks: {
       async jwt({ token, user }) {
         if (user) token.id = user.id;

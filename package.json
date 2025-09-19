@@ -4,7 +4,7 @@
  "private": true,
  "scripts": {
   "dev": "next dev --turbopack",
-  "dev:https": "node server.js",
+  "dev:https": "NODE_ENV=development node server.js",
   "setup:https": "node scripts/generate-cert.js",
   "build": "next build",
   "start": "next start",
