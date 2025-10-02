@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import Vault from "@/models/Vault";
+import { prisma } from "@/lib/prisma";
 import argon2 from "argon2";
 
 export async function POST(request: Request) {
@@ -15,7 +15,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "OTP is required" }, { status: 400 });
     }
 
-    const vault = await Vault.findOne({ userId: session.user.id });
+    const vault = await prisma.vault.findFirst({ 
+      where: { userId: session.user.id } 
+    });
     if (!vault) {
       return NextResponse.json({ error: "Vault Not Found" }, { status: 404 });
     }

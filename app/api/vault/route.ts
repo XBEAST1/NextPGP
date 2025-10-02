@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { connectToDatabase } from "@/lib/mongoose";
-import Vault from "@/models/Vault";
-import PGPKeys from "@/models/PGPKey";
-
-await connectToDatabase();
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await auth();
@@ -13,7 +9,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const vault = await Vault.findOne({ userId: session.user.id }).lean();
+  const vault = await prisma.vault.findFirst({ 
+    where: { userId: session.user.id } 
+  });
 
   return NextResponse.json({
     exists: Boolean(vault),
@@ -28,7 +26,9 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const vault = await Vault.findOne({ userId: session.user.id });
+  const vault = await prisma.vault.findFirst({ 
+    where: { userId: session.user.id } 
+  });
 
   if (!vault) {
     return NextResponse.json({ error: "Vault not found" }, { status: 404 });
@@ -48,15 +48,17 @@ export async function DELETE() {
   }
 
   try {
-    const vault = await Vault.findOne({ userId: session.user.id });
+    const vault = await prisma.vault.findFirst({ 
+      where: { userId: session.user.id } 
+    });
 
     if (!vault) {
       return NextResponse.json({ error: "Vault not found" }, { status: 404 });
     }
 
-    await Vault.deleteOne({ _id: vault._id });
-    // Delete the associated PGP keys with the vault
-    await PGPKeys.deleteMany({ vaultId: vault._id });
+    await prisma.vault.delete({ 
+      where: { id: vault.id } 
+    });
 
     return NextResponse.json(
       { message: "Vault deleted successfully" },

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sendEmail } from "@/lib/gmail";
-import Vault from "@/models/Vault";
+import { prisma } from "@/lib/prisma";
 import argon2 from "argon2";
 
 export async function POST() {
@@ -53,10 +53,13 @@ export async function POST() {
     );
 
     // Update the vault for this user with the OTP and expiry (5 minutes from now)
-    await Vault.findOneAndUpdate(
-      { userId: session.user.id },
-      { deleteOtp: otpHash, otpExpiresAt: new Date(Date.now() + 300000) }
-    );
+    await prisma.vault.updateMany({
+      where: { userId: session.user.id },
+      data: { 
+        deleteOtp: otpHash, 
+        otpExpiresAt: new Date(Date.now() + 300000) 
+      }
+    });
 
     // Mask the user's email show only first 3 and last 3 characters of the local part
     const [local, domain] = session.user.email.split("@");

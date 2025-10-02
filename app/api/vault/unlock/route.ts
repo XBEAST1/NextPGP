@@ -1,10 +1,7 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/mongoose";
-import Vault from "@/models/Vault";
+import { prisma } from "@/lib/prisma";
 import jwt from "jsonwebtoken";
-
-await connectToDatabase();
 
 export async function POST() {
   const session = await auth();
@@ -13,10 +10,10 @@ export async function POST() {
   }
 
   // Update lastActivity in the DB
-  await Vault.updateMany(
-    { userId: session.user.id },
-    { $set: { lastActivity: new Date() } }
-  );
+  await prisma.vault.updateMany({
+    where: { userId: session.user.id },
+    data: { lastActivity: new Date() }
+  });
 
   // Issue a vault‑unlock JWT for 30 minutes
   const token = jwt.sign(

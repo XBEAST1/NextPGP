@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { connectToDatabase } from "@/lib/mongoose";
-import Vault from "@/models/Vault";
-import PGPKey from "@/models/PGPKey";
-
-await connectToDatabase();
+import { prisma } from "@/lib/prisma";
 
 // POST: Retrieve keys (encrypted) from the database
 export async function POST(req: Request) {
@@ -19,17 +15,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  const vault = await Vault.findOne({ userId: session.user.id });
+  const vault = await prisma.vault.findFirst({ 
+    where: { userId: session.user.id } 
+  });
   if (!vault) {
     return NextResponse.json({ error: "Vault not found" }, { status: 404 });
   }
 
-  const keys = await PGPKey.find({ vaultId: vault._id }).lean();
+  const keys = await prisma.pGPKeys.findMany({ 
+    where: { vaultId: vault.id } 
+  });
 
   try {
     // Return the keys as stored (encrypted)
-    const responseKeys = keys.map((key) => ({
-      id: key._id.toString(),
+    const responseKeys = keys.map((key: any) => ({
+      id: key.id,
       privateKey: key.privateKey || "",
       publicKey: key.publicKey || "",
     }));

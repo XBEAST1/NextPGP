@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/mongoose";
-import Vault from "@/models/Vault";
-
-await connectToDatabase();
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("Authorization");
@@ -12,7 +9,9 @@ export async function GET(request: Request) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const vault = await Vault.findOne({ userId }).lean();
+  const vault = await prisma.vault.findFirst({ 
+    where: { userId } 
+  });
 
   if (vault) {
     return new NextResponse(null, { status: 200 });

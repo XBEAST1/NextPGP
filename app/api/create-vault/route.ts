@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { connectToDatabase } from "@/lib/mongoose";
-import Vault from "@/models/Vault";
-
-await connectToDatabase();
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await auth();
@@ -13,7 +10,9 @@ export async function GET() {
   }
 
   // Find any vault for this user
-  const vault = await Vault.findOne({ userId: session.user.id }).lean();
+  const vault = await prisma.vault.findFirst({ 
+    where: { userId: session.user.id } 
+  });
 
   return NextResponse.json({ exists: Boolean(vault) });
 }
@@ -26,7 +25,9 @@ export async function POST(req: Request) {
   }
 
   // Check if vault already exists for this user
-  const existingVault = await Vault.findOne({ userId: session.user.id }).lean();
+  const existingVault = await prisma.vault.findFirst({ 
+    where: { userId: session.user.id } 
+  });
   if (existingVault) {
     return NextResponse.json(
       { error: "Vault already exists" },
@@ -37,16 +38,13 @@ export async function POST(req: Request) {
   const { verificationCipher } = await req.json();
 
   try {
-    const vaultDoc = new Vault({
-      name: session.user.name ? `${session.user.name}'s Vault` : "Vault",
-      verificationCipher,
-      userId: session.user.id,
+    const vault = await prisma.vault.create({
+      data: {
+        name: session.user.name ? `${session.user.name}'s Vault` : "Vault",
+        verificationCipher,
+        userId: session.user.id,
+      },
     });
-
-    await vaultDoc.save();
-
-    const vault = vaultDoc.toObject();
-    delete (vault as any).__v;
 
     return NextResponse.json({ vault });
   } catch (error) {

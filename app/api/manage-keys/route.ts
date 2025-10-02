@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { connectToDatabase } from "@/lib/mongoose";
-import Vault from "@/models/Vault";
-import PGPKey from "@/models/PGPKey";
-
-await connectToDatabase();
+import { prisma } from "@/lib/prisma";
 
 // POST: Store new key
 export async function POST(req: Request) {
@@ -34,7 +30,9 @@ export async function POST(req: Request) {
     );
   }
 
-  const vault = await Vault.findOne({ userId: session.user.id });
+  const vault = await prisma.vault.findFirst({ 
+    where: { userId: session.user.id } 
+  });
   if (!vault) {
     return NextResponse.json({ error: "Vault not found for current user" }, { status: 404 });
   }
@@ -44,9 +42,11 @@ export async function POST(req: Request) {
   if (privateKeyHash) orConditions.push({ privateKeyHash });
   if (publicKeyHash) orConditions.push({ publicKeyHash });
 
-  const existingKey = await PGPKey.findOne({
-    vaultId: vault._id,
-    $or: orConditions,
+  const existingKey = await prisma.pGPKeys.findFirst({
+    where: {
+      vaultId: vault.id,
+      OR: orConditions,
+    },
   });
 
   if (existingKey) {
@@ -54,12 +54,14 @@ export async function POST(req: Request) {
   }
 
   try {
-    const storedKey = await PGPKey.create({
-      vaultId: vault._id,
-      ...(encryptedPrivateKey && { privateKey: encryptedPrivateKey }),
-      ...(encryptedPublicKey && { publicKey: encryptedPublicKey }),
-      ...(privateKeyHash && { privateKeyHash }),
-      ...(publicKeyHash && { publicKeyHash }),
+    const storedKey = await prisma.pGPKeys.create({
+      data: {
+        vaultId: vault.id,
+        ...(encryptedPrivateKey && { privateKey: encryptedPrivateKey }),
+        ...(encryptedPublicKey && { publicKey: encryptedPublicKey }),
+        ...(privateKeyHash && { privateKeyHash }),
+        ...(publicKeyHash && { publicKeyHash }),
+      },
     });
 
     return NextResponse.json(
@@ -89,7 +91,9 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const vault = await Vault.findOne({ userId: session.user.id });
+    const vault = await prisma.vault.findFirst({ 
+      where: { userId: session.user.id } 
+    });
     if (!vault) {
       return NextResponse.json(
         { error: "Vault not found for current user" },
@@ -97,7 +101,10 @@ export async function DELETE(req: Request) {
       );
     }
 
-    let keyQuery: any = { _id: keyId, vaultId: vault._id };
+    let keyQuery: any = { 
+      id: keyId, 
+      vaultId: vault.id 
+    };
 
     if (publicKeyHash) {
       keyQuery.publicKeyHash = publicKeyHash;
@@ -105,7 +112,9 @@ export async function DELETE(req: Request) {
       keyQuery.privateKeyHash = privateKeyHash;
     }
 
-    const keyToDelete = await PGPKey.findOne(keyQuery);
+    const keyToDelete = await prisma.pGPKeys.findFirst({ 
+      where: keyQuery 
+    });
 
     if (!keyToDelete) {
       return NextResponse.json(
@@ -114,7 +123,9 @@ export async function DELETE(req: Request) {
       );
     }
 
-    await PGPKey.deleteOne({ _id: keyId });
+    await prisma.pGPKeys.delete({ 
+      where: { id: keyId } 
+    });
 
     return NextResponse.json(
       { message: "Key deleted successfully" },
