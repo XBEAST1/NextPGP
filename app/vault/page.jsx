@@ -24,6 +24,7 @@ const Page = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [deleteSpinner, setDeleteSpinner] = useState(false);
   const [OTPSpinner, setOTPSpinner] = useState(false);
+  const [OTPVerifying, setOTPVerifying] = useState(false);
   const [OTP, setOTP] = useState("");
   const [password, setPassword] = useState("");
   const [DeleteModal, setDeleteModal] = useState(false);
@@ -127,29 +128,40 @@ const Page = () => {
   const onOtpInputChange = async (value) => {
     setOTP(value);
     if (value.length === 6) {
-      // Verify the OTP on the server
-      const verifyRes = await fetch("/api/vault/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otp: value }),
-      });
-      const verifyData = await verifyRes.json();
-      if (!verifyRes.ok) {
+      setOTPVerifying(true);
+      try {
+        // Verify the OTP on the server
+        const verifyRes = await fetch("/api/vault/verify-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ otp: value }),
+        });
+        const verifyData = await verifyRes.json();
+        if (!verifyRes.ok) {
+          addToast({
+            title: verifyData.error || "Invalid OTP",
+            color: "danger",
+          });
+          setOTPVerifying(false);
+          return;
+        }
+        // If verified, delete the vault
+        const res = await fetch("/api/vault", { method: "DELETE" });
+        if (res.ok) {
+          NProgress.start();
+          router.push("/create-vault");
+        } else {
+          console.log("Error deleting vault");
+        }
+        setDeleteModal(false);
+      } catch (error) {
+        console.error("Error verifying OTP:", error);
         addToast({
-          title: verifyData.error || "Invalid OTP",
+          title: "An error occurred while verifying OTP",
           color: "danger",
         });
-        return;
+        setOTPVerifying(false);
       }
-      // If verified, delete the vault
-      const res = await fetch("/api/vault", { method: "DELETE" });
-      if (res.ok) {
-        NProgress.start();
-        router.push("/create-vault");
-      } else {
-        console.log("Error deleting vault");
-      }
-      setDeleteModal(false);
     }
   };
 
@@ -163,6 +175,7 @@ const Page = () => {
   const triggerDeleteModal = () => {
     setConfirmInput("");
     setOTP("");
+    setOTPVerifying(false);
     setDeleteModal(true);
   };
 
@@ -232,12 +245,14 @@ const Page = () => {
         </Button>
       </div>
       <Modal
+        className={`transition-all duration-50 ease-in-out overflow-hidden ${OTPVerifying ? "sm:max-w-[35vw]" : ""}`}
         backdrop="blur"
         isOpen={DeleteModal}
         onClose={() => {
           setDeleteModal(false);
           setOTP("");
           setConfirmInput("");
+          setOTPVerifying(false);
         }}
       >
         <ModalContent className="p-5">
@@ -253,6 +268,13 @@ const Page = () => {
                   value={OTP}
                   onValueChange={onOtpInputChange}
                 />
+                {OTPVerifying && (
+                  <Spinner
+                    className="mt-4 ms-2 mb-4 sm:mb-0"
+                    color="white"
+                    size="sm"
+                  />
+                )}
                 <Button
                   className="mt-2 ms-2 sm:min-w-28 min-w-32"
                   onPress={() => {
