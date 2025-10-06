@@ -99,6 +99,15 @@ CREATE UNIQUE INDEX "Session_sessionToken_key" ON "Session"("sessionToken");
 CREATE UNIQUE INDEX "Authenticator_credentialID_key" ON "Authenticator"("credentialID");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Vault_userId_key" ON "Vault"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PGPKeys_publicKey_key" ON "PGPKeys"("publicKey");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PGPKeys_privateKey_key" ON "PGPKeys"("privateKey");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "PGPKeys_privateKeyHash_key" ON "PGPKeys"("privateKeyHash");
 
 -- CreateIndex

@@ -329,6 +329,10 @@ const processKey = async (key, vaultPassword, storedKeys) => {
       decryptedPublicKey: decryptedCloudPublicKey,
     };
   } catch (error) {
+    addToast({
+      title: `Failed to process key: ${error.message}`,
+      color: "danger",
+    });
     console.error("Error processing key:", error);
     return null;
   }
@@ -358,7 +362,9 @@ export default function App() {
       const vaultPassword = await getVaultPassword();
       if (!vaultPassword) {
         try {
-          await lockVault();
+          if (!window.vaultLockInProgress) {
+            await lockVault();
+          }
         } catch (err) {
           console.error("Failed to lock vault:", err);
         } finally {
@@ -371,6 +377,10 @@ export default function App() {
   }, [router, getVaultPassword]);
 
   const loadKeysFromCloud = async () => {
+    if (window.loadingCloudKeysInProgress) return [];
+
+    window.loadingCloudKeysInProgress = true;
+
     try {
       const vaultPassword = await getVaultPassword();
       const offset = (page - 1) * rowsPerPage;
@@ -414,13 +424,56 @@ export default function App() {
       }
 
       // Otherwise, fetch from the API.
+      const res = await fetch("/api/csrf", { method: "GET" });
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (res.status === 401) {
+          addToast({
+            title: "Please log in to continue.",
+            color: "danger",
+          });
+          router.push("/login");
+        } else {
+          addToast({
+            title: "Failed to get session token. Please try again.",
+            color: "danger",
+          });
+        }
+        return [];
+      }
+
+      const { csrfToken } = await res.json();
+
       const response = await fetch("/api/manage-keys/fetch-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ offset, limit }),
+        body: JSON.stringify({ offset, limit, csrfToken }),
       });
+
       if (!response.ok) {
-        throw new Error("Failed to fetch keys from API");
+        if (response.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (response.status === 403) {
+          addToast({
+            title: "Session expired. Please refresh the page and try again.",
+            color: "danger",
+          });
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          addToast({
+            title: "Failed to fetch keys from API. Please try again.",
+            color: "danger",
+          });
+        }
+        return [];
       }
 
       const data = await response.json();
@@ -476,6 +529,8 @@ export default function App() {
         color: "danger",
       });
       return [];
+    } finally {
+      window.loadingCloudKeysInProgress = false;
     }
   };
 
@@ -771,15 +826,57 @@ export default function App() {
         requestBody.publicKeyHash = publicKeyHash;
       }
 
+      const res = await fetch("/api/csrf", { method: "GET" });
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (res.status === 401) {
+          addToast({
+            title: "Please log in to continue.",
+            color: "danger",
+          });
+          router.push("/login");
+        } else {
+          addToast({
+            title: "Failed to get session token. Please try again.",
+            color: "danger",
+          });
+        }
+        return;
+      }
+
+      const { csrfToken } = await res.json();
+
       const deleteResponse = await fetch("/api/manage-keys", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({ ...requestBody, csrfToken }),
       });
 
       if (!deleteResponse.ok) {
-        const errorData = await deleteResponse.json();
-        throw new Error(errorData.error || "Failed to delete key");
+        if (deleteResponse.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (deleteResponse.status === 403) {
+          addToast({
+            title: "Session expired. Please refresh the page and try again.",
+            color: "danger",
+          });
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          const errorData = await deleteResponse.json();
+          addToast({
+            title: errorData.error || "Failed to delete key",
+            color: "danger",
+          });
+        }
+        return;
       }
 
       addToast({
@@ -945,6 +1042,10 @@ export default function App() {
                 router.push("/vault?redirect=%2Fcloud-manage");
               } catch (error) {
                 console.error("Error locking vault:", error);
+                addToast({
+                  title: "Failed to lock vault. Please try again.",
+                  color: "danger",
+                });
               } finally {
                 setLocking(false);
               }

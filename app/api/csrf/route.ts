@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
 import { rateLimit, generateCSRFToken, addSecurityHeaders } from "@/lib/security";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session?.user?.id) {
+
+  if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     windowMs: 60000,
     maxRequests: 60,  // IP limit: 60 requests per minute
     userId: session.user.id,
-    endpoint: 'vault-check',
+    endpoint: 'csrf-token',
     userMaxRequests: 60  // User limit: 60 requests per minute
   }, req as any);
 
@@ -21,23 +21,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
   }
 
-  const vault = await prisma.vault.findUnique({ 
-    where: { userId: session.user.id } 
-  });
-
   const csrfToken = generateCSRFToken(session.user.id);
 
-  if (vault) {
-    const response = NextResponse.json({ 
-      exists: true, 
-      csrfToken 
-    }, { status: 200 });
-    return addSecurityHeaders(response);
-  }
-
-  const response = NextResponse.json({ 
-    exists: false, 
-    csrfToken 
-  }, { status: 404 });
+  const response = NextResponse.json({
+    csrfToken
+  });
   return addSecurityHeaders(response);
 }

@@ -312,6 +312,7 @@ export default function App() {
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingKeys, setIsLoadingKeys] = useState(false);
   const [locking, setLocking] = useState(false);
   const [totalKeys, setTotalKeys] = useState(0);
   const [cache, setCache] = useState({});
@@ -330,7 +331,9 @@ export default function App() {
       const vaultPassword = await getVaultPassword();
       if (!vaultPassword) {
         try {
-          await lockVault();
+          if (!window.vaultLockInProgress) {
+            await lockVault();
+          }
         } catch (err) {
           console.error("Failed to lock vault:", err);
         } finally {
@@ -474,111 +477,142 @@ export default function App() {
   }, [page, rowsPerPage]);
 
   const loadKeysFromIndexedDB = async (offset, limit) => {
-    const db = await openDB();
-    const encryptionKey = await getEncryptionKey();
-    let backedUpKeys = [];
+    if (isLoadingKeys) return [];
+    if (window.loadingKeysInProgress) return [];
+
+    setIsLoadingKeys(true);
+    window.loadingKeysInProgress = true;
 
     try {
-      const response = await fetch("/api/manage-keys/fetch-keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        backedUpKeys = data.keys || [];
-      }
-    } catch (error) {
-      console.error("Error fetching backed up keys:", error);
-    }
+      const db = await openDB();
+      const encryptionKey = await getEncryptionKey();
+      let backedUpKeys = [];
 
-    let vaultPassword = await getVaultPassword();
-    const decryptedBackedUpKeys = await Promise.all(
-      backedUpKeys.map(async (backedUpKey) => {
-        const [decryptedCloudPublicKey, decryptedCloudPrivateKey] =
-          await Promise.all([
-            backedUpKey.publicKey
-              ? workerPool(
-                  {
-                    type: "decrypt",
-                    responseType: "decryptResponse",
-                    encryptedBase64: backedUpKey.publicKey,
-                    password: vaultPassword,
-                  },
-                  addToast
-                )
-              : Promise.resolve(""),
-            backedUpKey.privateKey
-              ? workerPool(
-                  {
-                    type: "decrypt",
-                    responseType: "decryptResponse",
-                    encryptedBase64: backedUpKey.privateKey,
-                    password: vaultPassword,
-                  },
-                  addToast
-                )
-              : Promise.resolve(""),
-          ]);
-        return {
-          publicKey: decryptedCloudPublicKey,
-          privateKey: decryptedCloudPrivateKey,
-        };
-      })
-    );
+      try {
+        const res = await fetch("/api/csrf", { method: "GET" });
+        const { csrfToken } = await res.json();
 
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(dbPgpKeys, "readonly");
-      const store = transaction.objectStore(dbPgpKeys);
-      let results = [];
-      let skipped = 0;
-      const request = store.openCursor();
-
-      const finish = async () => {
-        try {
-          const decryptedKeys = await Promise.all(
-            results.map((record) =>
-              decryptData(record.encrypted, encryptionKey, record.iv)
-            )
-          );
-          const processedKeys = await Promise.all(
-            decryptedKeys.map(async (key) => {
-              try {
-                return await processKey(key, decryptedBackedUpKeys);
-              } catch (error) {
-                console.error("Error processing individual key:", error);
-                return null;
-              }
-            })
-          );
-          vaultPassword = null;
-          resolve(processedKeys.filter((k) => k !== null));
-        } catch (err) {
-          reject(err);
-        }
-      };
-
-      request.onsuccess = (e) => {
-        const cursor = e.target.result;
-        if (cursor) {
-          if (skipped < offset) {
-            skipped++;
-            cursor.continue();
-            return;
+        const response = await fetch("/api/manage-keys/fetch-keys", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csrfToken }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          backedUpKeys = data.keys || [];
+        } else {
+          if (response.status === 429) {
+            addToast({
+              title: "Too many requests. Please wait a moment and try again.",
+              color: "warning",
+            });
+          } else if (response.status === 401) {
+            addToast({
+              title: "Please log in to continue.",
+              color: "danger",
+            });
+          } else {
+            addToast({
+              title: "Failed to fetch backed up keys. Please try again.",
+              color: "danger",
+            });
           }
-          results.push(cursor.value);
-          if (results.length < limit) {
-            cursor.continue();
+        }
+      } catch (error) {
+        console.error("Error fetching backed up keys:", error);
+      }
+
+      let vaultPassword = await getVaultPassword();
+      const decryptedBackedUpKeys = await Promise.all(
+        backedUpKeys.map(async (backedUpKey) => {
+          const [decryptedCloudPublicKey, decryptedCloudPrivateKey] =
+            await Promise.all([
+              backedUpKey.publicKey
+                ? workerPool(
+                    {
+                      type: "decrypt",
+                      responseType: "decryptResponse",
+                      encryptedBase64: backedUpKey.publicKey,
+                      password: vaultPassword,
+                    },
+                    addToast
+                  )
+                : Promise.resolve(""),
+              backedUpKey.privateKey
+                ? workerPool(
+                    {
+                      type: "decrypt",
+                      responseType: "decryptResponse",
+                      encryptedBase64: backedUpKey.privateKey,
+                      password: vaultPassword,
+                    },
+                    addToast
+                  )
+                : Promise.resolve(""),
+            ]);
+          return {
+            publicKey: decryptedCloudPublicKey,
+            privateKey: decryptedCloudPrivateKey,
+          };
+        })
+      );
+
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(dbPgpKeys, "readonly");
+        const store = transaction.objectStore(dbPgpKeys);
+        let results = [];
+        let skipped = 0;
+        const request = store.openCursor();
+
+        const finish = async () => {
+          try {
+            const decryptedKeys = await Promise.all(
+              results.map((record) =>
+                decryptData(record.encrypted, encryptionKey, record.iv)
+              )
+            );
+            const processedKeys = await Promise.all(
+              decryptedKeys.map(async (key) => {
+                try {
+                  return await processKey(key, decryptedBackedUpKeys);
+                } catch (error) {
+                  console.error("Error processing individual key:", error);
+                  return null;
+                }
+              })
+            );
+            vaultPassword = null;
+            resolve(processedKeys.filter((k) => k !== null));
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        request.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            if (skipped < offset) {
+              skipped++;
+              cursor.continue();
+              return;
+            }
+            results.push(cursor.value);
+            if (results.length < limit) {
+              cursor.continue();
+            } else {
+              finish();
+            }
           } else {
             finish();
           }
-        } else {
-          finish();
-        }
-      };
+        };
 
-      request.onerror = (e) => reject(e.target.error);
-    });
+        request.onerror = (e) => reject(e.target.error);
+      });
+    } finally {
+      setIsLoadingKeys(false);
+      window.loadingKeysInProgress = false;
+    }
   };
 
   const filteredItems = useMemo(() => {
@@ -807,10 +841,35 @@ export default function App() {
         ...(publicKeyHash ? { publicKeyHash } : {}),
       };
 
+      const res = await fetch("/api/csrf", { method: "GET" });
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (res.status === 401) {
+          addToast({
+            title: "Please log in to continue.",
+            color: "danger",
+          });
+          router.push("/login");
+        } else {
+          addToast({
+            title: "Failed to get session token. Please try again.",
+            color: "danger",
+          });
+        }
+        return;
+      }
+
+      const { csrfToken } = await res.json();
+
       const response = await fetch("/api/manage-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, csrfToken }),
       });
 
       const responseData = await response.json();
@@ -835,13 +894,26 @@ export default function App() {
           );
         }
       } else {
-        const errorMessage =
-          responseData?.error ||
-          `Failed to back up ${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"}`;
-        addToast({
-          title: errorMessage,
-          color: "danger",
-        });
+        if (response.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (response.status === 403) {
+          addToast({
+            title: "Session expired. Please refresh the page and try again.",
+            color: "danger",
+          });
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          const errorMessage =
+            responseData?.error ||
+            `Failed to back up ${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"}`;
+          addToast({
+            title: errorMessage,
+            color: "danger",
+          });
+        }
       }
     } catch (error) {
       console.error(error);
@@ -1013,8 +1085,11 @@ export default function App() {
                 await lockVault();
                 NProgress.start();
                 router.push("/vault");
-              } catch (error) {
-                console.error("Error locking vault:", error);
+              } catch {
+                addToast({
+                  title: "Failed to lock vault. Please try again.",
+                  color: "danger",
+                });
               } finally {
                 setLocking(false);
               }

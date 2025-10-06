@@ -53,7 +53,30 @@ const Page = () => {
 
     try {
       const res = await fetch("/api/vault", { method: "GET" });
-      const { verificationCipher } = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (res.status === 401) {
+          addToast({
+            title: "Please log in to continue.",
+            color: "danger",
+          });
+          router.push("/login");
+        } else {
+          addToast({
+            title: "Failed to access vault. Please try again.",
+            color: "danger",
+          });
+        }
+        setLoading(false);
+        return;
+      }
+
+      const { verificationCipher, csrfToken } = await res.json();
 
       if (!verificationCipher) {
         addToast({
@@ -83,7 +106,34 @@ const Page = () => {
 
       // Vault unlocked successfully
       unlockVault(password);
-      await fetch("/api/vault/unlock", { method: "POST" });
+
+      const unlockResponse = await fetch("/api/vault/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csrfToken }),
+      });
+
+      if (!unlockResponse.ok) {
+        if (unlockResponse.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (unlockResponse.status === 403) {
+          addToast({
+            title: "Session expired. Please refresh the page and try again.",
+            color: "danger",
+          });
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          addToast({
+            title: "Failed to unlock vault. Please try again.",
+            color: "danger",
+          });
+        }
+        setLoading(false);
+        return;
+      }
 
       setLoading(false);
       const redirectUrl = searchParams.get("redirect") ?? "/cloud-backup";
@@ -100,10 +150,40 @@ const Page = () => {
 
   const sendOtpEmail = async () => {
     try {
+      const res = await fetch("/api/csrf", { method: "GET" });
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (res.status === 401) {
+          addToast({
+            title: "Please log in to continue.",
+            color: "danger",
+          });
+          router.push("/login");
+        } else {
+          addToast({
+            title: "Failed to get session token. Please try again.",
+            color: "danger",
+          });
+        }
+        setOTPSpinner(false);
+        return;
+      }
+
+      const { csrfToken } = await res.json();
+
       const emailRes = await fetch("/api/vault/delete-otp", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csrfToken }),
       });
+
       const data = await emailRes.json();
+
       if (emailRes.ok) {
         addToast({
           title: `Confirmation email sent to ${data.maskedEmail}`,
@@ -111,10 +191,24 @@ const Page = () => {
         });
         setOTPSpinner(false);
       } else {
-        addToast({
-          title: data.error || "Failed to send confirmation email",
-          color: "danger",
-        });
+        if (emailRes.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (emailRes.status === 403) {
+          addToast({
+            title: "Session expired. Please refresh the page and try again.",
+            color: "danger",
+          });
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          addToast({
+            title: data.error || "Failed to send confirmation email",
+            color: "danger",
+          });
+        }
+        setOTPSpinner(false);
       }
     } catch (error) {
       console.error("Error:", error);
@@ -122,6 +216,7 @@ const Page = () => {
         title: "An error occurred",
         color: "danger",
       });
+      setOTPSpinner(false);
     }
   };
 
@@ -130,30 +225,94 @@ const Page = () => {
     if (value.length === 6) {
       setOTPVerifying(true);
       try {
+        const res = await fetch("/api/csrf", { method: "GET" });
+
+        if (!res.ok) {
+          if (res.status === 429) {
+            addToast({
+              title: "Too many requests. Please wait a moment and try again.",
+              color: "warning",
+            });
+          } else if (res.status === 401) {
+            addToast({
+              title: "Please log in to continue.",
+              color: "danger",
+            });
+            router.push("/login");
+          } else {
+            addToast({
+              title: "Failed to get session token. Please try again.",
+              color: "danger",
+            });
+          }
+          setOTPVerifying(false);
+          return;
+        }
+
+        const { csrfToken } = await res.json();
+
         // Verify the OTP on the server
         const verifyRes = await fetch("/api/vault/verify-otp", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ otp: value }),
+          body: JSON.stringify({ otp: value, csrfToken }),
         });
+
         const verifyData = await verifyRes.json();
+
         if (!verifyRes.ok) {
-          addToast({
-            title: verifyData.error || "Invalid OTP",
-            color: "danger",
-          });
+          if (verifyRes.status === 429) {
+            addToast({
+              title: "Too many requests. Please wait a moment and try again.",
+              color: "warning",
+            });
+          } else if (verifyRes.status === 403) {
+            addToast({
+              title: "Session expired. Please refresh the page and try again.",
+              color: "danger",
+            });
+            setTimeout(() => window.location.reload(), 2000);
+          } else {
+            addToast({
+              title: verifyData.error || "Invalid OTP",
+              color: "danger",
+            });
+          }
           setOTPVerifying(false);
           return;
         }
+
         // If verified, delete the vault
-        const res = await fetch("/api/vault", { method: "DELETE" });
-        if (res.ok) {
+        const deleteRes = await fetch("/api/vault", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csrfToken }),
+        });
+
+        if (deleteRes.ok) {
           NProgress.start();
           router.push("/create-vault");
+          setDeleteModal(false);
         } else {
-          console.log("Error deleting vault");
+          if (deleteRes.status === 429) {
+            addToast({
+              title: "Too many requests. Please wait a moment and try again.",
+              color: "warning",
+            });
+          } else if (deleteRes.status === 403) {
+            addToast({
+              title: "Session expired. Please refresh the page and try again.",
+              color: "danger",
+            });
+            setTimeout(() => window.location.reload(), 2000);
+          } else {
+            addToast({
+              title: "Failed to delete vault. Please try again.",
+              color: "danger",
+            });
+          }
+          setOTPVerifying(false);
         }
-        setDeleteModal(false);
       } catch (error) {
         console.error("Error verifying OTP:", error);
         addToast({

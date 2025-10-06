@@ -5927,9 +5927,9 @@ __metadata:
   linkType: hard
 
 "caniuse-lite@npm:^1.0.30001579, caniuse-lite@npm:^1.0.30001599, caniuse-lite@npm:^1.0.30001669, caniuse-lite@npm:^1.0.30001688":
-  version: 1.0.30001717
-  resolution: "caniuse-lite@npm:1.0.30001717"
-  checksum: 10c0/6c0bb1e5182fd578ebe97ee2203250849754a4e17d985839fab527ad27e125a4c4ffce3ece5505217fedf30ea0bbc17ac9f93e9ac525c0389ccba61c6e8345dc
+  version: 1.0.30001748
+  resolution: "caniuse-lite@npm:1.0.30001748"
+  checksum: 10c0/4a6e4495560519d6db73a62804cceafed108cfdda1ab78bcc0d588a921ed54554254647b8f4a410e97f8843eb020ec01dfcead7fd504a43b120b8f1a06dc7647
   languageName: node
   linkType: hard
 
@@ -8788,70 +8788,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"next-app-template@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "next-app-template@workspace:."
-  dependencies:
-    "@auth/prisma-adapter": "npm:^2.10.0"
-    "@ducanh2912/next-pwa": "npm:^10.2.9"
-    "@heroui/react": "npm:^2.8.0"
-    "@internationalized/date": "npm:3.8.0"
-    "@next/eslint-plugin-next": "npm:15.0.4"
-    "@next/third-parties": "npm:^15.1.0"
-    "@prisma/client": "npm:^6.16.3"
-    "@react-aria/ssr": "npm:3.9.7"
-    "@react-aria/visually-hidden": "npm:3.8.18"
-    "@react-types/datepicker": "npm:^3.9.0"
-    "@react-types/shared": "npm:3.25.0"
-    "@types/jsonwebtoken": "npm:^9"
-    "@types/node": "npm:20.5.7"
-    "@types/nodemailer": "npm:^6.4.17"
-    "@types/nprogress": "npm:^0"
-    "@types/pako": "npm:^2"
-    "@types/react": "npm:18.3.3"
-    "@types/react-dom": "npm:18.3.0"
-    "@typescript-eslint/eslint-plugin": "npm:8.11.0"
-    "@typescript-eslint/parser": "npm:8.11.0"
-    "@vercel/speed-insights": "npm:^1.2.0"
-    argon2: "npm:^0.43.0"
-    autoprefixer: "npm:10.4.19"
-    clsx: "npm:2.1.1"
-    eslint: "npm:^8.57.0"
-    eslint-config-next: "npm:15.0.4"
-    eslint-config-prettier: "npm:9.1.0"
-    eslint-plugin-import: "npm:^2.26.0"
-    eslint-plugin-jsx-a11y: "npm:^6.4.1"
-    eslint-plugin-node: "npm:^11.1.0"
-    eslint-plugin-prettier: "npm:5.2.1"
-    eslint-plugin-react: "npm:^7.23.2"
-    eslint-plugin-react-hooks: "npm:^4.6.0"
-    eslint-plugin-unused-imports: "npm:4.1.4"
-    file-saver: "npm:^2.0.5"
-    framer-motion: "npm:11.13.1"
-    googleapis: "npm:^148.0.0"
-    install: "npm:^0.13.0"
-    intl-messageformat: "npm:^10.5.0"
-    jsonwebtoken: "npm:^9.0.2"
-    jszip: "npm:^3.10.1"
-    next: "npm:^15.3.2"
-    next-auth: "npm:^5.0.0-beta.25"
-    next-themes: "npm:^0.4.4"
-    nodemailer: "npm:^7.0.3"
-    nprogress: "npm:^0.2.0"
-    openpgp: "npm:^6.1.1"
-    pako: "npm:^2.1.0"
-    postcss: "npm:8.4.49"
-    prettier: "npm:3.3.3"
-    prisma: "npm:^6.16.3"
-    react: "npm:18.3.1"
-    react-dom: "npm:18.3.1"
-    react-schemaorg: "npm:^2.0.0"
-    tailwind-variants: "npm:0.1.20"
-    tailwindcss: "npm:3.4.16"
-    typescript: "npm:5.6.3"
-  languageName: unknown
-  linkType: soft
-
 "next-auth@npm:^5.0.0-beta.25":
   version: 5.0.0-beta.25
   resolution: "next-auth@npm:5.0.0-beta.25"
@@ -8944,6 +8880,70 @@ __metadata:
   checksum: 10c0/81bc21e7853cd19ba0dbfedda8a0221819a12286146f43752cb6ecaeed7a8e5f1f3027bdd89e70ee1fd793d2be0f7e181f1944d2ffe8ee0aefef4c312aed4e27
   languageName: node
   linkType: hard
+
+"nextpgp@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "nextpgp@workspace:."
+  dependencies:
+    "@auth/prisma-adapter": "npm:^2.10.0"
+    "@ducanh2912/next-pwa": "npm:^10.2.9"
+    "@heroui/react": "npm:^2.8.0"
+    "@internationalized/date": "npm:3.8.0"
+    "@next/eslint-plugin-next": "npm:15.0.4"
+    "@next/third-parties": "npm:^15.1.0"
+    "@prisma/client": "npm:^6.16.3"
+    "@react-aria/ssr": "npm:3.9.7"
+    "@react-aria/visually-hidden": "npm:3.8.18"
+    "@react-types/datepicker": "npm:^3.9.0"
+    "@react-types/shared": "npm:3.25.0"
+    "@types/jsonwebtoken": "npm:^9"
+    "@types/node": "npm:20.5.7"
+    "@types/nodemailer": "npm:^6.4.17"
+    "@types/nprogress": "npm:^0"
+    "@types/pako": "npm:^2"
+    "@types/react": "npm:18.3.3"
+    "@types/react-dom": "npm:18.3.0"
+    "@typescript-eslint/eslint-plugin": "npm:8.11.0"
+    "@typescript-eslint/parser": "npm:8.11.0"
+    "@vercel/speed-insights": "npm:^1.2.0"
+    argon2: "npm:^0.43.0"
+    autoprefixer: "npm:10.4.19"
+    clsx: "npm:2.1.1"
+    eslint: "npm:^8.57.0"
+    eslint-config-next: "npm:15.0.4"
+    eslint-config-prettier: "npm:9.1.0"
+    eslint-plugin-import: "npm:^2.26.0"
+    eslint-plugin-jsx-a11y: "npm:^6.4.1"
+    eslint-plugin-node: "npm:^11.1.0"
+    eslint-plugin-prettier: "npm:5.2.1"
+    eslint-plugin-react: "npm:^7.23.2"
+    eslint-plugin-react-hooks: "npm:^4.6.0"
+    eslint-plugin-unused-imports: "npm:4.1.4"
+    file-saver: "npm:^2.0.5"
+    framer-motion: "npm:11.13.1"
+    googleapis: "npm:^148.0.0"
+    install: "npm:^0.13.0"
+    intl-messageformat: "npm:^10.5.0"
+    jsonwebtoken: "npm:^9.0.2"
+    jszip: "npm:^3.10.1"
+    next: "npm:^15.3.2"
+    next-auth: "npm:^5.0.0-beta.25"
+    next-themes: "npm:^0.4.4"
+    nodemailer: "npm:^7.0.3"
+    nprogress: "npm:^0.2.0"
+    openpgp: "npm:^6.1.1"
+    pako: "npm:^2.1.0"
+    postcss: "npm:8.4.49"
+    prettier: "npm:3.3.3"
+    prisma: "npm:^6.16.3"
+    react: "npm:18.3.1"
+    react-dom: "npm:18.3.1"
+    react-schemaorg: "npm:^2.0.0"
+    tailwind-variants: "npm:0.1.20"
+    tailwindcss: "npm:3.4.16"
+    typescript: "npm:5.6.3"
+  languageName: unknown
+  linkType: soft
 
 "node-addon-api@npm:^8.3.1":
   version: 8.3.1

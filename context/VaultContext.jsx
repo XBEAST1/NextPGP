@@ -53,16 +53,29 @@ export const VaultProvider = ({ children }) => {
 
   // Clear vault data from memory and lock the vault
   const lockVault = async () => {
+    if (window.vaultLockInProgress) {
+      return;
+    }
+
+    window.vaultLockInProgress = true;
+
     try {
+      const res = await fetch("/api/csrf", { method: "GET" });
+      const { csrfToken } = await res.json();
+
       await fetch("/api/vault/lock", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({ csrfToken }),
       });
     } catch (error) {
       console.error("Error locking vault on server:", error);
+    } finally {
+      window.vaultLockInProgress = false;
     }
+
     setEncryptedVaultPassword(null);
     setIsVaultUnlocked(false);
   };
@@ -70,9 +83,11 @@ export const VaultProvider = ({ children }) => {
   // Automatically lock the vault when the tab is closed
   useEffect(() => {
     const key = "vault_session_started";
-    if (!sessionStorage.getItem(key)) {
-      lockVault();
+    const hasStarted = sessionStorage.getItem(key);
+
+    if (!hasStarted) {
       sessionStorage.setItem(key, "1");
+      lockVault();
     }
   }, []);
 

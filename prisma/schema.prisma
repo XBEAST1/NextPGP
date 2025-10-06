@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 generator client {
@@ -83,7 +84,7 @@ model Vault {
   id                 String    @id @default(cuid())
   name               String
   verificationCipher String
-  userId             String
+  userId             String    @unique
   deleteOtp          String?
   otpExpiresAt       DateTime?
   lastActivity       DateTime? @default(now())
@@ -96,8 +97,8 @@ model Vault {
 
 model PGPKeys {
   id             String   @id @default(cuid())
-  publicKey      String?
-  privateKey     String?
+  publicKey      String?  @unique
+  privateKey     String?  @unique
   privateKeyHash String?  @unique
   publicKeyHash  String?  @unique
   vaultId        String
@@ -105,4 +106,27 @@ model PGPKeys {
 
   // Relations
   vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+}
+
+model IPRateLimit {
+  id          String   @id @default(cuid())
+  ip          String   @unique
+  count       Int      @default(1)
+  resetTime   DateTime
+  lastRequest DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([resetTime])
+}
+
+model UserRateLimit {
+  id          String   @id @default(cuid())
+  userId      String
+  endpoint    String   @default("default")
+  count       Int      @default(1)
+  windowStart DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, endpoint, windowStart])
+  @@index([windowStart])
 }
