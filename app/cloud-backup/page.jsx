@@ -126,9 +126,9 @@ const capitalize = (s) => {
 };
 
 const processKey = async (key, decryptedBackedUpKeys) => {
-  const openpgpKey = await openpgp.readKey({ armoredKey: key.publicKey });
-
   try {
+    const openpgpKey = await openpgp.readKey({ armoredKey: key.publicKey });
+
     const primaryUser = await openpgpKey.getPrimaryUser();
     const userID = primaryUser.user.userID.userID;
 
@@ -311,7 +311,7 @@ export default function App() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
   const [locking, setLocking] = useState(false);
   const [totalKeys, setTotalKeys] = useState(0);
@@ -354,12 +354,12 @@ export default function App() {
   }, [pages, page]);
 
   useEffect(() => {
-    setUsers([]);
-    setIsLoading(true);
-  }, [page, rowsPerPage]);
-
-  useEffect(() => {
     const fetchKeys = async () => {
+      if (fetchInProgressRef.current) {
+        return;
+      }
+
+      fetchInProgressRef.current = true;
       const encryptionKey = await getEncryptionKey();
       setIsLoading(true);
 
@@ -377,6 +377,7 @@ export default function App() {
         );
         setUsers(decryptedKeys);
         setIsLoading(false);
+        fetchInProgressRef.current = false;
       } else {
         try {
           const neededKeys = [];
@@ -445,6 +446,7 @@ export default function App() {
           console.error("Error loading keys:", error);
         } finally {
           setIsLoading(false);
+          fetchInProgressRef.current = false;
         }
       }
     };
@@ -525,36 +527,45 @@ export default function App() {
       let vaultPassword = await getVaultPassword();
       const decryptedBackedUpKeys = await Promise.all(
         backedUpKeys.map(async (backedUpKey) => {
-          const [decryptedCloudPublicKey, decryptedCloudPrivateKey] =
-            await Promise.all([
-              backedUpKey.publicKey
-                ? workerPool(
-                    {
-                      type: "decrypt",
-                      responseType: "decryptResponse",
-                      encryptedBase64: backedUpKey.publicKey,
-                      password: vaultPassword,
-                    },
-                    addToast
-                  )
-                : Promise.resolve(""),
-              backedUpKey.privateKey
-                ? workerPool(
-                    {
-                      type: "decrypt",
-                      responseType: "decryptResponse",
-                      encryptedBase64: backedUpKey.privateKey,
-                      password: vaultPassword,
-                    },
-                    addToast
-                  )
-                : Promise.resolve(""),
-            ]);
-          return {
-            publicKey: decryptedCloudPublicKey,
-            privateKey: decryptedCloudPrivateKey,
-          };
+          try {
+            const [decryptedCloudPublicKey, decryptedCloudPrivateKey] =
+              await Promise.all([
+                backedUpKey.publicKey
+                  ? workerPool(
+                      {
+                        type: "decrypt",
+                        responseType: "decryptResponse",
+                        encryptedBase64: backedUpKey.publicKey,
+                        password: vaultPassword,
+                      },
+                      addToast
+                    )
+                  : Promise.resolve(""),
+                backedUpKey.privateKey
+                  ? workerPool(
+                      {
+                        type: "decrypt",
+                        responseType: "decryptResponse",
+                        encryptedBase64: backedUpKey.privateKey,
+                        password: vaultPassword,
+                      },
+                      addToast
+                    )
+                  : Promise.resolve(""),
+              ]);
+            return {
+              publicKey: decryptedCloudPublicKey,
+              privateKey: decryptedCloudPrivateKey,
+            };
+          } catch {
+            return null;
+          }
         })
+      );
+
+      // Ignore keys with null values in decryptedBackedUpKeys as they are corrupted
+      const validDecryptedBackedUpKeys = decryptedBackedUpKeys.filter(
+        (key) => key !== null
       );
 
       return new Promise((resolve, reject) => {
@@ -567,14 +578,23 @@ export default function App() {
         const finish = async () => {
           try {
             const decryptedKeys = await Promise.all(
-              results.map((record) =>
-                decryptData(record.encrypted, encryptionKey, record.iv)
-              )
+              results.map(async (record) => {
+                try {
+                  return await decryptData(
+                    record.encrypted,
+                    encryptionKey,
+                    record.iv
+                  );
+                } catch {
+                  return null;
+                }
+              })
             );
             const processedKeys = await Promise.all(
               decryptedKeys.map(async (key) => {
+                if (key === null) return null;
                 try {
-                  return await processKey(key, decryptedBackedUpKeys);
+                  return await processKey(key, validDecryptedBackedUpKeys);
                 } catch (error) {
                   console.error("Error processing individual key:", error);
                   return null;
@@ -928,6 +948,7 @@ export default function App() {
   const [isOpen, setIsOpen] = useState(false);
   const [password, setPassword] = useState("");
   const passwordInputRef = useRef(null);
+  const fetchInProgressRef = useRef(false);
 
   // Auto-focus effect for password modal
   useEffect(() => {

@@ -49,6 +49,7 @@ const statusColorMap = {
 const keyStatusColorMap = {
   active: "success",
   expired: "danger",
+  Corrupted: "danger",
 };
 
 const passwordprotectedColorMap = {
@@ -147,7 +148,7 @@ const capitalize = (s) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
-const processKey = async (key, vaultPassword, storedKeys) => {
+const processKey = async (key, vaultPassword, storedKeys, keyIndex) => {
   try {
     let decryptedCloudPrivateKey = "";
     let decryptedCloudPublicKey = "";
@@ -327,14 +328,32 @@ const processKey = async (key, vaultPassword, storedKeys) => {
       })(),
       decryptedPrivateKey: decryptedCloudPrivateKey,
       decryptedPublicKey: decryptedCloudPublicKey,
+      privateKeyHash: key.privateKeyHash,
+      publicKeyHash: key.publicKeyHash,
     };
-  } catch (error) {
+  } catch {
     addToast({
-      title: `Failed to process key: ${error.message}`,
+      title: `Key ${keyIndex + 1} is corrupted`,
       color: "danger",
     });
-    console.error("Error processing key:", error);
-    return null;
+    return {
+      id: key.id || Date.now(),
+      name: "N/A",
+      email: "N/A",
+      creationdate: "N/A",
+      expirydate: "N/A",
+      keystatus: "Corrupted",
+      passwordprotected: "N/A",
+      status: "N/A",
+      keyid: "N/A",
+      fingerprint: "N/A",
+      algorithm: "N/A",
+      avatar: Keyring.src,
+      decryptedPrivateKey: null,
+      decryptedPublicKey: null,
+      privateKeyHash: key.privateKeyHash,
+      publicKeyHash: key.publicKeyHash,
+    };
   }
 };
 
@@ -344,7 +363,7 @@ export default function App() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [locking, setLocking] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
@@ -356,6 +375,7 @@ export default function App() {
 
   const decryptedCacheRef = useRef({});
   const apiCacheRef = useRef({});
+  const fetchInProgressRef = useRef(false);
 
   useEffect(() => {
     const checkVault = async () => {
@@ -402,14 +422,16 @@ export default function App() {
           })
         );
 
-        const processPromises = plainKeys.map(async (key) => {
+        const processPromises = plainKeys.map(async (key, index) => {
           if (decryptedCacheRef.current[key.id]) {
             return decryptedCacheRef.current[key.id];
           }
+
           const decrypted = await processKey(
             key,
             vaultPassword,
-            storedKeys
+            storedKeys,
+            index
           ).catch((err) => {
             console.error("Error processing key:", err);
             return null;
@@ -502,14 +524,15 @@ export default function App() {
         })
       );
 
-      const processPromises = plainKeys.map(async (key) => {
+      const processPromises = plainKeys.map(async (key, index) => {
         if (decryptedCacheRef.current[key.id]) {
           return decryptedCacheRef.current[key.id];
         }
         const decrypted = await processKey(
           key,
           vaultPassword,
-          storedKeys
+          storedKeys,
+          index
         ).catch((err) => {
           console.error("Error processing key:", err);
           return null;
@@ -654,6 +677,11 @@ export default function App() {
 
   useEffect(() => {
     const fetchKeys = async () => {
+      if (fetchInProgressRef.current) {
+        return;
+      }
+
+      fetchInProgressRef.current = true;
       setIsLoading(true);
       try {
         const pgpKeys = await loadKeysFromCloud();
@@ -662,12 +690,18 @@ export default function App() {
         console.error("Error loading keys:", error);
       } finally {
         setIsLoading(false);
+        fetchInProgressRef.current = false;
       }
     };
 
     fetchKeys();
 
     const handleStorageChange = async () => {
+      if (fetchInProgressRef.current) {
+        return;
+      }
+
+      fetchInProgressRef.current = true;
       setIsLoading(true);
       try {
         const updatedKeys = await loadKeysFromCloud();
@@ -676,6 +710,7 @@ export default function App() {
         console.error("Error loading keys:", error);
       } finally {
         setIsLoading(false);
+        fetchInProgressRef.current = false;
       }
     };
 
@@ -774,6 +809,7 @@ export default function App() {
             className="ms-2"
             color="secondary"
             variant="flat"
+            isDisabled={user.keystatus === "Corrupted"}
             onPress={() => importFromCloud(user)}
           >
             Import
@@ -797,33 +833,12 @@ export default function App() {
 
   const deleteKey = async (user) => {
     try {
-      const keyForHash = user.decryptedPrivateKey || user.decryptedPublicKey;
-      if (!keyForHash) {
-        throw new Error("No key data found");
-      }
-
       let requestBody = { keyId: user.id };
 
-      if (user.decryptedPrivateKey) {
-        const privateKeyHash = await workerPool(
-          {
-            type: "hashKey",
-            responseType: "hashKeyResponse",
-            text: user.decryptedPrivateKey,
-          },
-          addToast
-        );
-        requestBody.privateKeyHash = privateKeyHash;
-      } else if (user.decryptedPublicKey) {
-        const publicKeyHash = await workerPool(
-          {
-            type: "hashKey",
-            responseType: "hashKeyResponse",
-            text: user.decryptedPublicKey,
-          },
-          addToast
-        );
-        requestBody.publicKeyHash = publicKeyHash;
+      if (user.privateKeyHash) {
+        requestBody.privateKeyHash = user.privateKeyHash;
+      } else if (user.publicKeyHash) {
+        requestBody.publicKeyHash = user.publicKeyHash;
       }
 
       const res = await fetch("/api/csrf", { method: "GET" });
@@ -1155,7 +1170,7 @@ export default function App() {
               </div>
             </>
           }
-          items={!isLoading ? sortedItems : []}
+          items={sortedItems}
         >
           {(item) => (
             <TableRow key={item.id}>

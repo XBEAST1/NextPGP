@@ -48,7 +48,9 @@ export async function POST(req: Request) {
     const responseKeys = keys.map((key: any) => ({
       id: key.id,
       privateKey: key.privateKey || "",
+      privateKeyHash: key.privateKeyHash || "",
       publicKey: key.publicKey || "",
+      publicKeyHash: key.publicKeyHash || "",
     }));
 
     const response = NextResponse.json({ keys: responseKeys });
