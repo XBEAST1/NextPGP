@@ -39,10 +39,15 @@ const Page = () => {
 
   useEffect(() => {
     const checkVaultExists = async () => {
+      const csrfRes = await fetch("/api/csrf", { method: "GET" });
+      if (csrfRes.ok) {
+        const { csrfToken } = await csrfRes.json();
+        setCsrfToken(csrfToken);
+      }
+
       const res = await fetch("/api/create-vault");
       if (res.ok) {
-        const { exists, csrfToken } = await res.json();
-        setCsrfToken(csrfToken);
+        const { exists } = await res.json();
         if (exists) {
           NProgress.start();
           router.push("/vault");

@@ -3,9 +3,13 @@ import { auth } from "@/auth";
 import { sendEmail } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
 import { validateCSRFToken, rateLimit, generateSecureOTP, addSecurityHeaders } from "@/lib/security";
+import { validateRequestSize } from "@/lib/request-limits";
 import argon2 from "argon2";
 
 export async function POST(request: Request) {
+  const sizeError = validateRequestSize(request as any);
+  if (sizeError) return sizeError;
+
   const session = await auth();
 
   if (!session?.user?.email || !session.user.id) {
@@ -33,7 +37,11 @@ export async function POST(request: Request) {
 
   const { csrfToken } = body;
 
-  if (!csrfToken || !validateCSRFToken(csrfToken, session.user.id)) {
+  if (!csrfToken || typeof csrfToken !== 'string') {
+    return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+  }
+
+  if (!validateCSRFToken(csrfToken, session.user.id)) {
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 

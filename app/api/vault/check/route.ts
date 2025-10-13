@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { rateLimit, generateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { rateLimit, addSecurityHeaders } from "@/lib/security";
+import { validateRequestSize } from "@/lib/request-limits";
 
 export async function GET(req: Request) {
+  const sizeError = validateRequestSize(req as any);
+  if (sizeError) return sizeError;
+
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,19 +29,15 @@ export async function GET(req: Request) {
     where: { userId: session.user.id } 
   });
 
-  const csrfToken = generateCSRFToken(session.user.id);
-
   if (vault) {
     const response = NextResponse.json({ 
-      exists: true, 
-      csrfToken 
+      exists: true
     }, { status: 200 });
     return addSecurityHeaders(response);
   }
 
   const response = NextResponse.json({ 
-    exists: false, 
-    csrfToken 
+    exists: false
   }, { status: 404 });
   return addSecurityHeaders(response);
 }

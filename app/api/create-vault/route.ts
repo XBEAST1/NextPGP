@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { validateCipherFormat, rateLimit, generateCSRFToken, validateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { validateCipherFormat, rateLimit, validateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -27,16 +28,19 @@ export async function GET(req: Request) {
     where: { userId: session.user.id } 
   });
 
-  const csrfToken = generateCSRFToken(session.user.id);
-
   const response = NextResponse.json({ 
-    exists: Boolean(vault),
-    csrfToken 
+    exists: Boolean(vault)
   });
   return addSecurityHeaders(response);
 }
 
 export async function POST(req: Request) {
+  const sizeError = validateRequestSize(req as any);
+  if (sizeError) return sizeError;
+  
+  const jsonSizeError = await validateRequestBodySize(req as any);
+  if (jsonSizeError) return jsonSizeError;
+
   const session = await auth();
 
   if (!session || !session.user?.id) {

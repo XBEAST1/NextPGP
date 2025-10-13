@@ -2,10 +2,17 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { validateCSRFToken, rateLimit, addSecurityHeaders } from "@/lib/security";
+import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 import argon2 from "argon2";
 
 export async function POST(request: Request) {
   try {
+    const sizeError = validateRequestSize(request as any);
+    if (sizeError) return sizeError;
+    
+    const jsonSizeError = await validateRequestBodySize(request as any);
+    if (jsonSizeError) return jsonSizeError;
+
     const session = await auth();
     if (!session?.user?.email || !session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -32,7 +39,11 @@ export async function POST(request: Request) {
 
     const { otp, csrfToken } = payload;
 
-    if (!csrfToken || !validateCSRFToken(csrfToken, session.user.id)) {
+    if (!csrfToken || typeof csrfToken !== 'string') {
+      return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+    }
+
+    if (!validateCSRFToken(csrfToken, session.user.id)) {
       return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
     }
     if (!otp) {

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { rateLimit, generateCSRFToken, validateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { rateLimit, validateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -12,10 +13,10 @@ export async function GET(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 10,  // IP limit: 10 requests per minute
+    maxRequests: 20,  // IP limit: 20 requests per minute
     userId: session.user.id,
     endpoint: 'vault-get',
-    userMaxRequests: 10  // User limit: 10 requests per minute
+    userMaxRequests: 20  // User limit: 20 requests per minute
   }, req as any);
 
   if (!rateLimitResult.success) {
@@ -26,17 +27,20 @@ export async function GET(req: Request) {
     where: { userId: session.user.id } 
   });
 
-  const csrfToken = generateCSRFToken(session.user.id);
-
   const response = NextResponse.json({
     exists: Boolean(vault),
-    verificationCipher: vault ? vault.verificationCipher : null,
-    csrfToken
+    verificationCipher: vault ? vault.verificationCipher : null
   });
   return addSecurityHeaders(response);
 }
 
 export async function POST(req: Request) {
+  const sizeError = validateRequestSize(req as any);
+  if (sizeError) return sizeError;
+  
+  const jsonSizeError = await validateRequestBodySize(req as any);
+  if (jsonSizeError) return jsonSizeError;
+
   const session = await auth();
 
   if (!session || !session.user?.id) {
@@ -45,10 +49,10 @@ export async function POST(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 10,  // IP limit: 10 requests per minute
+    maxRequests: 20,  // IP limit: 20 requests per minute
     userId: session.user.id,
     endpoint: 'vault-post',
-    userMaxRequests: 10  // User limit: 10 requests per minute
+    userMaxRequests: 20  // User limit: 20 requests per minute
   }, req as any);
 
   if (!rateLimitResult.success) {
@@ -94,6 +98,12 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const sizeError = validateRequestSize(req as any);
+  if (sizeError) return sizeError;
+  
+  const jsonSizeError = await validateRequestBodySize(req as any);
+  if (jsonSizeError) return jsonSizeError;
+
   const session = await auth();
 
   if (!session || !session.user?.id) {
@@ -102,10 +112,10 @@ export async function DELETE(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 10,  // IP limit: 10 requests per minute
+    maxRequests: 20,  // IP limit: 20 requests per minute
     userId: session.user.id,
     endpoint: 'vault-delete',
-    userMaxRequests: 10  // User limit: 10 requests per minute
+    userMaxRequests: 20  // User limit: 20 requests per minute
   }, req as any);
 
   if (!rateLimitResult.success) {

@@ -52,6 +52,30 @@ const Page = () => {
     setLoading(true);
 
     try {
+      const csrfRes = await fetch("/api/csrf", { method: "GET" });
+      if (!csrfRes.ok) {
+        if (csrfRes.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (csrfRes.status === 401) {
+          addToast({
+            title: "Please log in to continue.",
+            color: "danger",
+          });
+          router.push("/login");
+        } else {
+          addToast({
+            title: "Failed to get session token. Please try again.",
+            color: "danger",
+          });
+        }
+        setLoading(false);
+        return;
+      }
+      const { csrfToken } = await csrfRes.json();
+
       const res = await fetch("/api/vault", { method: "GET" });
 
       if (!res.ok) {
@@ -76,7 +100,7 @@ const Page = () => {
         return;
       }
 
-      const { verificationCipher, csrfToken } = await res.json();
+      const { verificationCipher } = await res.json();
 
       if (!verificationCipher) {
         addToast({

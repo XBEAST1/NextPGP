@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { rateLimit, generateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { validateRequestSize } from "@/lib/request-limits";
 
 export async function GET(req: Request) {
+  const sizeError = validateRequestSize(req as any);
+  if (sizeError) return sizeError;
+
   const session = await auth();
 
   if (!session || !session.user?.id) {
@@ -11,10 +15,10 @@ export async function GET(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 60,  // IP limit: 60 requests per minute
+    maxRequests: 200,  // IP limit: 200 requests per minute
     userId: session.user.id,
     endpoint: 'csrf-token',
-    userMaxRequests: 60  // User limit: 60 requests per minute
+    userMaxRequests: 200  // User limit: 200 requests per minute
   }, req as any);
 
   if (!rateLimitResult.success) {

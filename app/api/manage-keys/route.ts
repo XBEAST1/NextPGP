@@ -7,8 +7,15 @@ import {
   validateCipherFormat,
   addSecurityHeaders,
 } from "@/lib/security";
+import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 
 export async function POST(req: Request) {
+  const sizeError = validateRequestSize(req as any);
+  if (sizeError) return sizeError;
+  
+  const jsonSizeError = await validateRequestBodySize(req as any);
+  if (jsonSizeError) return jsonSizeError;
+
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -17,10 +24,10 @@ export async function POST(req: Request) {
   const rateLimitResult = await rateLimit(
     {
       windowMs: 60000,
-      maxRequests: 30, // IP limit: 30 requests per minute
+      maxRequests: 60, // IP limit: 60 requests per minute
       userId: session.user.id,
       endpoint: "manage-keys-post",
-      userMaxRequests: 30, // User limit: 30 requests per minute
+      userMaxRequests: 60, // User limit: 60 requests per minute
     },
     req as any
   );
@@ -47,7 +54,11 @@ export async function POST(req: Request) {
     csrfToken,
   } = payload;
 
-  if (!csrfToken || !validateCSRFToken(csrfToken, session.user.id)) {
+  if (!csrfToken || typeof csrfToken !== 'string') {
+    return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+  }
+
+  if (!validateCSRFToken(csrfToken, session.user.id)) {
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 
@@ -123,6 +134,12 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const sizeError = validateRequestSize(req as any);
+    if (sizeError) return sizeError;
+    
+    const jsonSizeError = await validateRequestBodySize(req as any);
+    if (jsonSizeError) return jsonSizeError;
+
     const session = await auth();
     if (!session || !session.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -131,10 +148,10 @@ export async function DELETE(req: Request) {
     const rateLimitResult = await rateLimit(
       {
         windowMs: 60000,
-        maxRequests: 30, // IP limit: 30 requests per minute
+        maxRequests: 60, // IP limit: 60 requests per minute
         userId: session.user.id,
         endpoint: "manage-keys-delete",
-        userMaxRequests: 30, // User limit: 30 requests per minute
+        userMaxRequests: 60, // User limit: 60 requests per minute
       },
       req as any
     );
@@ -149,11 +166,12 @@ export async function DELETE(req: Request) {
     const { keyId, publicKeyHash, privateKeyHash, csrfToken } =
       await req.json();
 
-    if (!csrfToken || !validateCSRFToken(csrfToken, session.user.id)) {
-      return NextResponse.json(
-        { error: "Invalid CSRF token" },
-        { status: 403 }
-      );
+    if (!csrfToken || typeof csrfToken !== 'string') {
+      return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+    }
+
+    if (!validateCSRFToken(csrfToken, session.user.id)) {
+      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
     }
 
     if (!keyId || (!publicKeyHash && !privateKeyHash)) {

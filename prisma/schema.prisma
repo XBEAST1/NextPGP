@@ -97,8 +97,8 @@ model Vault {
 
 model PGPKeys {
   id             String   @id @default(cuid())
-  publicKey      String?  @unique
-  privateKey     String?  @unique
+  publicKey      String?
+  privateKey     String?
   privateKeyHash String?  @unique
   publicKeyHash  String?  @unique
   vaultId        String
