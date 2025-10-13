@@ -35,8 +35,16 @@ const Page = () => {
     };
   }, [router]);
 
+  const [csrfToken, setCsrfToken] = useState("");
+
   useEffect(() => {
     const checkVaultExists = async () => {
+      const csrfRes = await fetch("/api/csrf", { method: "GET" });
+      if (csrfRes.ok) {
+        const { csrfToken } = await csrfRes.json();
+        setCsrfToken(csrfToken);
+      }
+
       const res = await fetch("/api/create-vault");
       if (res.ok) {
         const { exists } = await res.json();
@@ -75,21 +83,22 @@ const Page = () => {
       // Store the verification text with a prefix to identify it
       const combinedText = `VERIFY:${verificationText}`;
 
-      const verificationCipher = await workerPool(
-        {
-          type: "encrypt",
-          responseType: "encryptResponse",
-          text: combinedText,
-          password,
-        },
-      );
+      const verificationCipher = await workerPool({
+        type: "encrypt",
+        responseType: "encryptResponse",
+        text: combinedText,
+        password,
+      });
 
-      // Only send the cipher
+      // Only send the cipher with real CSRF protection
       const res = await fetch("/api/create-vault", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           verificationCipher,
+          csrfToken,
         }),
       });
 
@@ -98,13 +107,30 @@ const Page = () => {
         router.push("/vault");
       } else {
         const { error } = await res.json();
-        addToast({
-          title:
-            error === "Vault already exists"
-              ? "Vault already exists"
-              : "There was an error creating the vault",
-          color: "danger",
-        });
+
+        if (res.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (res.status === 403) {
+          addToast({
+            title: "Session expired. Please refresh the page and try again.",
+            color: "danger",
+          });
+          // Refresh the page to get new CSRF token
+          setTimeout(() => window.location.reload(), 2000);
+        } else if (error === "Vault already exists") {
+          addToast({
+            title: "Vault already exists",
+            color: "danger",
+          });
+        } else {
+          addToast({
+            title: "There was an error creating the vault",
+            color: "danger",
+          });
+        }
         setLoading(false);
       }
     } catch (e) {

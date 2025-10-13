@@ -252,7 +252,16 @@ const KeyServer = ({ isOpen, onClose, initialSearch, onKeyImported }) => {
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean);
 
-      const params = new URLSearchParams({ search: trimmed });
+      const csrfRes = await fetch("/api/csrf", { method: "GET" });
+      if (!csrfRes.ok) {
+        throw new Error("Failed to get CSRF token");
+      }
+      const { csrfToken } = await csrfRes.json();
+
+      const params = new URLSearchParams({
+        search: trimmed,
+        csrfToken: csrfToken,
+      });
       const apiUrl = `/api/keyserver?${params.toString()}`;
 
       const res = await fetch(apiUrl);

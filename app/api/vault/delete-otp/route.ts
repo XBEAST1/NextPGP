@@ -1,18 +1,52 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sendEmail } from "@/lib/gmail";
-import Vault from "@/models/Vault";
+import { prisma } from "@/lib/prisma";
+import { validateCSRFToken, rateLimit, generateSecureOTP, addSecurityHeaders } from "@/lib/security";
+import { validateRequestSize } from "@/lib/request-limits";
 import argon2 from "argon2";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const sizeError = validateRequestSize(request as any);
+  if (sizeError) return sizeError;
+
   const session = await auth();
 
   if (!session?.user?.email || !session.user.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const rateLimitResult = await rateLimit({
+    windowMs: 60000,
+    maxRequests: 5,  // IP limit: 5 requests per minute
+    userId: session.user.id,
+    endpoint: 'delete-otp',
+    userMaxRequests: 5  // User limit: 5 requests per minute
+  }, request as any);
+
+  if (!rateLimitResult.success) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+  }
+
+  const { csrfToken } = body;
+
+  if (!csrfToken || typeof csrfToken !== 'string') {
+    return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+  }
+
+  if (!validateCSRFToken(csrfToken, session.user.id)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   // Generate a 6-digit OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = generateSecureOTP();
 
   try {
     const otpHash = await argon2.hash(otp, {
@@ -53,10 +87,13 @@ export async function POST() {
     );
 
     // Update the vault for this user with the OTP and expiry (5 minutes from now)
-    await Vault.findOneAndUpdate(
-      { userId: session.user.id },
-      { deleteOtp: otpHash, otpExpiresAt: new Date(Date.now() + 300000) }
-    );
+    await prisma.vault.updateMany({
+      where: { userId: session.user.id },
+      data: { 
+        deleteOtp: otpHash, 
+        otpExpiresAt: new Date(Date.now() + 300000) 
+      }
+    });
 
     // Mask the user's email show only first 3 and last 3 characters of the local part
     const [local, domain] = session.user.email.split("@");
@@ -66,14 +103,15 @@ export async function POST() {
         : local;
     const maskedEmail = `${localMasked}@${domain}`;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       message: "Email sent successfully",
       maskedEmail,
     });
+    return addSecurityHeaders(response);
   } catch (error) {
-    console.error("Error sending email:", error);
+    console.error('Error generating OTP:', error);
     return NextResponse.json(
-      { error: "Failed to send email" },
+      { error: "OTP generation failed" },
       { status: 500 }
     );
   }

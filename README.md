@@ -96,7 +96,7 @@
 <ul>
   <li><b>Framework:</b> <a href="https://nextjs.org/">Next JS</a></li>
   <li><b>UI Components:</b> <a href="https://www.heroui.com/"> Hero UI</a></li>
-  <li><b>Database:</b> MongoDB for cloud storage and user vault management.</li>
+  <li><b>Database:</b> PostgreSQL for cloud storage and user vault management.</li>
   <li><b>PWA Integration:</b> Service workers, manifest setup, and offline support.</li>
   <li><b>State Management:</b> Efficient handling of state for keyrings and messages.</li>
   <li><b>Performance Optimization:</b> Dynamic Web Worker pool for parallel cryptographic operations using all available CPU cores</li>
@@ -283,8 +283,8 @@
 └─ For each PGP key to backup:
     ├─ Compute hashes and compare with:
     │   ├─ IndexedDB PGP key
-    │   └─ MongoDB PGP key
-    │       └─ To check the PGP key is already backed up to the MongoDB or not
+    │   └─ Cloud Database PGP key
+    │       └─ To check the PGP key is already backed up to the Cloud Database or not
     ├─ If not already backed up:
     │   ├─ Generate 16-byte random salt
     │   ├─ Generate 12-byte random IV
@@ -306,13 +306,13 @@
     │   ├─ Compute HMAC-SHA256 over (header + ciphertext + IV + salt)
     │   ├─ Concatenate: header  + ciphertext  + IV  + salt  + HMAC
     │   └─ Base64 encode → encrypted PGP key
-    └─ Send the encrypted PGP key and its hash to the server and store in the database
+    └─ Send the encrypted PGP key and its hash to the server and store in the Cloud Database
 ```
 
 #### Cloud Manage
 ```
 ├─ Retrieve vault password by calling VaultContext.getVaultPassword()
-└─ Retrieve list of encrypted PGP keys from MongoDB
+└─ Retrieve list of encrypted PGP keys from Cloud Database
     ├─ For each encrypted PGP key:
     │   ├─ Base64 → rawBuffer
     │   ├─ Parse out:

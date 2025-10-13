@@ -49,6 +49,7 @@ const statusColorMap = {
 const keyStatusColorMap = {
   active: "success",
   expired: "danger",
+  Corrupted: "danger",
 };
 
 const passwordprotectedColorMap = {
@@ -147,7 +148,7 @@ const capitalize = (s) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
-const processKey = async (key, vaultPassword, storedKeys) => {
+const processKey = async (key, vaultPassword, storedKeys, keyIndex) => {
   try {
     let decryptedCloudPrivateKey = "";
     let decryptedCloudPublicKey = "";
@@ -327,10 +328,32 @@ const processKey = async (key, vaultPassword, storedKeys) => {
       })(),
       decryptedPrivateKey: decryptedCloudPrivateKey,
       decryptedPublicKey: decryptedCloudPublicKey,
+      privateKeyHash: key.privateKeyHash,
+      publicKeyHash: key.publicKeyHash,
     };
-  } catch (error) {
-    console.error("Error processing key:", error);
-    return null;
+  } catch {
+    addToast({
+      title: `Key ${keyIndex + 1} is corrupted`,
+      color: "danger",
+    });
+    return {
+      id: key.id || Date.now(),
+      name: "N/A",
+      email: "N/A",
+      creationdate: "N/A",
+      expirydate: "N/A",
+      keystatus: "Corrupted",
+      passwordprotected: "N/A",
+      status: "N/A",
+      keyid: "N/A",
+      fingerprint: "N/A",
+      algorithm: "N/A",
+      avatar: Keyring.src,
+      decryptedPrivateKey: null,
+      decryptedPublicKey: null,
+      privateKeyHash: key.privateKeyHash,
+      publicKeyHash: key.publicKeyHash,
+    };
   }
 };
 
@@ -340,7 +363,7 @@ export default function App() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [sortDescriptor, setSortDescriptor] = useState({});
   const [page, setPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [locking, setLocking] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
@@ -352,13 +375,16 @@ export default function App() {
 
   const decryptedCacheRef = useRef({});
   const apiCacheRef = useRef({});
+  const fetchInProgressRef = useRef(false);
 
   useEffect(() => {
     const checkVault = async () => {
       const vaultPassword = await getVaultPassword();
       if (!vaultPassword) {
         try {
-          await lockVault();
+          if (!window.vaultLockInProgress) {
+            await lockVault();
+          }
         } catch (err) {
           console.error("Failed to lock vault:", err);
         } finally {
@@ -371,6 +397,10 @@ export default function App() {
   }, [router, getVaultPassword]);
 
   const loadKeysFromCloud = async () => {
+    if (window.loadingCloudKeysInProgress) return [];
+
+    window.loadingCloudKeysInProgress = true;
+
     try {
       const vaultPassword = await getVaultPassword();
       const offset = (page - 1) * rowsPerPage;
@@ -392,14 +422,16 @@ export default function App() {
           })
         );
 
-        const processPromises = plainKeys.map(async (key) => {
+        const processPromises = plainKeys.map(async (key, index) => {
           if (decryptedCacheRef.current[key.id]) {
             return decryptedCacheRef.current[key.id];
           }
+
           const decrypted = await processKey(
             key,
             vaultPassword,
-            storedKeys
+            storedKeys,
+            index
           ).catch((err) => {
             console.error("Error processing key:", err);
             return null;
@@ -414,13 +446,56 @@ export default function App() {
       }
 
       // Otherwise, fetch from the API.
+      const res = await fetch("/api/csrf", { method: "GET" });
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (res.status === 401) {
+          addToast({
+            title: "Please log in to continue.",
+            color: "danger",
+          });
+          router.push("/login");
+        } else {
+          addToast({
+            title: "Failed to get session token. Please try again.",
+            color: "danger",
+          });
+        }
+        return [];
+      }
+
+      const { csrfToken } = await res.json();
+
       const response = await fetch("/api/manage-keys/fetch-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ offset, limit }),
+        body: JSON.stringify({ offset, limit, csrfToken }),
       });
+
       if (!response.ok) {
-        throw new Error("Failed to fetch keys from API");
+        if (response.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (response.status === 403) {
+          addToast({
+            title: "Session expired. Please refresh the page and try again.",
+            color: "danger",
+          });
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          addToast({
+            title: "Failed to fetch keys from API. Please try again.",
+            color: "danger",
+          });
+        }
+        return [];
       }
 
       const data = await response.json();
@@ -449,14 +524,15 @@ export default function App() {
         })
       );
 
-      const processPromises = plainKeys.map(async (key) => {
+      const processPromises = plainKeys.map(async (key, index) => {
         if (decryptedCacheRef.current[key.id]) {
           return decryptedCacheRef.current[key.id];
         }
         const decrypted = await processKey(
           key,
           vaultPassword,
-          storedKeys
+          storedKeys,
+          index
         ).catch((err) => {
           console.error("Error processing key:", err);
           return null;
@@ -476,6 +552,8 @@ export default function App() {
         color: "danger",
       });
       return [];
+    } finally {
+      window.loadingCloudKeysInProgress = false;
     }
   };
 
@@ -599,6 +677,11 @@ export default function App() {
 
   useEffect(() => {
     const fetchKeys = async () => {
+      if (fetchInProgressRef.current) {
+        return;
+      }
+
+      fetchInProgressRef.current = true;
       setIsLoading(true);
       try {
         const pgpKeys = await loadKeysFromCloud();
@@ -607,12 +690,18 @@ export default function App() {
         console.error("Error loading keys:", error);
       } finally {
         setIsLoading(false);
+        fetchInProgressRef.current = false;
       }
     };
 
     fetchKeys();
 
     const handleStorageChange = async () => {
+      if (fetchInProgressRef.current) {
+        return;
+      }
+
+      fetchInProgressRef.current = true;
       setIsLoading(true);
       try {
         const updatedKeys = await loadKeysFromCloud();
@@ -621,6 +710,7 @@ export default function App() {
         console.error("Error loading keys:", error);
       } finally {
         setIsLoading(false);
+        fetchInProgressRef.current = false;
       }
     };
 
@@ -719,6 +809,7 @@ export default function App() {
             className="ms-2"
             color="secondary"
             variant="flat"
+            isDisabled={user.keystatus === "Corrupted"}
             onPress={() => importFromCloud(user)}
           >
             Import
@@ -742,44 +833,65 @@ export default function App() {
 
   const deleteKey = async (user) => {
     try {
-      const keyForHash = user.decryptedPrivateKey || user.decryptedPublicKey;
-      if (!keyForHash) {
-        throw new Error("No key data found");
-      }
-
       let requestBody = { keyId: user.id };
 
-      if (user.decryptedPrivateKey) {
-        const privateKeyHash = await workerPool(
-          {
-            type: "hashKey",
-            responseType: "hashKeyResponse",
-            text: user.decryptedPrivateKey,
-          },
-          addToast
-        );
-        requestBody.privateKeyHash = privateKeyHash;
-      } else if (user.decryptedPublicKey) {
-        const publicKeyHash = await workerPool(
-          {
-            type: "hashKey",
-            responseType: "hashKeyResponse",
-            text: user.decryptedPublicKey,
-          },
-          addToast
-        );
-        requestBody.publicKeyHash = publicKeyHash;
+      if (user.privateKeyHash) {
+        requestBody.privateKeyHash = user.privateKeyHash;
+      } else if (user.publicKeyHash) {
+        requestBody.publicKeyHash = user.publicKeyHash;
       }
+
+      const res = await fetch("/api/csrf", { method: "GET" });
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (res.status === 401) {
+          addToast({
+            title: "Please log in to continue.",
+            color: "danger",
+          });
+          router.push("/login");
+        } else {
+          addToast({
+            title: "Failed to get session token. Please try again.",
+            color: "danger",
+          });
+        }
+        return;
+      }
+
+      const { csrfToken } = await res.json();
 
       const deleteResponse = await fetch("/api/manage-keys", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({ ...requestBody, csrfToken }),
       });
 
       if (!deleteResponse.ok) {
-        const errorData = await deleteResponse.json();
-        throw new Error(errorData.error || "Failed to delete key");
+        if (deleteResponse.status === 429) {
+          addToast({
+            title: "Too many requests. Please wait a moment and try again.",
+            color: "warning",
+          });
+        } else if (deleteResponse.status === 403) {
+          addToast({
+            title: "Session expired. Please refresh the page and try again.",
+            color: "danger",
+          });
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          const errorData = await deleteResponse.json();
+          addToast({
+            title: errorData.error || "Failed to delete key",
+            color: "danger",
+          });
+        }
+        return;
       }
 
       addToast({
@@ -945,6 +1057,10 @@ export default function App() {
                 router.push("/vault?redirect=%2Fcloud-manage");
               } catch (error) {
                 console.error("Error locking vault:", error);
+                addToast({
+                  title: "Failed to lock vault. Please try again.",
+                  color: "danger",
+                });
               } finally {
                 setLocking(false);
               }
@@ -1054,7 +1170,7 @@ export default function App() {
               </div>
             </>
           }
-          items={!isLoading ? sortedItems : []}
+          items={sortedItems}
         >
           {(item) => (
             <TableRow key={item.id}>

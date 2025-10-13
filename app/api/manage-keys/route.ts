@@ -1,23 +1,49 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { connectToDatabase } from "@/lib/mongoose";
-import Vault from "@/models/Vault";
-import PGPKey from "@/models/PGPKey";
+import { prisma } from "@/lib/prisma";
+import {
+  rateLimit,
+  validateCSRFToken,
+  validateCipherFormat,
+  addSecurityHeaders,
+} from "@/lib/security";
+import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 
-await connectToDatabase();
-
-// POST: Store new key
 export async function POST(req: Request) {
+  const sizeError = validateRequestSize(req as any);
+  if (sizeError) return sizeError;
+  
+  const jsonSizeError = await validateRequestBodySize(req as any);
+  if (jsonSizeError) return jsonSizeError;
+
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rateLimitResult = await rateLimit(
+    {
+      windowMs: 60000,
+      maxRequests: 60, // IP limit: 60 requests per minute
+      userId: session.user.id,
+      endpoint: "manage-keys-post",
+      userMaxRequests: 60, // User limit: 60 requests per minute
+    },
+    req as any
+  );
+
+  if (!rateLimitResult.success) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
   let payload;
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid JSON payload" },
+      { status: 400 }
+    );
   }
 
   const {
@@ -25,7 +51,16 @@ export async function POST(req: Request) {
     encryptedPublicKey,
     privateKeyHash,
     publicKeyHash,
+    csrfToken,
   } = payload;
+
+  if (!csrfToken || typeof csrfToken !== 'string') {
+    return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+  }
+
+  if (!validateCSRFToken(csrfToken, session.user.id)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
 
   if (!encryptedPrivateKey && !encryptedPublicKey) {
     return NextResponse.json(
@@ -34,54 +69,111 @@ export async function POST(req: Request) {
     );
   }
 
-  const vault = await Vault.findOne({ userId: session.user.id });
-  if (!vault) {
-    return NextResponse.json({ error: "Vault not found for current user" }, { status: 404 });
+  if (encryptedPrivateKey) {
+    const validation = validateCipherFormat(encryptedPrivateKey);
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+  }
+  if (encryptedPublicKey) {
+    const validation = validateCipherFormat(encryptedPublicKey);
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
   }
 
-  // Duplicate check conditions using the hash values sent from client
-  const orConditions: any[] = [];
-  if (privateKeyHash) orConditions.push({ privateKeyHash });
-  if (publicKeyHash) orConditions.push({ publicKeyHash });
-
-  const existingKey = await PGPKey.findOne({
-    vaultId: vault._id,
-    $or: orConditions,
+  const vault = await prisma.vault.findUnique({
+    where: { userId: session.user.id },
   });
+  if (!vault) {
+    return NextResponse.json(
+      { error: "Vault not found for current user" },
+      { status: 404 }
+    );
+  }
+
+  let existingKey = null;
+  if (privateKeyHash) {
+    existingKey = await prisma.pGPKeys.findUnique({
+      where: { privateKeyHash, vault: { userId: session.user.id } },
+    });
+  } else if (publicKeyHash) {
+    existingKey = await prisma.pGPKeys.findUnique({
+      where: { publicKeyHash, vault: { userId: session.user.id } },
+    });
+  }
 
   if (existingKey) {
-    return NextResponse.json({ message: "Key already backed up." }, { status: 200 });
+    return NextResponse.json(
+      { message: "Key already backed up." },
+      { status: 200 }
+    );
   }
 
   try {
-    const storedKey = await PGPKey.create({
-      vaultId: vault._id,
-      ...(encryptedPrivateKey && { privateKey: encryptedPrivateKey }),
-      ...(encryptedPublicKey && { publicKey: encryptedPublicKey }),
-      ...(privateKeyHash && { privateKeyHash }),
-      ...(publicKeyHash && { publicKeyHash }),
+    const storedKey = await prisma.pGPKeys.create({
+      data: {
+        vaultId: vault.id,
+        ...(encryptedPrivateKey && { privateKey: encryptedPrivateKey }),
+        ...(encryptedPublicKey && { publicKey: encryptedPublicKey }),
+        ...(privateKeyHash && { privateKeyHash }),
+        ...(publicKeyHash && { publicKeyHash }),
+      },
     });
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { message: "Key stored successfully", key: storedKey },
       { status: 200 }
     );
+    return addSecurityHeaders(response);
   } catch (error) {
     console.error("Failed to store key data:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "Key storage failed" }, { status: 500 });
   }
 }
 
-// DELETE: Remove a stored key
 export async function DELETE(req: Request) {
   try {
+    const sizeError = validateRequestSize(req as any);
+    if (sizeError) return sizeError;
+    
+    const jsonSizeError = await validateRequestBodySize(req as any);
+    if (jsonSizeError) return jsonSizeError;
+
     const session = await auth();
     if (!session || !session.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Expect keyId and a hash of the key (either publicKeyHash or privateKeyHash)
-    const { keyId, publicKeyHash, privateKeyHash } = await req.json();
+    const rateLimitResult = await rateLimit(
+      {
+        windowMs: 60000,
+        maxRequests: 60, // IP limit: 60 requests per minute
+        userId: session.user.id,
+        endpoint: "manage-keys-delete",
+        userMaxRequests: 60, // User limit: 60 requests per minute
+      },
+      req as any
+    );
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded" },
+        { status: 429 }
+      );
+    }
+
+    const { keyId, publicKeyHash, privateKeyHash, csrfToken } =
+      await req.json();
+
+    if (!csrfToken || typeof csrfToken !== 'string') {
+      return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+    }
+
+    if (!validateCSRFToken(csrfToken, session.user.id)) {
+      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+    }
+
     if (!keyId || (!publicKeyHash && !privateKeyHash)) {
       return NextResponse.json(
         { error: "Missing required parameters" },
@@ -89,7 +181,9 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const vault = await Vault.findOne({ userId: session.user.id });
+    const vault = await prisma.vault.findUnique({
+      where: { userId: session.user.id },
+    });
     if (!vault) {
       return NextResponse.json(
         { error: "Vault not found for current user" },
@@ -97,15 +191,16 @@ export async function DELETE(req: Request) {
       );
     }
 
-    let keyQuery: any = { _id: keyId, vaultId: vault._id };
-
+    let keyToDelete = null;
     if (publicKeyHash) {
-      keyQuery.publicKeyHash = publicKeyHash;
+      keyToDelete = await prisma.pGPKeys.findUnique({
+        where: { publicKeyHash, vault: { userId: session.user.id } },
+      });
     } else if (privateKeyHash) {
-      keyQuery.privateKeyHash = privateKeyHash;
+      keyToDelete = await prisma.pGPKeys.findUnique({
+        where: { privateKeyHash, vault: { userId: session.user.id } },
+      });
     }
-
-    const keyToDelete = await PGPKey.findOne(keyQuery);
 
     if (!keyToDelete) {
       return NextResponse.json(
@@ -114,17 +209,17 @@ export async function DELETE(req: Request) {
       );
     }
 
-    await PGPKey.deleteOne({ _id: keyId });
+    await prisma.pGPKeys.delete({
+      where: { id: keyId },
+    });
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { message: "Key deleted successfully" },
       { status: 200 }
     );
+    return addSecurityHeaders(response);
   } catch (error) {
     console.error("Error deleting key:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Key deletion failed" }, { status: 500 });
   }
 }

@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from "@/auth";
+import { rateLimit, validateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 
 const fetchWithTimeout = async (url: string, timeoutMs = 10000): Promise<Response> => {
   const controller = new AbortController();
@@ -31,8 +34,34 @@ const tryKeyserver = async (path: string): Promise<string> => {
 }
 
 export async function GET(request: NextRequest) {
+  const session = await auth();
+  if (!session || !session.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rateLimitResult = await rateLimit({
+    windowMs: 60000,
+    maxRequests: 100,  // IP limit: 100 requests per minute
+    userId: session.user.id,
+    endpoint: 'keyserver-get',
+    userMaxRequests: 100  // User limit: 100 requests per minute
+  }, request as any);
+
+  if (!rateLimitResult.success) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  }
+
   const url = new URL(request.url);
   const searchParam = url.searchParams.get('search');
+  const csrfToken = url.searchParams.get('csrfToken');
+
+  if (!csrfToken || typeof csrfToken !== 'string') {
+    return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+  }
+
+  if (!validateCSRFToken(csrfToken, session.user.id)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
 
   if (!searchParam) {
     return NextResponse.json({ error: 'Missing search parameter' }, { status: 400 });
@@ -88,14 +117,47 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return new NextResponse(orderedKeyBlocks.join('\n\n'), {
+  const response = new NextResponse(orderedKeyBlocks.join('\n\n'), {
     headers: { 'Content-Type': 'text/plain' },
   });
+  return addSecurityHeaders(response);
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { publicKey } = await request.json();
+    const sizeError = validateRequestSize(request);
+    if (sizeError) return sizeError;
+    
+    const jsonSizeError = await validateRequestBodySize(request);
+    if (jsonSizeError) return jsonSizeError;
+
+    const session = await auth();
+    if (!session || !session.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const rateLimitResult = await rateLimit({
+      windowMs: 60000,
+      maxRequests: 50,  // IP limit: 50 requests per minute
+      userId: session.user.id,
+      endpoint: 'keyserver-post',
+      userMaxRequests: 50  // User limit: 50 requests per minute
+    }, request as any);
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+    }
+
+    const { publicKey, csrfToken } = await request.json();
+    
+    if (!csrfToken || typeof csrfToken !== 'string') {
+      return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+    }
+
+    if (!validateCSRFToken(csrfToken, session.user.id)) {
+      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+    }
+    
     if (!publicKey) {
       return NextResponse.json(
         { error: 'Missing publicKey in request body' },
@@ -113,10 +175,11 @@ export async function POST(request: NextRequest) {
     });
 
     const text = await upstreamRes.text();
-    return new NextResponse(text, {
+    const response = new NextResponse(text, {
       status: upstreamRes.status,
       headers: { 'Content-Type': 'text/plain' },
     });
+    return addSecurityHeaders(response);
   } catch (error) {
     console.error('Error publishing key:', error);
     return NextResponse.json({ error: 'Failed to publish key' }, { status: 500 });

@@ -1331,6 +1331,12 @@ export default function App() {
 
   const publishKeyOnServer = async () => {
     try {
+      const csrfRes = await fetch("/api/csrf", { method: "GET" });
+      if (!csrfRes.ok) {
+        throw new Error("Failed to get CSRF token");
+      }
+      const { csrfToken } = await csrfRes.json();
+
       const response = await fetch("/api/keyserver", {
         method: "POST",
         headers: {
@@ -1338,6 +1344,7 @@ export default function App() {
         },
         body: JSON.stringify({
           publicKey: selectedUserId.publicKey,
+          csrfToken: csrfToken,
         }),
       });
       if (!response.ok) {

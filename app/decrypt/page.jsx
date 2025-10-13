@@ -170,7 +170,7 @@ export default function App() {
         await new Promise((resolveDownload) => {
           saveAs(new Blob([filePayload.decrypted]), filePayload.fileName);
           // Consistent delay to ensure download starts before continuing
-          setTimeout(resolveDownload, 100);
+          setTimeout(resolveDownload, 50);
         });
 
         // Mark as downloaded and processed

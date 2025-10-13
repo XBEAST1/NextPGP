@@ -16,7 +16,7 @@ export default async function middleware(request: NextRequest) {
   const session = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
-    secureCookie: process.env.NODE_ENV === "production",
+    secureCookie: process.env.NODE_ENV === "production" || request.nextUrl.protocol === "https:",
   });
 
   // Allow unauthenticated access to login
@@ -38,10 +38,22 @@ export default async function middleware(request: NextRequest) {
   }
 
   // Check if the vault exists in the database
-  const response = await fetch(`${request.nextUrl.origin}/api/vault/check`, {
-    headers: { Authorization: `Bearer ${session.sub}` },
-  });
-  const hasVault = response.ok;
+  let hasVault = false;
+  try {
+    const fetchOptions: RequestInit = {
+      method: 'GET',
+      headers: {
+        'Cookie': request.headers.get('cookie') || '',
+        'User-Agent': 'NextPGP-Middleware/1.0',
+      },
+    };
+    
+    const response = await fetch(`${request.nextUrl.origin}/api/vault/check`, fetchOptions);
+    hasVault = response.ok;
+  } catch (error) {
+    console.error("Failed to check vault existence:", error);
+    hasVault = false;
+  }
 
   // Handle /vault route
   if (pathname === "/vault") {
