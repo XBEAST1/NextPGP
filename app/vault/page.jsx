@@ -428,7 +428,7 @@ const Page = () => {
         </Button>
       </div>
       <Modal
-        className={`transition-all duration-50 ease-in-out overflow-hidden ${OTPVerifying ? "sm:max-w-[35vw]" : ""}`}
+        className={`transition-all duration-50 ease-in-out overflow-hidden ${OTPVerifying ? "md:max-w-[485px]" : ""}`}
         backdrop="blur"
         isOpen={DeleteModal}
         onClose={() => {
@@ -445,21 +445,21 @@ const Page = () => {
               <p className="text-sm mb-3 text-gray-500">
                 Enter the 6-digit OTP sent to your email.
               </p>
-              <div className="sm:ms-3 sm:flex sm:flex-row sm:items-start sm:gap-2 flex flex-col items-center">
+              <div className="md:ms-3 md:flex md:flex-row md:items-start md:gap-2 flex flex-col items-center">
                 <InputOtp
                   length={6}
                   value={OTP}
                   onValueChange={onOtpInputChange}
                 />
                 {OTPVerifying && (
-                  <Spinner
-                    className="mt-4 ms-2 mb-4 sm:mb-0"
-                    color="white"
-                    size="sm"
-                  />
+                <Spinner
+                  className="mt-4 ms-2 mb-4 md:mb-0"
+                  color="white"
+                  size="sm"
+                />
                 )}
                 <Button
-                  className="mt-2 ms-2 sm:min-w-28 min-w-32"
+                  className="mt-2 ms-2 md:min-w-28 min-w-32"
                   onPress={() => {
                     setOTPSpinner(true);
                     sendOtpEmail();
