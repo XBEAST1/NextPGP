@@ -42,7 +42,7 @@ export async function validateRequestBodySize(request: NextRequest): Promise<Nex
     }
     
     return null;
-  } catch (error) {
+  } catch {
     return validateJsonSize(request);
   }
 }
