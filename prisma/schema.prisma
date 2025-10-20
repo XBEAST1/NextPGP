@@ -104,22 +104,12 @@ model PGPKeys {
   vaultId        String
   createdAt      DateTime @default(now())
 
-  // Relations
   vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@index([vaultId])
 }
 
-model IPRateLimit {
-  id          String   @id @default(cuid())
-  ip          String   @unique
-  count       Int      @default(1)
-  resetTime   DateTime
-  lastRequest DateTime @default(now())
-  createdAt   DateTime @default(now())
-
-  @@index([resetTime])
-}
-
-model UserRateLimit {
+model RateLimit {
   id          String   @id @default(cuid())
   userId      String
   endpoint    String   @default("default")

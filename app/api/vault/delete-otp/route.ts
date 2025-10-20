@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sendEmail } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
-import { validateCSRFToken, rateLimit, generateSecureOTP, addSecurityHeaders } from "@/lib/security";
+import { validateCSRFToken, rateLimit, generateSecureOTP, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
 import { validateRequestSize } from "@/lib/request-limits";
 import argon2 from "argon2";
 
@@ -18,11 +18,11 @@ export async function POST(request: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 5,  // IP limit: 5 requests per minute
+    maxRequests: 5,  // 5 requests per minute
     userId: session.user.id,
     endpoint: 'delete-otp',
-    userMaxRequests: 5  // User limit: 5 requests per minute
-  }, request as any);
+    failClosed: true
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -107,6 +107,7 @@ export async function POST(request: Request) {
       message: "Email sent successfully",
       maskedEmail,
     });
+    addRateLimitHeaders(response, rateLimitResult);
     return addSecurityHeaders(response);
   } catch (error) {
     console.error('Error generating OTP:', error);

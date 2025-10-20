@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { rateLimit, validateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { rateLimit, validateCSRFToken, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
 import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 
-export async function GET(req: Request) {
+export async function GET() {
   const session = await auth();
 
   if (!session || !session.user?.id) {
@@ -13,11 +13,10 @@ export async function GET(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 20,  // IP limit: 20 requests per minute
+    maxRequests: 20,  // 20 requests per minute
     userId: session.user.id,
-    endpoint: 'vault-get',
-    userMaxRequests: 20  // User limit: 20 requests per minute
-  }, req as any);
+    endpoint: 'vault-get'
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -31,6 +30,7 @@ export async function GET(req: Request) {
     exists: Boolean(vault),
     verificationCipher: vault ? vault.verificationCipher : null
   });
+  addRateLimitHeaders(response, rateLimitResult);
   return addSecurityHeaders(response);
 }
 
@@ -49,11 +49,10 @@ export async function POST(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 20,  // IP limit: 20 requests per minute
+    maxRequests: 20,  // 20 requests per minute
     userId: session.user.id,
-    endpoint: 'vault-post',
-    userMaxRequests: 20  // User limit: 20 requests per minute
-  }, req as any);
+    endpoint: 'vault-post'
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -94,6 +93,7 @@ export async function POST(req: Request) {
     { message: "Vault opened successfully" },
     { status: 200 }
   );
+  addRateLimitHeaders(response, rateLimitResult);
   return addSecurityHeaders(response);
 }
 
@@ -112,11 +112,11 @@ export async function DELETE(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 20,  // IP limit: 20 requests per minute
+    maxRequests: 20,  // 20 requests per minute
     userId: session.user.id,
     endpoint: 'vault-delete',
-    userMaxRequests: 20  // User limit: 20 requests per minute
-  }, req as any);
+    failClosed: true
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -162,6 +162,7 @@ export async function DELETE(req: Request) {
       { message: "Vault deleted successfully" },
       { status: 200 }
     );
+    addRateLimitHeaders(response, rateLimitResult);
     return addSecurityHeaders(response);
   } catch {
     return NextResponse.json(

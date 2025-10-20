@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { rateLimit, generateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { rateLimit, generateCSRFToken, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
 import { validateRequestSize } from "@/lib/request-limits";
 
 export async function GET(req: Request) {
@@ -15,11 +15,10 @@ export async function GET(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 200,  // IP limit: 200 requests per minute
+    maxRequests: 200,  // 200 requests per minute
     userId: session.user.id,
-    endpoint: 'csrf-token',
-    userMaxRequests: 200  // User limit: 200 requests per minute
-  }, req as any);
+    endpoint: 'csrf-token'
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -30,5 +29,6 @@ export async function GET(req: Request) {
   const response = NextResponse.json({
     csrfToken
   });
+  addRateLimitHeaders(response, rateLimitResult);
   return addSecurityHeaders(response);
 }

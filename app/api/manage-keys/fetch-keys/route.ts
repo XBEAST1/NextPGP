@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { rateLimit, validateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { rateLimit, validateCSRFToken, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
 import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 
 export async function POST(req: Request) {
@@ -18,11 +18,10 @@ export async function POST(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 60,  // IP limit: 60 requests per minute
+    maxRequests: 60,  // 60 requests per minute
     userId: session.user.id,
-    endpoint: 'fetch-keys',
-    userMaxRequests: 60  // User limit: 60 requests per minute
-  }, req as any);
+    endpoint: 'fetch-keys'
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -65,6 +64,7 @@ export async function POST(req: Request) {
     }));
 
     const response = NextResponse.json({ keys: responseKeys });
+    addRateLimitHeaders(response, rateLimitResult);
     return addSecurityHeaders(response);
   } catch {
     return NextResponse.json({ error: "Key retrieval failed" }, { status: 500 });

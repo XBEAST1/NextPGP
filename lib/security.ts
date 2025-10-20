@@ -1,5 +1,5 @@
-import { createHmac, randomBytes } from "crypto";
-import { NextRequest, NextResponse } from 'next/server';
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 // CSRF Token Functions
@@ -13,6 +13,8 @@ export function generateCSRFToken(userId: string): string {
 
 export function validateCSRFToken(token: string, userId: string): boolean {
   try {
+    if (!token || token.length !== 64) return false; // SHA-256 hex is 64 chars
+    
     const currentTime = Math.floor(Date.now() / 1800000);
     const previousTime = currentTime - 1; // allow previous 30-min block
     
@@ -22,7 +24,17 @@ export function validateCSRFToken(token: string, userId: string): boolean {
       .update(currentPayload)
       .digest('hex');
     
-    if (currentToken === token) return true;
+    // Use timing-safe comparison to prevent timing attacks
+    const currentTokenBuffer = Buffer.from(currentToken, 'hex');
+    const tokenBuffer = Buffer.from(token, 'hex');
+    
+    if (currentTokenBuffer.length !== tokenBuffer.length) {
+      return false;
+    }
+    
+    if (timingSafeEqual(currentTokenBuffer as unknown as Uint8Array, tokenBuffer as unknown as Uint8Array)) {
+      return true;
+    }
     
     // Try previous time window (for clock skew tolerance)
     const previousPayload = `${userId}:${previousTime}`;
@@ -30,219 +42,116 @@ export function validateCSRFToken(token: string, userId: string): boolean {
       .update(previousPayload)
       .digest('hex');
     
-    return previousToken === token;
+    const previousTokenBuffer = Buffer.from(previousToken, 'hex');
+    return timingSafeEqual(previousTokenBuffer as unknown as Uint8Array, tokenBuffer as unknown as Uint8Array);
   } catch {
     return false;
   }
 }
 
-interface IPRateLimitOptions {
+interface RateLimitOptions {
   windowMs: number;
   maxRequests: number;
-}
-
-interface UserRateLimitOptions extends IPRateLimitOptions {
   userId: string;
   endpoint: string;
-  userMaxRequests: number;
+  failClosed?: boolean;
 }
 
-export async function ipRateLimit(options: IPRateLimitOptions, request: NextRequest): Promise<{ success: boolean; limit: number; remaining: number; resetTime: number }> {
-  const ip = request.headers.get('x-forwarded-for') || 
-             request.headers.get('x-real-ip') || 
-             'unknown';
+export async function rateLimit(
+  options: RateLimitOptions
+): Promise<{ success: boolean; limit: number; remaining: number; resetTime: number }> {
+  const { userId, endpoint, maxRequests, windowMs, failClosed = false } = options;
   const now = new Date();
-
+  
+  const currentWindowStartMs = Math.floor(now.getTime() / windowMs) * windowMs;
+  const currentWindowStart = new Date(currentWindowStartMs);
+  const resetTime = currentWindowStartMs + windowMs;
+  const cleanupBefore = new Date(currentWindowStartMs);
+  
   try {
-    // Clean up expired entries first
-    await prisma.iPRateLimit.deleteMany({
-      where: {
-        resetTime: {
-          lt: now
-        }
+    const result = await prisma.$transaction(async (tx) => {
+      // Probabilistic cleanup: 1% of requests clean old records (99% overhead reduction)
+      if (Math.random() < 0.01) {
+        await tx.rateLimit.deleteMany({
+          where: { 
+            windowStart: { lt: cleanupBefore } 
+          }
+        });
       }
-    });
-
-    // Get or create rate limit entry
-    const existing = await prisma.iPRateLimit.findUnique({
-      where: { ip }
-    });
-
-    if (!existing || existing.resetTime < now) {
-      // First request or window expired
-      const resetTime = new Date(now.getTime() + options.windowMs);
       
-      await prisma.iPRateLimit.upsert({
-        where: { ip },
+      // Upsert: create if first request in window, else increment count
+      const rateLimitRecord = await tx.rateLimit.upsert({
+        where: {
+          userId_endpoint_windowStart: {
+            userId,
+            endpoint,
+            windowStart: currentWindowStart
+          }
+        },
         update: {
-          count: 1,
-          resetTime,
-          lastRequest: now
+          count: { increment: 1 }
         },
         create: {
-          ip,
+          userId,
+          endpoint,
           count: 1,
-          resetTime,
-          lastRequest: now
+          windowStart: currentWindowStart
         }
       });
-      
-      return {
-        success: true,
-        limit: options.maxRequests,
-        remaining: options.maxRequests - 1,
-        resetTime: resetTime.getTime()
-      };
-    }
 
-    if (existing.count >= options.maxRequests) {
-      // Rate limit exceeded
-      return {
-        success: false,
-        limit: options.maxRequests,
-        remaining: 0,
-        resetTime: existing.resetTime.getTime()
-      };
-    }
-
-    // Increment counter
-    await prisma.iPRateLimit.update({
-      where: { ip },
-      data: {
-        count: existing.count + 1,
-        lastRequest: now
+      if (rateLimitRecord.count > maxRequests) {
+        return {
+          success: false,
+          limit: maxRequests,
+          remaining: 0,
+          resetTime
+        };
       }
-    });
 
-    return {
-      success: true,
-      limit: options.maxRequests,
-      remaining: options.maxRequests - (existing.count + 1),
-      resetTime: existing.resetTime.getTime()
-    };
-  } catch {
-    return {
-      success: true,
-      limit: options.maxRequests,
-      remaining: options.maxRequests - 1,
-      resetTime: now.getTime() + options.windowMs
-    };
-  }
-}
-
-export async function userRateLimit(
-  userId: string, 
-  endpoint: string,
-  maxRequests: number,
-  windowMs: number
-): Promise<{ success: boolean; limit: number; remaining: number; resetTime: number }> {
-  const now = new Date();
-  const windowStart = new Date(now.getTime() - windowMs);
-  
-  try {
-    // Clean up old entries (runs in background)
-    await prisma.userRateLimit.deleteMany({
-      where: { 
-        windowStart: { lt: windowStart } 
-      }
-    });
-    
-    // Get or create rate limit entry
-    const existing = await prisma.userRateLimit.findUnique({
-      where: {
-        userId_endpoint_windowStart: {
-          userId,
-          endpoint,
-          windowStart: now
-        }
-      }
-    });
-
-    if (!existing) {
-      // First request in this window
-      await prisma.userRateLimit.create({
-        data: {
-        userId,
-        endpoint,
-        count: 1,
-        windowStart: now
-      }
-    });
-    
       return {
         success: true,
         limit: maxRequests,
-        remaining: maxRequests - 1,
-        resetTime: now.getTime() + windowMs
+        remaining: maxRequests - rateLimitRecord.count,
+        resetTime
       };
-    }
+    }, {
+      isolationLevel: 'Serializable', // Prevents race conditions in concurrent requests
+      timeout: 5000
+    });
 
-    if (existing.count >= maxRequests) {
-      // Rate limit exceeded
+    return result;
+  } catch (error) {
+    console.error('Rate limit error:', error);
+    
+    // failClosed: true → deny (security), false → allow (availability)
+    if (failClosed) {
+      console.error(`Rate limit check failed for user ${userId} on critical endpoint ${endpoint} - DENYING request for security`);
       return {
         success: false,
         limit: maxRequests,
         remaining: 0,
-        resetTime: existing.windowStart.getTime() + windowMs
+        resetTime
       };
     }
-
-    // Increment counter
-    await prisma.userRateLimit.update({
-      where: {
-        userId_endpoint_windowStart: {
-          userId,
-          endpoint,
-          windowStart: now
-        }
-      },
-      data: {
-        count: existing.count + 1
-      }
-    });
-
+    
+    console.warn(`Rate limit check failed for user ${userId} on ${endpoint} - allowing request`);
     return {
       success: true,
       limit: maxRequests,
-      remaining: maxRequests - (existing.count + 1),
-      resetTime: existing.windowStart.getTime() + windowMs
-    };
-  } catch {
-    return {
-      success: true,
-      limit: maxRequests,
-      remaining: maxRequests - 1,
-      resetTime: now.getTime() + windowMs
+      remaining: 0, // Assume worst case
+      resetTime
     };
   }
 }
 
-// Combined rate limiting - checks both user and IP limits
-export async function rateLimit(
-  options: UserRateLimitOptions,
-  request: NextRequest
-): Promise<{ success: boolean; limit: number; remaining: number; resetTime: number }> {
-  const ipResult = await ipRateLimit(options, request);
-  if (!ipResult.success) {
-    return ipResult;
-  }
-
-  const userResult = await userRateLimit(
-    options.userId,
-    options.endpoint,
-    options.userMaxRequests,
-    options.windowMs
-  );
-  if (!userResult.success) {
-    return userResult;
-  }
-  
-  return {
-    success: true,
-    limit: Math.min(ipResult.limit, userResult.limit),
-    remaining: Math.min(ipResult.remaining, userResult.remaining),
-    resetTime: Math.min(ipResult.resetTime, userResult.resetTime)
-  };
+export function addRateLimitHeaders(
+  response: NextResponse, 
+  rateLimitResult: { limit: number; remaining: number; resetTime: number }
+): NextResponse {
+  response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+  response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+  response.headers.set('X-RateLimit-Reset', Math.floor(rateLimitResult.resetTime / 1000).toString());
+  return response;
 }
 
 export function validateCipherFormat(cipher: string): { valid: boolean; error?: string } {
@@ -326,7 +235,7 @@ export function addSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=(), usb=()');
+  response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=()');
   response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   response.headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
   response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');

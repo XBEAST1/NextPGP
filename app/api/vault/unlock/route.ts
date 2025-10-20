@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateCSRFToken, rateLimit, addSecurityHeaders } from "@/lib/security";
+import { validateCSRFToken, rateLimit, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
 import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 import jwt from "jsonwebtoken";
 
@@ -19,11 +19,11 @@ export async function POST(request: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 20,  // IP limit: 20 requests per minute
+    maxRequests: 20,  // 20 requests per minute
     userId: session.user.id,
     endpoint: 'vault-unlock',
-    userMaxRequests: 20  // User limit: 20 requests per minute
-  }, request as any);
+    failClosed: true 
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -71,5 +71,6 @@ export async function POST(request: Request) {
     sameSite: "lax",
   });
 
+  addRateLimitHeaders(res, rateLimitResult);
   return addSecurityHeaders(res);
 }

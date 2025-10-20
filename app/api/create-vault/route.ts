@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { validateCipherFormat, rateLimit, validateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { validateCipherFormat, rateLimit, validateCSRFToken, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
 import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 
-export async function GET(req: Request) {
+export async function GET() {
   const session = await auth();
 
   if (!session || !session.user?.id) {
@@ -13,11 +13,10 @@ export async function GET(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 10,  // IP limit: 10 requests per minute
+    maxRequests: 10,  // 10 requests per minute
     userId: session.user.id,
-    endpoint: 'create-vault-get',
-    userMaxRequests: 10  // User limit: 10 requests per minute
-  }, req as any);
+    endpoint: 'create-vault-get'
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -31,6 +30,7 @@ export async function GET(req: Request) {
   const response = NextResponse.json({ 
     exists: Boolean(vault)
   });
+  addRateLimitHeaders(response, rateLimitResult);
   return addSecurityHeaders(response);
 }
 
@@ -49,11 +49,11 @@ export async function POST(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 10,  // IP limit: 10 requests per minute
+    maxRequests: 10,  // 10 requests per minute
     userId: session.user.id,
     endpoint: 'create-vault-post',
-    userMaxRequests: 10  // User limit: 10 requests per minute
-  }, req as any);
+    failClosed: true
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -112,6 +112,7 @@ export async function POST(req: Request) {
     });
 
     const response = NextResponse.json({ vault });
+    addRateLimitHeaders(response, rateLimitResult);
     return addSecurityHeaders(response);
   } catch (error) {
     if (error instanceof Error && error.message === "Vault already exists") {

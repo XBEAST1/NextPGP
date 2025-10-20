@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { rateLimit, addSecurityHeaders } from "@/lib/security";
+import { rateLimit, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
 import { validateRequestSize } from "@/lib/request-limits";
 
 export async function GET(req: Request) {
@@ -15,11 +15,10 @@ export async function GET(req: Request) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 60,  // IP limit: 60 requests per minute
+    maxRequests: 60,  // 60 requests per minute
     userId: session.user.id,
-    endpoint: 'vault-check',
-    userMaxRequests: 60  // User limit: 60 requests per minute
-  }, req as any);
+    endpoint: 'vault-check'
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -33,11 +32,13 @@ export async function GET(req: Request) {
     const response = NextResponse.json({ 
       exists: true
     }, { status: 200 });
+    addRateLimitHeaders(response, rateLimitResult);
     return addSecurityHeaders(response);
   }
 
   const response = NextResponse.json({ 
     exists: false
   }, { status: 404 });
+  addRateLimitHeaders(response, rateLimitResult);
   return addSecurityHeaders(response);
 }

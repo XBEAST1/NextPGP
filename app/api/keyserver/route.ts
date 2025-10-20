@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from "@/auth";
-import { rateLimit, validateCSRFToken, addSecurityHeaders } from "@/lib/security";
+import { rateLimit, validateCSRFToken, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
 import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 
 const fetchWithTimeout = async (url: string, timeoutMs = 10000): Promise<Response> => {
@@ -41,11 +41,10 @@ export async function GET(request: NextRequest) {
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
-    maxRequests: 100,  // IP limit: 100 requests per minute
+    maxRequests: 100,  // 100 requests per minute
     userId: session.user.id,
-    endpoint: 'keyserver-get',
-    userMaxRequests: 100  // User limit: 100 requests per minute
-  }, request as any);
+    endpoint: 'keyserver-get'
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -120,6 +119,7 @@ export async function GET(request: NextRequest) {
   const response = new NextResponse(orderedKeyBlocks.join('\n\n'), {
     headers: { 'Content-Type': 'text/plain' },
   });
+  addRateLimitHeaders(response, rateLimitResult);
   return addSecurityHeaders(response);
 }
 
@@ -138,11 +138,10 @@ export async function POST(request: NextRequest) {
 
     const rateLimitResult = await rateLimit({
       windowMs: 60000,
-      maxRequests: 50,  // IP limit: 50 requests per minute
+      maxRequests: 50,  // 50 requests per minute
       userId: session.user.id,
-      endpoint: 'keyserver-post',
-      userMaxRequests: 50  // User limit: 50 requests per minute
-    }, request as any);
+      endpoint: 'keyserver-post'
+    });
 
     if (!rateLimitResult.success) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -179,6 +178,7 @@ export async function POST(request: NextRequest) {
       status: upstreamRes.status,
       headers: { 'Content-Type': 'text/plain' },
     });
+    addRateLimitHeaders(response, rateLimitResult);
     return addSecurityHeaders(response);
   } catch (error) {
     console.error('Error publishing key:', error);

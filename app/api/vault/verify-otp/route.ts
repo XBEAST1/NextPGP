@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { validateCSRFToken, rateLimit, addSecurityHeaders } from "@/lib/security";
+import { validateCSRFToken, rateLimit, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
 import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 import argon2 from "argon2";
 
@@ -20,11 +20,11 @@ export async function POST(request: Request) {
 
     const rateLimitResult = await rateLimit({
       windowMs: 60000,
-      maxRequests: 5,  // IP limit: 5 requests per minute
+      maxRequests: 5,  // 5 requests per minute
       userId: session.user.id,
       endpoint: 'verify-otp',
-      userMaxRequests: 5  // User limit: 5 requests per minute
-    }, request as any);
+      failClosed: true
+    });
 
     if (!rateLimitResult.success) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
@@ -71,6 +71,7 @@ export async function POST(request: Request) {
     }
 
     const response = NextResponse.json({ message: "OTP verified successfully" });
+    addRateLimitHeaders(response, rateLimitResult);
     return addSecurityHeaders(response);
   } catch {
     return NextResponse.json({ error: "OTP verification failed" }, { status: 500 });

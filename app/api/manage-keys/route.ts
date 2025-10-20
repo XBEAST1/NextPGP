@@ -6,6 +6,7 @@ import {
   validateCSRFToken,
   validateCipherFormat,
   addSecurityHeaders,
+  addRateLimitHeaders,
 } from "@/lib/security";
 import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
 
@@ -21,16 +22,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const rateLimitResult = await rateLimit(
-    {
-      windowMs: 60000,
-      maxRequests: 60, // IP limit: 60 requests per minute
-      userId: session.user.id,
-      endpoint: "manage-keys-post",
-      userMaxRequests: 60, // User limit: 60 requests per minute
-    },
-    req as any
-  );
+  const rateLimitResult = await rateLimit({
+    windowMs: 60000,
+    maxRequests: 60, // 60 requests per minute
+    userId: session.user.id,
+    endpoint: "manage-keys-post",
+    failClosed: true
+  });
 
   if (!rateLimitResult.success) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
@@ -125,6 +123,7 @@ export async function POST(req: Request) {
       { message: "Key stored successfully", key: storedKey },
       { status: 200 }
     );
+    addRateLimitHeaders(response, rateLimitResult);
     return addSecurityHeaders(response);
   } catch (error) {
     console.error("Failed to store key data:", error);
@@ -145,16 +144,12 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const rateLimitResult = await rateLimit(
-      {
-        windowMs: 60000,
-        maxRequests: 60, // IP limit: 60 requests per minute
-        userId: session.user.id,
-        endpoint: "manage-keys-delete",
-        userMaxRequests: 60, // User limit: 60 requests per minute
-      },
-      req as any
-    );
+    const rateLimitResult = await rateLimit({
+      windowMs: 60000,
+      maxRequests: 60, // 60 requests per minute
+      userId: session.user.id,
+      endpoint: "manage-keys-delete"
+    });
 
     if (!rateLimitResult.success) {
       return NextResponse.json(
@@ -217,6 +212,7 @@ export async function DELETE(req: Request) {
       { message: "Key deleted successfully" },
       { status: 200 }
     );
+    addRateLimitHeaders(response, rateLimitResult);
     return addSecurityHeaders(response);
   } catch (error) {
     console.error("Error deleting key:", error);
