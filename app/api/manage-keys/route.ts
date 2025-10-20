@@ -135,9 +135,16 @@ export async function DELETE(req: Request) {
   try {
     const sizeError = validateRequestSize(req as any);
     if (sizeError) return sizeError;
-    
-    const jsonSizeError = await validateRequestBodySize(req as any);
-    if (jsonSizeError) return jsonSizeError;
+
+    let payload;
+    try {
+      payload = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON payload" },
+        { status: 400 }
+      );
+    }
 
     const session = await auth();
     if (!session || !session.user?.id) {
@@ -158,8 +165,7 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const { keyId, publicKeyHash, privateKeyHash, csrfToken } =
-      await req.json();
+    const { keyId, publicKeyHash, privateKeyHash, csrfToken } = payload;
 
     if (!csrfToken || typeof csrfToken !== 'string') {
       return NextResponse.json({ error: "CSRF token required" }, { status: 403 });

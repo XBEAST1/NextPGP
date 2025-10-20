@@ -115,7 +115,7 @@ export async function rateLimit(
         resetTime
       };
     }, {
-      isolationLevel: 'Serializable', // Prevents race conditions in concurrent requests
+      isolationLevel: 'ReadCommitted',
       timeout: 5000
     });
 
@@ -154,6 +154,38 @@ export function addRateLimitHeaders(
   return response;
 }
 
+// Constants for validating cipher format
+const MAGIC = [0x4e, 0x50]; // 'NP' for "NextPGP"
+const ENCRYPTION_VERSION = 0x01;
+const PURPOSE = 0x01;
+const KDF_ID = 0x01; // 0x01 = PBKDF2
+const CIPHER_ID = 0x01; // 0x01 = AES-GCM
+const FLAGS = 0x01; // Compression used flag
+const RESERVED = [0x00, 0x00]; // 2 bytes reserved for future extensions
+const DEFAULT_ITERATIONS = 1_000_000; // PBKDF2 iteration count
+
+// Lengths for validating cipher format
+const SALT_LENGTH = 16; // 16 bytes salt
+const IV_LENGTH = 12; // 12 bytes IV for AES-GCM
+const HMAC_LENGTH = 32; // 32 bytes HMAC-SHA256 tag
+const HEADER_LENGTH = 2 + 1 + 1 + 1 + 1 + 1 + 4 + 2 + 32; // 45 bytes total
+
+// Byte offsets in header for validating cipher format
+const HEADER_INDEX = {
+  MAGIC: 0,
+  VERSION: 2,
+  PURPOSE: 3,
+  KDF_ID: 4,
+  CIPHER_ID: 5,
+  FLAGS: 6,
+  ITERATIONS: 7, // 4 bytes: 7-10
+  RESERVED: 11, // 2 bytes: 11-12
+  HEADER_HASH: 13, // 32 bytes: 13-44
+};
+
+// Minimum valid cipher length: header + at least 1 byte encrypted + IV + salt + HMAC
+const MIN_CIPHER_LENGTH = HEADER_LENGTH + 1 + IV_LENGTH + SALT_LENGTH + HMAC_LENGTH;
+
 export function validateCipherFormat(cipher: string): { valid: boolean; error?: string } {
   if (!cipher || typeof cipher !== 'string') {
     return { valid: false, error: "Invalid cipher" };
@@ -162,62 +194,62 @@ export function validateCipherFormat(cipher: string): { valid: boolean; error?: 
   try {
     const decoded = Buffer.from(cipher, 'base64');
     
-    if (decoded.length < 50) {
+    // Ensure minimum length: 45 (header) + 1 (min encrypted) + 12 (IV) + 16 (salt) + 32 (HMAC) = 106 bytes
+    if (decoded.length < MIN_CIPHER_LENGTH) {
       return { valid: false, error: "Invalid cipher format" };
     }
 
-    const magicBytes = decoded.subarray(0, 2);
-    if (magicBytes.toString() !== 'NP') {
+    // Validate magic bytes: 0x4E, 0x50 ('NP')
+    if (decoded[HEADER_INDEX.MAGIC] !== MAGIC[0] || decoded[HEADER_INDEX.MAGIC + 1] !== MAGIC[1]) {
       return { valid: false, error: "Invalid cipher format" };
     }
 
-    const version = decoded[2];
-    if (version !== 1) {
+    // Validate version: 0x01
+    if (decoded[HEADER_INDEX.VERSION] !== ENCRYPTION_VERSION) {
       return { valid: false, error: "Unsupported cipher version" };
     }
 
-    const purpose = decoded[3];
-    if (purpose !== 1) {
+    // Validate purpose: 0x01
+    if (decoded[HEADER_INDEX.PURPOSE] !== PURPOSE) {
       return { valid: false, error: "Invalid cipher purpose" };
     }
 
-    if (decoded.length < 45 + 1 + 12 + 16 + 32) {
-      return { valid: false, error: "Incomplete cipher data" };
-    }
-
-    const kdfId = decoded[4];
-    if (kdfId !== 1) {
+    // Validate KDF ID: 0x01 (PBKDF2)
+    if (decoded[HEADER_INDEX.KDF_ID] !== KDF_ID) {
       return { valid: false, error: "Unsupported key derivation function" };
     }
 
-    const cipherId = decoded[5];
-    if (cipherId !== 1) {
+    // Validate cipher ID: 0x01 (AES-GCM)
+    if (decoded[HEADER_INDEX.CIPHER_ID] !== CIPHER_ID) {
       return { valid: false, error: "Unsupported cipher algorithm" };
     }
 
-    const flags = decoded[6];
-    if (flags !== 1) {
+    // Validate flags: 0x01 (compression enabled)
+    if (decoded[HEADER_INDEX.FLAGS] !== FLAGS) {
       return { valid: false, error: "Invalid cipher flags" };
     }
 
-    const iterations = decoded.readUInt32BE(7);
-    if (iterations < 10000 || iterations > 1000000) {
-      return { valid: false, error: "Invalid iteration count" };
-    }
-
-    // Check reserved bytes are zero
-    const reserved = decoded.readUInt16BE(11);
-    if (reserved !== 0) {
+    // Validate reserved bytes are zero (2 bytes at offset 11-12)
+    const reserved1 = decoded[HEADER_INDEX.RESERVED];
+    const reserved2 = decoded[HEADER_INDEX.RESERVED + 1];
+    if (reserved1 !== RESERVED[0] || reserved2 !== RESERVED[1]) {
       return { valid: false, error: "Invalid cipher format" };
     }
 
-    // Validate header hash (bytes 13-44 should be SHA-256 hash)
-    const expectedHash = decoded.subarray(13, 45);
-    const isAllZeros = expectedHash.every(byte => byte === 0);
+    // Validate iteration count (4 bytes, big-endian at offset 7-10)
+    const iterations = decoded.readUInt32BE(HEADER_INDEX.ITERATIONS);
+    if (iterations === 0 || iterations > DEFAULT_ITERATIONS) {
+      return { valid: false, error: "Invalid iteration count" };
+    }
+
+    // Validate header hash exists and is not all zeros (32 bytes at offset 13-44)
+    const headerHash = decoded.subarray(HEADER_INDEX.HEADER_HASH, HEADER_INDEX.HEADER_HASH + 32);
+    const isAllZeros = headerHash.every(byte => byte === 0);
     if (isAllZeros) {
       return { valid: false, error: "Invalid header hash" };
     }
 
+    // All validations passed
     return { valid: true };
   } catch {
     return { valid: false, error: "Invalid cipher structure" };
