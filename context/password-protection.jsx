@@ -729,7 +729,7 @@ export const PasswordProtectionProvider = ({ children }) => {
     };
 
     checkPasswordProtection();
-  }, [onUnlockOpen]);
+  }, []);
 
   const handleSetPassword = async (password) => {
     try {
