@@ -44,8 +44,8 @@ export const Navbar = () => {
     <NextUINavbar
       isMenuOpen={isMenuOpen}
       onMenuOpenChange={setIsMenuOpen}
-      className="p-7 backdrop-blur backdrop-brightness-200"
-      maxWidth="xl"
+      className="p-7 backdrop-blur backdrop-brightness-200 w-full"
+      maxWidth="full"
       position="sticky"
     >
       <NavbarContent

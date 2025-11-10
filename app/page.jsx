@@ -127,13 +127,14 @@ const columns = [
   {
     name: "STATUS",
     uid: "status",
-    width: "20%",
+    width: "12%",
     align: "center",
     sortable: true,
   },
   {
     name: "PASSWORD",
     uid: "passwordprotected",
+    width: "20%",
     align: "center",
     sortable: true,
   },

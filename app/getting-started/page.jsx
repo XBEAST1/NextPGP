@@ -42,7 +42,7 @@ const Page = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex flex-col items-center">
-      <div className="max-w-7xl w-full">
+      <div className="sm:max-w-[95vw] max-w-7xl w-full">
         <motion.h1
           {...fadeInUp}
           className="text-4xl font-bold mb-6 text-center"

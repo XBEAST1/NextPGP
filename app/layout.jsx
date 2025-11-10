@@ -118,7 +118,7 @@ export default async function RootLayout({ children }) {
                 <PasswordProtectionWrapper>
                   <div className="relative flex flex-col h-screen">
                     <Navbar />
-                    <main className="container mx-auto max-w-7xl pt-6 px-6 flex-grow">
+                    <main className="container mx-auto sm:max-w-[95vw] max-w-7xl pt-6 px-6 flex-grow">
                       {children}
                     </main>
                     <br />
