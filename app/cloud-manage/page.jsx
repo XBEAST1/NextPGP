@@ -359,8 +359,24 @@ export default function App() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [locking, setLocking] = useState(false);
+
+  // Load saved columns from localStorage or use initial defaults
+  const getInitialVisibleColumns = () => {
+    if (typeof window === "undefined") return new Set(INITIAL_VISIBLE_COLUMNS);
+    const saved = localStorage.getItem("visibleColumns");
+    if (!saved) return new Set(INITIAL_VISIBLE_COLUMNS);
+    try {
+      const parsed = JSON.parse(saved);
+      const availableUids = columns.map((col) => col.uid);
+      const filtered = parsed.filter((col) => availableUids.includes(col));
+      return new Set([...INITIAL_VISIBLE_COLUMNS, ...filtered]);
+    } catch {
+      return new Set(INITIAL_VISIBLE_COLUMNS);
+    }
+  };
+
   const [visibleColumns, setVisibleColumns] = useState(
-    new Set(INITIAL_VISIBLE_COLUMNS)
+    getInitialVisibleColumns
   );
   const [totalKeys, setTotalKeys] = useState(0);
   const router = useRouter();
@@ -389,6 +405,26 @@ export default function App() {
     };
     checkVault();
   }, [router, getVaultPassword]);
+
+  // Save visible columns to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window === "undefined" || !visibleColumns) return;
+    const current = Array.from(visibleColumns);
+    const saved = localStorage.getItem("visibleColumns");
+    const availableUids = columns.map((col) => col.uid);
+    let otherPages = [];
+    if (saved) {
+      try {
+        otherPages = JSON.parse(saved).filter(
+          (col) => !availableUids.includes(col)
+        );
+      } catch {}
+    }
+    localStorage.setItem(
+      "visibleColumns",
+      JSON.stringify([...otherPages, ...current])
+    );
+  }, [visibleColumns]);
 
   const loadKeysFromCloud = async () => {
     if (window.loadingCloudKeysInProgress) return [];
