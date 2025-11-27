@@ -104,37 +104,32 @@ const INITIAL_VISIBLE_COLUMNS_MODAL4 = [
 ];
 
 const columns = [
-  { name: "NAME", uid: "name", width: "15%", sortable: true },
+  { name: "NAME", uid: "name", sortable: true },
   {
     name: "EMAIL",
     uid: "email",
-    width: "30%",
     align: "center",
     sortable: true,
   },
   {
     name: "CREATION DATE",
     uid: "creationdate",
-    width: "20%",
     sortable: true,
   },
   {
     name: "EXPIRY DATE",
     uid: "expirydate",
-    width: "15%",
     sortable: true,
   },
   {
     name: "STATUS",
     uid: "status",
-    width: "12%",
     align: "center",
     sortable: true,
   },
   {
     name: "PASSWORD",
     uid: "passwordprotected",
-    width: "20%",
     align: "center",
     sortable: true,
   },
@@ -698,7 +693,7 @@ export default function App() {
     }, [user.privateKey]);
 
     return (
-      <div className="relative flex justify-end items-center gap-2 me-4">
+      <div className="relative flex justify-center items-center gap-2">
         <Dropdown>
           <DropdownTrigger>
             <Button isIconOnly size="sm" variant="light">
@@ -1285,11 +1280,43 @@ export default function App() {
   const hasSearchFilter = Boolean(filterValue);
 
   const headerColumns = useMemo(() => {
-    if (visibleColumns === "all") return columns;
+    let filteredColumns;
+    if (visibleColumns === "all") {
+      filteredColumns = columns;
+    } else {
+      filteredColumns = columns.filter((column) =>
+        Array.from(visibleColumns).includes(column.uid)
+      );
+    }
 
-    return columns.filter((column) =>
-      Array.from(visibleColumns).includes(column.uid)
+    // Define relative width weights based on content needs
+    // Higher numbers = more space needed
+    const widthWeights = {
+      name: 12,
+      email: 20,
+      creationdate: 8,
+      expirydate: 8,
+      status: 8,
+      passwordprotected: 8,
+      keyid: 10,
+      fingerprint: 20,
+      algorithm: 8,
+      actions: 8,
+    };
+
+    const totalWeight = filteredColumns.reduce(
+      (sum, column) => sum + (widthWeights[column.uid] || 10),
+      0
     );
+
+    return filteredColumns.map((column) => {
+      const weight = widthWeights[column.uid] || 10;
+      const width = `${((weight / totalWeight) * 100).toFixed(2)}%`;
+      return {
+        ...column,
+        width,
+      };
+    });
   }, [visibleColumns]);
 
   const renderCell = useCallback((user, columnKey) => {

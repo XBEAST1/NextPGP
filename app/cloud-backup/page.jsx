@@ -72,51 +72,45 @@ const INITIAL_VISIBLE_COLUMNS = [
 ];
 
 const columns = [
-  { name: "NAME", uid: "name", width: "15%", sortable: true },
+  { name: "NAME", uid: "name", sortable: true },
   {
     name: "EMAIL",
     uid: "email",
-    width: "23%",
     align: "center",
     sortable: true,
   },
   {
     name: "CREATION DATE",
     uid: "creationdate",
-    width: "15%",
     sortable: true,
   },
   {
     name: "EXPIRY DATE",
     uid: "expirydate",
-    width: "12%",
     sortable: true,
   },
   {
     name: "KEY STATUS",
     uid: "keystatus",
-    width: "10%",
     align: "center",
     sortable: true,
   },
   {
     name: "PASSWORD",
     uid: "passwordprotected",
-    width: "10%",
     align: "center",
     sortable: true,
   },
   {
     name: "STATUS",
     uid: "status",
-    width: "15%",
     align: "center",
     sortable: true,
   },
   { name: "KEY ID", uid: "keyid", align: "center" },
   { name: "FINGERPRINT", uid: "fingerprint", align: "center" },
   { name: "ALGORITHM", uid: "algorithm", align: "center" },
-  { name: "BACKUP", uid: "backup", width: "8%", align: "center" },
+  { name: "BACKUP", uid: "backup", align: "center" },
 ];
 
 const capitalize = (s) => {
@@ -670,11 +664,44 @@ export default function App() {
   const hasSearchFilter = Boolean(filterValue);
 
   const headerColumns = useMemo(() => {
-    if (visibleColumns === "all") return columns;
+    let filteredColumns;
+    if (visibleColumns === "all") {
+      filteredColumns = columns;
+    } else {
+      filteredColumns = columns.filter((column) =>
+        Array.from(visibleColumns).includes(column.uid)
+      );
+    }
 
-    return columns.filter((column) =>
-      Array.from(visibleColumns).includes(column.uid)
+    // Define relative width weights based on content needs
+    // Higher numbers = more space needed
+    const widthWeights = {
+      name: 12,
+      email: 20,
+      creationdate: 8,
+      expirydate: 8,
+      keystatus: 8,
+      passwordprotected: 8,
+      status: 8,
+      keyid: 10,
+      fingerprint: 20,
+      algorithm: 18,
+      backup: 8,
+    };
+
+    const totalWeight = filteredColumns.reduce(
+      (sum, column) => sum + (widthWeights[column.uid] || 10),
+      0
     );
+
+    return filteredColumns.map((column) => {
+      const weight = widthWeights[column.uid] || 10;
+      const width = `${((weight / totalWeight) * 100).toFixed(2)}%`;
+      return {
+        ...column,
+        width,
+      };
+    });
   }, [visibleColumns]);
 
   const renderCell = useCallback((user, columnKey) => {
