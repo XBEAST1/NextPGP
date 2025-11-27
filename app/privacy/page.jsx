@@ -20,7 +20,7 @@ const PrivacyPage = () => {
         </motion.h1>
 
         <motion.div {...fadeInUp} className="space-y-4">
-          <p>Effective Date: June 20, 2025</p>
+          <p>Effective Date: November 28, 2025</p>
 
           <p>
             NextPGP is committed to user privacy. We do not collect, store, or
@@ -30,8 +30,9 @@ const PrivacyPage = () => {
           </p>
 
           <p>
-            We use access to Gmail only to send OTP emails for deleting
-            encrypted vaults. No other Gmail data is accessed or stored.
+            We use access to Gmail for vault management. OTP emails are sent
+            only for vault deletion confirmation. No other Gmail data is
+            accessed or stored.
           </p>
 
           <p>
@@ -42,10 +43,10 @@ const PrivacyPage = () => {
           <p>
             If you have any questions, please contact us at{" "}
             <a
-              href="mailto:xbeast331@proton.me"
+              href="mailto:xbeast1@proton.me"
               className="text-blue-400 underline"
             >
-              xbeast331@proton.me
+              xbeast1@proton.me
             </a>
             .
           </p>
@@ -53,6 +54,6 @@ const PrivacyPage = () => {
       </div>
     </div>
   );
-}
+};
 
 export default PrivacyPage;
