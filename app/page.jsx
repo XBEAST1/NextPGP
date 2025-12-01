@@ -1328,12 +1328,12 @@ export default function App() {
     // Define relative width weights based on content needs
     // Higher numbers = more space needed
     const widthWeights = {
-      name: 12,
+      name: 8,
       email: 20,
-      creationdate: 8,
-      expirydate: 8,
-      status: 8,
-      passwordprotected: 8,
+      creationdate: 12,
+      expirydate: 10,
+      status: 12,
+      passwordprotected: 10,
       keyid: 10,
       fingerprint: 20,
       algorithm: 8,

@@ -797,18 +797,18 @@ export default function App() {
     // Define relative width weights based on content needs
     // Higher numbers = more space needed
     const widthWeights = {
-      name: 12,
+      name: 8,
       email: 20,
-      creationdate: 8,
+      creationdate: 12,
       expirydate: 8,
-      keystatus: 8,
-      passwordprotected: 8,
-      status: 8,
+      keystatus: 10,
+      passwordprotected: 10,
+      status: 10,
       keyid: 10,
       fingerprint: 20,
-      algorithm: 18,
+      algorithm: 12,
       import: 8,
-      delete: 8,
+      delete: 6,
     };
 
     const totalWeight = filteredColumns.reduce(
