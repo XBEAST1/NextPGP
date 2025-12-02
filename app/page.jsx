@@ -2885,15 +2885,20 @@ export default function App() {
         }
       });
 
-      // Preserve subkey revocations
+      // Preserve subkey revocations and binding signatures
       const originalSubkeys = privateKey.getSubkeys();
       const subkeyRevocationMap = new Map();
+      const subkeyBindingSignaturesMap = new Map();
       originalSubkeys.forEach((subkey) => {
         const fingerprint = subkey.getFingerprint();
         subkeyRevocationMap.set(fingerprint, {
           isRevoked: subkey.isRevoked(),
           revocationSignatures: [...subkey.revocationSignatures],
         });
+        // Preserve all binding signatures to maintain expiration times and key flags
+        subkeyBindingSignaturesMap.set(fingerprint, [
+          ...subkey.bindingSignatures,
+        ]);
       });
 
       const currentUserIDs = fullPublicKey.getUserIDs();
@@ -2931,11 +2936,20 @@ export default function App() {
         armoredKey: updatedKeyPair.privateKey,
       });
 
-      // Re-apply subkey revocations
+      // Re-apply subkey revocations and restore binding signatures
       const updatedSubkeys = updatedPrivateKey.getSubkeys();
       for (const subkey of updatedSubkeys) {
         const fingerprint = subkey.getFingerprint();
         const originalData = subkeyRevocationMap.get(fingerprint);
+        const originalBindingSignatures =
+          subkeyBindingSignaturesMap.get(fingerprint);
+
+        // Restore original binding signatures to preserve expiration times and key flags
+        if (originalBindingSignatures && originalBindingSignatures.length > 0) {
+          subkey.bindingSignatures = [...originalBindingSignatures];
+        }
+
+        // Re-apply revocations
         if (originalData?.isRevoked) {
           originalData.revocationSignatures.forEach((sig) => {
             if (
@@ -2966,6 +2980,9 @@ export default function App() {
           });
         }
       }
+
+      // Serialize the key with restored binding signatures before re-encryption
+      updatedKeyPair.privateKey = updatedPrivateKey.armor();
 
       // Re-encrypt if needed
       if (currentPassword) {
@@ -3126,15 +3143,20 @@ export default function App() {
         subkeyPassphrases.set(i, subkeyPass);
       }
 
-      // Preserve subkey revocations
+      // Preserve subkey revocations and binding signatures
       const originalSubkeys = privateKey.getSubkeys();
       const subkeyRevocationMap = new Map();
+      const subkeyBindingSignaturesMap = new Map();
       originalSubkeys.forEach((subkey) => {
         const fingerprint = subkey.getFingerprint();
         subkeyRevocationMap.set(fingerprint, {
           isRevoked: subkey.isRevoked(),
           revocationSignatures: [...subkey.revocationSignatures],
         });
+        // Preserve all binding signatures to maintain expiration times and key flags
+        subkeyBindingSignaturesMap.set(fingerprint, [
+          ...subkey.bindingSignatures,
+        ]);
       });
 
       const currentUserIDs = publicKey.getUserIDs().map(parseUserId);
@@ -3170,11 +3192,20 @@ export default function App() {
         armoredKey: updatedKeyPair.privateKey,
       });
 
-      // Re-apply subkey revocations
+      // Re-apply subkey revocations and restore binding signatures
       const updatedSubkeys = updatedPrivateKey.getSubkeys();
       for (const subkey of updatedSubkeys) {
         const fingerprint = subkey.getFingerprint();
         const originalData = subkeyRevocationMap.get(fingerprint);
+        const originalBindingSignatures =
+          subkeyBindingSignaturesMap.get(fingerprint);
+
+        // Restore original binding signatures to preserve expiration times and key flags
+        if (originalBindingSignatures && originalBindingSignatures.length > 0) {
+          subkey.bindingSignatures = [...originalBindingSignatures];
+        }
+
+        // Re-apply revocations
         if (originalData?.isRevoked) {
           originalData.revocationSignatures.forEach((sig) => {
             if (
@@ -3205,6 +3236,9 @@ export default function App() {
           });
         }
       }
+
+      // Serialize the key with restored binding signatures before re-encryption
+      updatedKeyPair.privateKey = updatedPrivateKey.armor();
 
       // Re-encrypt if needed
       if (currentPassword) {
