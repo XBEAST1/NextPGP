@@ -350,9 +350,9 @@
 
 <h2>💻 Click To Watch Previews</h2>
 
-| Video 1 | Video 2 |
-| ------ | ------ |
-| [![Next PGP](https://img.youtube.com/vi/1gl4OlUaibY/maxresdefault.jpg)](https://www.youtube.com/watch?v=1gl4OlUaibY) | [![Next PGP](https://img.youtube.com/vi/YZAAwo0ukS0/maxresdefault.jpg)](https://www.youtube.com/watch?v=YZAAwo0ukS0) |
+| Video 1 | Video 2 | Video 3 |
+| ------ | ------ | ------ |
+| [![Next PGP](https://img.youtube.com/vi/1gl4OlUaibY/maxresdefault.jpg)](https://www.youtube.com/watch?v=1gl4OlUaibY) | [![Next PGP](https://img.youtube.com/vi/YZAAwo0ukS0/maxresdefault.jpg)](https://www.youtube.com/watch?v=YZAAwo0ukS0) | [![Next PGP](https://img.youtube.com/vi/KuyIN6AV6SM/maxresdefault.jpg)](https://www.youtube.com/watch?v=KuyIN6AV6SM) |
 
 ---
 
