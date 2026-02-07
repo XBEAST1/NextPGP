@@ -393,7 +393,7 @@
 <h2>💬 Contact</h2>
 <p>If you have any questions, feel free to reach out:</p>
 <ul>
-  <li><b>GitHub:</b> <a href="https://github.com/xbeast">XBEAST1</a></li>
+  <li><b>GitHub:</b> <a href="https://github.com/xbeast1">XBEAST1</a></li>
   <li><b>Email:</b> <a href="mailto:xbeast1@proton.me">xbeast1@proton.me</a></li>
 </ul>
 
