@@ -2,32 +2,73 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 import { getEncryptionKey } from "@/lib/indexeddb";
+import { workerPool } from "@/lib/workerPool";
 
 const VaultContext = createContext();
 
 export const VaultProvider = ({ children }) => {
   const [encryptedVaultPassword, setEncryptedVaultPassword] = useState(null);
+  const [encryptedVaultKeyData, setEncryptedVaultKeyData] = useState(null);
   const [isVaultUnlocked, setIsVaultUnlocked] = useState(false);
 
-  // Encrypt the vault password and store it in memory
-  const unlockVault = async (password) => {
+  // Encrypt the vault password & master key material and store them in memory
+  const unlockVault = async (password, verificationCipher = null) => {
     try {
       const masterKey = await getEncryptionKey();
-      const iv = crypto.getRandomValues(new Uint8Array(12));
+
+      // Encrypt raw password for memory storage
+      const pwdIv = crypto.getRandomValues(new Uint8Array(12));
       const encodedPassword = new TextEncoder().encode(password);
-      const encryptedBuffer = await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv },
+      const encryptedPwdBuffer = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: pwdIv },
         masterKey,
         encodedPassword
       );
-      const encryptedData = {
-        iv: Array.from(iv),
-        data: Array.from(new Uint8Array(encryptedBuffer)),
-      };
-      setEncryptedVaultPassword(encryptedData);
+      setEncryptedVaultPassword({
+        iv: Array.from(pwdIv),
+        data: Array.from(new Uint8Array(encryptedPwdBuffer)),
+      });
+
+      // If verificationCipher is provided, extract salt and derive master key material once
+      if (verificationCipher) {
+        try {
+          const salt = await workerPool({
+            type: "extractSalt",
+            responseType: "extractSaltResponse",
+            encryptedBase64: verificationCipher,
+          });
+
+          const derived = await workerPool({
+            type: "deriveMasterKey",
+            responseType: "deriveMasterKeyResponse",
+            password,
+            salt,
+          });
+
+          const keyPayload = JSON.stringify({
+            keyMaterial: derived.keyMaterial,
+            vaultSalt: derived.salt,
+          });
+
+          const keyIv = crypto.getRandomValues(new Uint8Array(12));
+          const encryptedKeyBuffer = await crypto.subtle.encrypt(
+            { name: "AES-GCM", iv: keyIv },
+            masterKey,
+            new TextEncoder().encode(keyPayload)
+          );
+
+          setEncryptedVaultKeyData({
+            iv: Array.from(keyIv),
+            data: Array.from(new Uint8Array(encryptedKeyBuffer)),
+          });
+        } catch (deriveErr) {
+          console.warn("Could not pre-derive vault key material:", deriveErr);
+        }
+      }
+
       setIsVaultUnlocked(true);
     } catch (error) {
-      console.error("Error encrypting vault password:", error);
+      console.error("Error unlocking vault session:", error);
     }
   };
 
@@ -48,6 +89,34 @@ export const VaultProvider = ({ children }) => {
     } catch (error) {
       console.error("Error decrypting vault password:", error);
       return null;
+    }
+  };
+
+  // Decrypt and return the 512-bit master key material and vault salt for fast crypto
+  const getVaultKeyMaterial = async () => {
+    const password = await getVaultPassword();
+    if (!encryptedVaultKeyData) {
+      return { password, keyMaterial: null, vaultSalt: null };
+    }
+    try {
+      const masterKey = await getEncryptionKey();
+      const { iv, data } = encryptedVaultKeyData;
+      const ivArray = new Uint8Array(iv);
+      const encryptedArray = new Uint8Array(data);
+      const decryptedBuffer = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: ivArray },
+        masterKey,
+        encryptedArray
+      );
+      const parsed = JSON.parse(new TextDecoder().decode(decryptedBuffer));
+      return {
+        password,
+        keyMaterial: new Uint8Array(parsed.keyMaterial),
+        vaultSalt: new Uint8Array(parsed.vaultSalt),
+      };
+    } catch (error) {
+      console.error("Error decrypting vault key material:", error);
+      return { password, keyMaterial: null, vaultSalt: null };
     }
   };
 
@@ -77,6 +146,7 @@ export const VaultProvider = ({ children }) => {
     }
 
     setEncryptedVaultPassword(null);
+    setEncryptedVaultKeyData(null);
     setIsVaultUnlocked(false);
   };
 
@@ -95,10 +165,12 @@ export const VaultProvider = ({ children }) => {
     <VaultContext.Provider
       value={{
         encryptedVaultPassword,
+        encryptedVaultKeyData,
         isVaultUnlocked,
         unlockVault,
         lockVault,
         getVaultPassword,
+        getVaultKeyMaterial,
       }}
     >
       {children}

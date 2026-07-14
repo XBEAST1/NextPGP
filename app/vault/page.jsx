@@ -129,7 +129,7 @@ const Page = () => {
       }
 
       // Vault unlocked successfully
-      unlockVault(password);
+      await unlockVault(password, verificationCipher);
 
       const unlockResponse = await fetch("/api/vault/unlock", {
         method: "POST",
