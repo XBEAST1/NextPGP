@@ -4,7 +4,7 @@
  "private": true,
  "scripts": {
   "dev": "next dev --turbopack",
-  "dev:https": "NODE_ENV=development node server.js",
+  "dev:https": "NODE_ENV=development node --experimental-strip-types server.ts",
   "setup:https": "node scripts/generate-cert.js",
   "build": "prisma migrate deploy && next build",
   "start": "next start",
@@ -47,6 +47,7 @@
  "devDependencies": {
   "@next/eslint-plugin-next": "15.5.7",
   "@react-types/shared": "3.25.0",
+  "@types/file-saver": "^2.0.7",
   "@types/jsonwebtoken": "^9",
   "@types/node": "20.5.7",
   "@types/nodemailer": "^6.4.17",
