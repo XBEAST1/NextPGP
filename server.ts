@@ -37,11 +37,17 @@ if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
   process.exit(1);
 }
 
-// SSL options
-const httpsOptions = {
-  key: fs.readFileSync(keyPath),
-  cert: fs.readFileSync(certPath),
-};
+let httpsOptions;
+try {
+  httpsOptions = {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath),
+  };
+} catch (err) {
+  console.error("❌ Failed to read SSL certificates:", err);
+  console.log("💡 Run: node scripts/generate-cert.js to regenerate certificates");
+  process.exit(1);
+}
 
 app.prepare().then(() => {
   createServer(httpsOptions, async (req: IncomingMessage, res: ServerResponse) => {

@@ -12,8 +12,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   providers: [Google, Github, Discord],
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       // Allow sign in if user already exists with this email
       if (user.email) {
         const existingUser = await prisma.user.findUnique({
@@ -31,8 +35,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
           });
           
-          // If account doesn't exist, link it to the existing user
+          // If account doesn't exist, link it only if the email is verified
           if (!existingAccount && account) {
+            const isEmailVerified =
+              account.provider === "google" ||
+              (profile as any)?.email_verified === true ||
+              (profile as any)?.verified === true;
+
+            if (!isEmailVerified) {
+              console.warn(
+                `Unverified email account linking attempt blocked for ${user.email} from ${account.provider}`
+              );
+              return "/login?error=UnverifiedEmail";
+            }
+
             await prisma.account.create({
               data: {
                 userId: existingUser.id,

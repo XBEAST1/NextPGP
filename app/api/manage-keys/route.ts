@@ -211,7 +211,7 @@ export async function DELETE(req: Request) {
     }
 
     await prisma.pGPKeys.delete({
-      where: { id: keyId },
+      where: { id: keyToDelete.id },
     });
 
     const response = NextResponse.json(

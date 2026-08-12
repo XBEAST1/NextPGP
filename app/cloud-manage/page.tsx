@@ -81,7 +81,12 @@ const columns = [
   { name: "CREATION DATE", uid: "creationdate", sortable: true },
   { name: "EXPIRY DATE", uid: "expirydate", sortable: true },
   { name: "KEY STATUS", uid: "keystatus", align: "center", sortable: true },
-  { name: "PASSWORD", uid: "passwordprotected", align: "center", sortable: true },
+  {
+    name: "PASSWORD",
+    uid: "passwordprotected",
+    align: "center",
+    sortable: true,
+  },
   { name: "STATUS", uid: "status", align: "center", sortable: true },
   { name: "KEY ID", uid: "keyid", align: "center" },
   { name: "FINGERPRINT", uid: "fingerprint", align: "center" },
@@ -114,7 +119,8 @@ export default function CloudManagePage() {
   });
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedUserForDelete, setSelectedUserForDelete] = useState<CloudKeyRecord | null>(null);
+  const [selectedUserForDelete, setSelectedUserForDelete] =
+    useState<CloudKeyRecord | null>(null);
 
   useEffect(() => {
     const checkVault = async () => {
@@ -179,22 +185,43 @@ export default function CloudManagePage() {
 
       switch (columnKey) {
         case "name":
-          return <User avatarProps={{ radius: "lg", src: user.avatar }} name={cellValue} />;
+          return (
+            <User
+              avatarProps={{ radius: "lg", src: user.avatar }}
+              name={cellValue}
+            />
+          );
         case "keystatus":
           return (
-            <Chip className="-ms-5 capitalize" color={keyStatusColorMap[user.keystatus as string] as any} variant="flat">
+            <Chip
+              className="-ms-5 capitalize"
+              color={keyStatusColorMap[user.keystatus as string] as any}
+              variant="flat"
+            >
               {cellValue}
             </Chip>
           );
         case "status":
           return (
-            <Chip className="capitalize -ms-3" color={statusColorMap[user.status as string] as any} variant="flat">
+            <Chip
+              className="capitalize -ms-3"
+              color={statusColorMap[user.status as string] as any}
+              variant="flat"
+            >
               {cellValue}
             </Chip>
           );
         case "passwordprotected":
           return (
-            <Chip className="-ms-6 capitalize" color={passwordprotectedColorMap[user.passwordprotected as string] as any} variant="flat">
+            <Chip
+              className="-ms-6 capitalize"
+              color={
+                passwordprotectedColorMap[
+                  user.passwordprotected as string
+                ] as any
+              }
+              variant="flat"
+            >
               {cellValue}
             </Chip>
           );
@@ -228,13 +255,15 @@ export default function CloudManagePage() {
           return cellValue;
       }
     },
-    [manageOps]
+    [manageOps],
   );
 
   const topContent = useMemo(() => {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-center text-4xl font-serif">Manage Keyrings On Cloud</h1>
+        <h1 className="text-center text-4xl font-serif">
+          Manage Keyrings On Cloud
+        </h1>
         <br />
         <div className="flex justify-between gap-3 items-end">
           <Input
@@ -248,7 +277,11 @@ export default function CloudManagePage() {
           />
           <Dropdown>
             <DropdownTrigger>
-              <Button endContent={<ChevronDownIcon className="text-small" />} variant="faded" className="border-0">
+              <Button
+                endContent={<ChevronDownIcon className="text-small" />}
+                variant="faded"
+                className="border-0"
+              >
                 Columns
               </Button>
             </DropdownTrigger>
@@ -271,7 +304,9 @@ export default function CloudManagePage() {
           </Dropdown>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-default-400 text-small">Total {tableState.totalKeys} keys</span>
+          <span className="text-default-400 text-small">
+            Total {tableState.totalKeys} keys
+          </span>
           <label className="flex items-center text-default-400 text-small">
             Rows per page:
             <select
@@ -327,20 +362,41 @@ export default function CloudManagePage() {
               }
             }}
           >
-            {tableState.locking ? <Spinner color="white" size="sm" /> : "🔒 Lock Vault"}
+            {tableState.locking ? (
+              <Spinner color="white" size="sm" />
+            ) : (
+              "🔒 Lock Vault"
+            )}
           </Button>
         </div>
         <div className="hidden sm:flex w-[30%] justify-end gap-2">
-          <Button isDisabled={tableState.pages === 1} size="sm" variant="flat" onPress={() => tableState.handlePageChange(tableState.page - 1)}>
+          <Button
+            isDisabled={tableState.pages === 1}
+            size="sm"
+            variant="flat"
+            onPress={() => tableState.handlePageChange(tableState.page - 1)}
+          >
             Previous
           </Button>
-          <Button isDisabled={tableState.pages === 1} size="sm" variant="flat" onPress={() => tableState.handlePageChange(tableState.page + 1)}>
+          <Button
+            isDisabled={tableState.pages === 1}
+            size="sm"
+            variant="flat"
+            onPress={() => tableState.handlePageChange(tableState.page + 1)}
+          >
             Next
           </Button>
         </div>
       </div>
     );
-  }, [tableState.page, tableState.pages, tableState.locking, lockVault, router, tableState]);
+  }, [
+    tableState.page,
+    tableState.pages,
+    tableState.locking,
+    lockVault,
+    router,
+    tableState,
+  ]);
 
   return (
     <>
@@ -360,7 +416,21 @@ export default function CloudManagePage() {
           {(column: any) => (
             <TableColumn
               key={column.uid}
-              align={["email", "keystatus", "passwordprotected", "status", "keyid", "fingerprint", "algorithm", "import", "delete"].includes(column.uid) ? "center" : "start"}
+              align={
+                [
+                  "email",
+                  "keystatus",
+                  "passwordprotected",
+                  "status",
+                  "keyid",
+                  "fingerprint",
+                  "algorithm",
+                  "import",
+                  "delete",
+                ].includes(column.uid)
+                  ? "center"
+                  : "start"
+              }
               allowsSorting={column.sortable}
               style={{ width: column.width }}
             >
@@ -371,7 +441,23 @@ export default function CloudManagePage() {
         <TableBody
           loadingContent={
             <div className="flex justify-center items-center mt-12">
-              <Spinner size="lg" color="warning" label={<div className="text-center">Loading keyrings...<br /><span className="text-gray-300 text-sm">This may take some time depending <br className="block sm:hidden" />on your device&apos;s performance.</span></div> as any} />
+              <Spinner
+                size="lg"
+                color="warning"
+                label={
+                  (
+                    <div className="text-center">
+                      Loading keyrings...
+                      <br />
+                      <span className="text-gray-300 text-sm">
+                        This may take some time depending{" "}
+                        <br className="block sm:hidden" />
+                        on your device&apos;s performance.
+                      </span>
+                    </div>
+                  ) as any
+                }
+              />
             </div>
           }
           isLoading={tableState.isLoading}
@@ -381,7 +467,11 @@ export default function CloudManagePage() {
               <br />
               <br />
               <div className="ms-2 flex justify-center">
-                <Button className="ps-10 pe-10" as={NProgressLink} href="/cloud-backup">
+                <Button
+                  className="ps-10 pe-10"
+                  as={NProgressLink}
+                  href="/cloud-backup"
+                >
                   Backup Keyrings On Cloud
                 </Button>
               </div>
@@ -391,7 +481,9 @@ export default function CloudManagePage() {
         >
           {(item: any) => (
             <TableRow key={item.id}>
-              {(columnKey) => <TableCell>{renderCell(item, columnKey) as any}</TableCell>}
+              {(columnKey) => (
+                <TableCell>{renderCell(item, columnKey) as any}</TableCell>
+              )}
             </TableRow>
           )}
         </TableBody>

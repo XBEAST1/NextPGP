@@ -9,6 +9,39 @@ const publicRoutes = ["/about", "/getting-started"];
 export default async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
+  // Layer 1: Origin/Referer CSRF Validation for API mutation requests
+  if (pathname.startsWith("/api/")) {
+    if (["POST", "PUT", "DELETE", "PATCH"].includes(request.method)) {
+      const origin = request.headers.get("origin");
+      const referer = request.headers.get("referer");
+
+      const allowedOrigins = [
+        process.env.NEXT_PUBLIC_APP_URL,
+        process.env.AUTH_URL,
+        request.nextUrl.origin,
+        "http://localhost:3000",
+        "https://localhost:3000",
+        "https://nextpgp-dev.com:3000",
+      ].filter(Boolean) as string[];
+
+      if (origin) {
+        if (!allowedOrigins.includes(origin) && origin !== request.nextUrl.origin) {
+          return new NextResponse("Forbidden - Invalid Origin", { status: 403 });
+        }
+      } else if (referer) {
+        try {
+          const refererOrigin = new URL(referer).origin;
+          if (!allowedOrigins.includes(refererOrigin) && refererOrigin !== request.nextUrl.origin) {
+            return new NextResponse("Forbidden - Invalid Referer", { status: 403 });
+          }
+        } catch {
+          return new NextResponse("Forbidden - Malformed Referer", { status: 403 });
+        }
+      }
+    }
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/about")) {
     return NextResponse.rewrite(new URL("/getting-started", request.url));
   }
@@ -120,6 +153,7 @@ export default async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/api/:path*",
     "/create-vault",
     "/vault",
     "/login",
