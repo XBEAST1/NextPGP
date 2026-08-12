@@ -144,7 +144,8 @@ export default function CloudBackupPage() {
   // Fetch keys when page or rowsPerPage changes
   useEffect(() => {
     backupOps.fetchKeys();
-  }, [tableState.page, tableState.rowsPerPage, backupOps]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableState.page, tableState.rowsPerPage]);
 
   // Handle storage changes (e.g. key added in another tab)
   useEffect(() => {
@@ -164,7 +165,8 @@ export default function CloudBackupPage() {
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [tableState.page, tableState.rowsPerPage, backupOps, tableState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableState.page, tableState.rowsPerPage]);
 
   const renderCell = useCallback((user: CloudKeyRecord, columnKey: Key): any => {
     const cellValue = user[columnKey as keyof CloudKeyRecord];

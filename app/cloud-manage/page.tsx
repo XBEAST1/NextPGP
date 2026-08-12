@@ -170,7 +170,8 @@ export default function CloudManagePage() {
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [tableState.page, tableState.rowsPerPage, manageOps, tableState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableState.page, tableState.rowsPerPage]);
 
   const renderCell = useCallback(
     (user: CloudKeyRecord, columnKey: Key): any => {

@@ -11,6 +11,8 @@ import {
 } from "@/lib/indexeddb";
 import { workerPool } from "@/lib/workerPool";
 import { addToast } from "@heroui/react";
+import KeyringImg from "@/assets/Keyring.png";
+import PublicImg from "@/assets/Public.png";
 
 // ---------------------------------------------------------------------------
 // Pure helper functions
@@ -152,6 +154,14 @@ export const processKey = async (key: any, validDecryptedBackedUpKeys: any[] = [
   const keyid = formatKeyID(openpgpKey.getKeyID().toHex().toUpperCase());
   const algorithm = formatAlgorithm(openpgpKey.getAlgorithmInfo());
 
+  const avatar = (() => {
+    const hasPrivateKey = key.privateKey && key.privateKey.trim() !== "";
+    const hasPublicKey = key.publicKey && key.publicKey.trim() !== "";
+    if (hasPrivateKey && hasPublicKey) return KeyringImg.src;
+    else if (hasPublicKey) return PublicImg.src;
+    else return KeyringImg.src;
+  })();
+
   return {
     id: key.id,
     name,
@@ -164,6 +174,7 @@ export const processKey = async (key: any, validDecryptedBackedUpKeys: any[] = [
     keyid,
     fingerprint,
     algorithm,
+    avatar,
     publicKey: key.publicKey,
     privateKey: key.privateKey,
   };
@@ -375,6 +386,7 @@ export function useCloudBackupOps({
           currentIndex++;
           if (neededKeys.length < rowsPerPage) {
             cursor.continue();
+            return;
           }
         }
 
@@ -398,16 +410,20 @@ export function useCloudBackupOps({
           const total = await getTotalKeysCount();
           setTotalKeys(total);
         }
+
+        setIsLoading(false);
+        fetchInProgressRef.current = false;
       };
 
       request.onerror = (e: any) => {
         console.error("Error loading keys from IndexedDB:", e.target.error);
         addToast({ title: "Failed to load keys from storage", color: "danger" });
+        setIsLoading(false);
+        fetchInProgressRef.current = false;
       };
     } catch (error) {
       console.error("Error in fetchKeys:", error);
       addToast({ title: "Failed to initialize key loading", color: "danger" });
-    } finally {
       setIsLoading(false);
       fetchInProgressRef.current = false;
     }
