@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import * as openpgp from "openpgp";
 import {
   openDB,
@@ -260,6 +260,7 @@ export function useCloudManageOps({
   const fetchInProgressRef = useRef(false);
   const decryptedCacheRef = useRef({});
   const apiCacheRef = useRef({});
+  const [deletingKeyIds, setDeletingKeyIds] = useState<Set<string | number>>(new Set());
 
   const loadKeysFromCloud = useCallback(async () => {
     if (window.loadingCloudKeysInProgress) return [];
@@ -422,6 +423,7 @@ export function useCloudManageOps({
   }, [getVaultPassword, setUsers]);
 
   const deleteKey = useCallback(async (user: any) => {
+    setDeletingKeyIds((prev) => new Set(prev).add(user.id));
     try {
       let requestBody: any = { keyId: user.id };
       if (user.privateKeyHash) requestBody.privateKeyHash = user.privateKeyHash;
@@ -467,8 +469,14 @@ export function useCloudManageOps({
     } catch (error: any) {
       console.error("Error in deleteKey:", error);
       addToast({ title: `Failed to delete key: ${error.message}`, color: "danger" });
+    } finally {
+      setDeletingKeyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(user.id);
+        return next;
+      });
     }
   }, [router, setUsers, setPage, loadKeysFromCloud]);
 
-  return { loadKeysFromCloud, importFromCloud, deleteKey, fetchInProgressRef };
+  return { loadKeysFromCloud, importFromCloud, deleteKey, fetchInProgressRef, deletingKeyIds };
 }

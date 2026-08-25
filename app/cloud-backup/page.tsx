@@ -107,10 +107,7 @@ export default function CloudBackupPage() {
   const backupOps = useCloudBackupOps({
     page: tableState.page,
     rowsPerPage: tableState.rowsPerPage,
-    cache: tableState.cache,
-    setCache: tableState.setCache,
     setUsers: tableState.setUsers,
-    totalKeys: tableState.totalKeys,
     setTotalKeys: tableState.setTotalKeys,
     setIsLoading: tableState.setIsLoading,
     isLoadingKeys: tableState.isLoadingKeys,
@@ -121,6 +118,12 @@ export default function CloudBackupPage() {
     triggerPasswordModal: triggerKeyPasswordModal,
   });
 
+  const itemsWithLoading = useMemo(() => {
+    return tableState.sortedItems.map((item: any) => ({
+      ...item,
+      isBackingUp: backupOps.backingUpKeyIds.has(item.id),
+    }));
+  }, [tableState.sortedItems, backupOps.backingUpKeyIds]);
 
   useEffect(() => {
     const checkVault = async () => {
@@ -151,12 +154,7 @@ export default function CloudBackupPage() {
   useEffect(() => {
     const handleStorageChange = async () => {
       try {
-        const offset = (tableState.page - 1) * tableState.rowsPerPage;
-        await backupOps.loadKeysFromIndexedDB(offset, tableState.rowsPerPage);
-        
-        // Let's just trigger a full fetch refresh instead of duplicating caching logic inline
         backupOps.fetchInProgressRef.current = false;
-        tableState.setCache({}); // invalidate cache
         backupOps.fetchKeys();
       } catch (error) {
         console.error("Error loading keys:", error);
@@ -180,17 +178,20 @@ export default function CloudBackupPage() {
         return <Chip className="capitalize -ms-4" color={statusColorMap[user.status as string] as any} variant="flat">{cellValue}</Chip>;
       case "passwordprotected":
         return <Chip className="-ms-6 capitalize" color={passwordprotectedColorMap[user.passwordprotected as string] as any} variant="flat">{cellValue}</Chip>;
-      case "backup":
+      case "backup": {
+        const isBackingUp = user.isBackingUp || (user.id !== undefined && backupOps.backingUpKeyIds.has(user.id));
         return (
           <Button
             className="ms-2"
             color="secondary"
             variant="flat"
+            isLoading={isBackingUp}
             onPress={() => backupOps.backupKey(user)}
           >
-            Backup
+            {!isBackingUp && "Backup"}
           </Button>
         );
+      }
       default:
         return cellValue;
     }
@@ -350,7 +351,7 @@ export default function CloudBackupPage() {
               </div>
             </>
           }
-          items={tableState.sortedItems}
+          items={itemsWithLoading}
         >
           {(item: any) => (
             <TableRow key={item.id}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import * as openpgp from "openpgp";
 import {
   openDB,
@@ -198,10 +198,7 @@ const getTotalKeysCount = async () => {
 export function useCloudBackupOps({
   page,
   rowsPerPage,
-  cache,
-  setCache,
   setUsers,
-  totalKeys,
   setTotalKeys,
   setIsLoading,
   isLoadingKeys,
@@ -212,6 +209,7 @@ export function useCloudBackupOps({
   triggerPasswordModal,
 }: any) {
   const fetchInProgressRef = useRef(false);
+  const [backingUpKeyIds, setBackingUpKeyIds] = useState<Set<string | number>>(new Set());
 
   const loadKeysFromIndexedDB = useCallback(
     async (offset: number, limit: number) => {
@@ -352,82 +350,23 @@ export function useCloudBackupOps({
     if (fetchInProgressRef.current) return;
 
     fetchInProgressRef.current = true;
-    const encryptionKey = await getEncryptionKey();
     setIsLoading(true);
 
-    const cacheKey = `${page}-${rowsPerPage}`;
-    if (cache[cacheKey]) {
-      const decryptedKeys = await Promise.all(
-        cache[cacheKey].map((encryptedItem: any) =>
-          decryptData(encryptedItem.encrypted, encryptionKey, encryptedItem.iv)
-        )
-      );
-      setUsers(decryptedKeys);
-      setIsLoading(false);
-      fetchInProgressRef.current = false;
-      return;
-    }
-
     try {
-      const db: any = await openDB();
-      const transaction = db.transaction(dbPgpKeys, "readonly");
-      const store = transaction.objectStore(dbPgpKeys);
-      const neededKeys: any[] = [];
       const offset = (page - 1) * rowsPerPage;
-      let currentIndex = 0;
+      const keys = await loadKeysFromIndexedDB(offset, rowsPerPage);
+      setUsers(keys);
 
-      const request = store.openCursor();
-      request.onsuccess = async (e: any) => {
-        const cursor = e.target.result;
-        if (cursor) {
-          if (currentIndex >= offset && neededKeys.length < rowsPerPage) {
-            neededKeys.push(cursor.value);
-          }
-          currentIndex++;
-          if (neededKeys.length < rowsPerPage) {
-            cursor.continue();
-            return;
-          }
-        }
-
-        if (neededKeys.length === rowsPerPage) {
-          const decryptedKeys = await Promise.all(
-            neededKeys.map((item) => decryptData(item.encrypted, encryptionKey, item.iv))
-          );
-          setUsers(decryptedKeys);
-          setCache((prev: any) => ({ ...prev, [cacheKey]: neededKeys }));
-        } else {
-          const offset = (page - 1) * rowsPerPage;
-          const keys = await loadKeysFromIndexedDB(offset, rowsPerPage);
-          const encryptedForCache = await Promise.all(
-            (keys as any[]).map(async (key: any) => await encryptData(key, encryptionKey))
-          );
-          setCache((prev: any) => ({ ...prev, [cacheKey]: encryptedForCache }));
-          setUsers(keys);
-        }
-
-        if (totalKeys === 0) {
-          const total = await getTotalKeysCount();
-          setTotalKeys(total);
-        }
-
-        setIsLoading(false);
-        fetchInProgressRef.current = false;
-      };
-
-      request.onerror = (e: any) => {
-        console.error("Error loading keys from IndexedDB:", e.target.error);
-        addToast({ title: "Failed to load keys from storage", color: "danger" });
-        setIsLoading(false);
-        fetchInProgressRef.current = false;
-      };
+      const total = await getTotalKeysCount();
+      setTotalKeys(total);
     } catch (error) {
       console.error("Error in fetchKeys:", error);
       addToast({ title: "Failed to initialize key loading", color: "danger" });
+    } finally {
       setIsLoading(false);
       fetchInProgressRef.current = false;
     }
-  }, [page, rowsPerPage, cache, totalKeys, setCache, setUsers, setTotalKeys, setIsLoading, loadKeysFromIndexedDB]);
+  }, [page, rowsPerPage, setUsers, setTotalKeys, setIsLoading, loadKeysFromIndexedDB]);
 
   const backupKey = useCallback(async (user: any) => {
     try {
@@ -527,87 +466,96 @@ export function useCloudBackupOps({
         return;
       }
 
-      let privateKeyHash = null, encryptedPrivateKey = null;
-      let publicKeyHash = null, encryptedPublicKey = null;
-      const hasPrivate = privateKeyRaw && privateKeyRaw.trim() !== "";
-      const hasPublic = user.publicKey && user.publicKey.trim() !== "";
+      setBackingUpKeyIds((prev) => new Set(prev).add(user.id));
+      try {
+        let privateKeyHash = null, encryptedPrivateKey = null;
+        let publicKeyHash = null, encryptedPublicKey = null;
+        const hasPrivate = privateKeyRaw && privateKeyRaw.trim() !== "";
+        const hasPublic = user.publicKey && user.publicKey.trim() !== "";
 
-      if (hasPrivate) {
-        const [hash, encrypted] = await Promise.all([
-          (workerPool as any)({ type: "hashKey", responseType: "hashKeyResponse", text: privateKeyRaw }, addToast),
-          (workerPool as any)({
-            type: "encrypt",
-            responseType: "encryptResponse",
-            text: privateKeyRaw,
-            password: vaultAuth?.password,
-            keyMaterial: vaultAuth?.keyMaterial,
-            salt: vaultAuth?.vaultSalt,
-          }, addToast),
-        ]);
-        privateKeyHash = hash;
-        encryptedPrivateKey = encrypted;
-      }
-      if (!hasPrivate && hasPublic) {
-        const [hash, encrypted] = await Promise.all([
-          (workerPool as any)({ type: "hashKey", responseType: "hashKeyResponse", text: user.publicKey }, addToast),
-          (workerPool as any)({
-            type: "encrypt",
-            responseType: "encryptResponse",
-            text: user.publicKey,
-            password: vaultAuth?.password,
-            keyMaterial: vaultAuth?.keyMaterial,
-            salt: vaultAuth?.vaultSalt,
-          }, addToast),
-        ]);
-        publicKeyHash = hash;
-        encryptedPublicKey = encrypted;
-      }
-
-      const payload = {
-        ...(encryptedPrivateKey ? { encryptedPrivateKey } : {}),
-        ...(encryptedPublicKey ? { encryptedPublicKey } : {}),
-        ...(privateKeyHash ? { privateKeyHash } : {}),
-        ...(publicKeyHash ? { publicKeyHash } : {}),
-      };
-
-      const res = await fetch("/api/csrf", { method: "GET" });
-      if (!res.ok) {
-        if (res.status === 429) addToast({ title: "Too many requests. Please try again.", color: "warning" });
-        else if (res.status === 401) {
-          addToast({ title: "Please log in to continue.", color: "danger" });
-          router.push("/login");
-        } else addToast({ title: "Failed to get session token.", color: "danger" });
-        return;
-      }
-
-      const { csrfToken } = await res.json();
-      const response = await fetch("/api/manage-keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, csrfToken }),
-      });
-
-      const responseData = await response.json();
-
-      if (response.ok) {
-        if (responseData.message === "Key already backed up.") {
-          addToast({ title: `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} is already backed up`, color: "primary" });
-        } else {
-          addToast({ title: `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} successfully backed up to the cloud!`, color: "success" });
-          setUsers((prevUsers: any[]) =>
-            prevUsers.map((u: any) => (u.id === user.id ? { ...u, status: "Backed Up" } : u))
-          );
+        if (hasPrivate) {
+          const [hash, encrypted] = await Promise.all([
+            (workerPool as any)({ type: "hashKey", responseType: "hashKeyResponse", text: privateKeyRaw }, addToast),
+            (workerPool as any)({
+              type: "encrypt",
+              responseType: "encryptResponse",
+              text: privateKeyRaw,
+              password: vaultAuth?.password,
+              keyMaterial: vaultAuth?.keyMaterial,
+              salt: vaultAuth?.vaultSalt,
+            }, addToast),
+          ]);
+          privateKeyHash = hash;
+          encryptedPrivateKey = encrypted;
         }
-      } else {
-        if (response.status === 429) {
-          addToast({ title: "Too many requests. Please try again.", color: "warning" });
-        } else if (response.status === 403) {
-          addToast({ title: "Session expired. Please refresh the page.", color: "danger" });
-          setTimeout(() => window.location.reload(), 2000);
-        } else {
-          const errorMessage = responseData?.error || `Failed to back up ${user.name}'s key`;
-          addToast({ title: errorMessage, color: "danger" });
+        if (!hasPrivate && hasPublic) {
+          const [hash, encrypted] = await Promise.all([
+            (workerPool as any)({ type: "hashKey", responseType: "hashKeyResponse", text: user.publicKey }, addToast),
+            (workerPool as any)({
+              type: "encrypt",
+              responseType: "encryptResponse",
+              text: user.publicKey,
+              password: vaultAuth?.password,
+              keyMaterial: vaultAuth?.keyMaterial,
+              salt: vaultAuth?.vaultSalt,
+            }, addToast),
+          ]);
+          publicKeyHash = hash;
+          encryptedPublicKey = encrypted;
         }
+
+        const payload = {
+          ...(encryptedPrivateKey ? { encryptedPrivateKey } : {}),
+          ...(encryptedPublicKey ? { encryptedPublicKey } : {}),
+          ...(privateKeyHash ? { privateKeyHash } : {}),
+          ...(publicKeyHash ? { publicKeyHash } : {}),
+        };
+
+        const res = await fetch("/api/csrf", { method: "GET" });
+        if (!res.ok) {
+          if (res.status === 429) addToast({ title: "Too many requests. Please try again.", color: "warning" });
+          else if (res.status === 401) {
+            addToast({ title: "Please log in to continue.", color: "danger" });
+            router.push("/login");
+          } else addToast({ title: "Failed to get session token.", color: "danger" });
+          return;
+        }
+
+        const { csrfToken } = await res.json();
+        const response = await fetch("/api/manage-keys", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, csrfToken }),
+        });
+
+        const responseData = await response.json();
+
+        if (response.ok) {
+          if (responseData.message === "Key already backed up.") {
+            addToast({ title: `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} is already backed up`, color: "primary" });
+          } else {
+            addToast({ title: `${user.name}'s ${isPublicKeyOnly ? "Public Key" : "Keyring"} successfully backed up to the cloud!`, color: "success" });
+            setUsers((prevUsers: any[]) =>
+              prevUsers.map((u: any) => (u.id === user.id ? { ...u, status: "Backed Up" } : u))
+            );
+          }
+        } else {
+          if (response.status === 429) {
+            addToast({ title: "Too many requests. Please try again.", color: "warning" });
+          } else if (response.status === 403) {
+            addToast({ title: "Session expired. Please refresh the page.", color: "danger" });
+            setTimeout(() => window.location.reload(), 2000);
+          } else {
+            const errorMessage = responseData?.error || `Failed to back up ${user.name}'s key`;
+            addToast({ title: errorMessage, color: "danger" });
+          }
+        }
+      } finally {
+        setBackingUpKeyIds((prev) => {
+          const next = new Set(prev);
+          next.delete(user.id);
+          return next;
+        });
       }
     } catch (error) {
       console.error(error);
@@ -615,5 +563,5 @@ export function useCloudBackupOps({
     }
   }, [getVaultPassword, getVaultKeyMaterial, router, triggerPasswordModal, setUsers]);
 
-  return { fetchKeys, loadKeysFromIndexedDB, backupKey, fetchInProgressRef };
+  return { fetchKeys, loadKeysFromIndexedDB, backupKey, fetchInProgressRef, backingUpKeyIds };
 }

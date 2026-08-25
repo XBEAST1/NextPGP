@@ -122,6 +122,13 @@ export default function CloudManagePage() {
   const [selectedUserForDelete, setSelectedUserForDelete] =
     useState<CloudKeyRecord | null>(null);
 
+  const itemsWithLoading = useMemo(() => {
+    return tableState.sortedItems.map((item: any) => ({
+      ...item,
+      isDeleting: item.id !== undefined && manageOps.deletingKeyIds.has(item.id),
+    }));
+  }, [tableState.sortedItems, manageOps.deletingKeyIds]);
+
   useEffect(() => {
     const checkVault = async () => {
       const vaultPassword = await getVaultPassword();
@@ -237,20 +244,23 @@ export default function CloudManagePage() {
               Import
             </Button>
           );
-        case "delete":
+        case "delete": {
+          const isDeleting = user.isDeleting || (user.id !== undefined && manageOps.deletingKeyIds.has(user.id));
           return (
             <Button
               className="ms-2"
               color="danger"
               variant="flat"
+              isLoading={isDeleting}
               onPress={() => {
                 setSelectedUserForDelete(user);
                 setDeleteModalOpen(true);
               }}
             >
-              Delete
+              {!isDeleting && "Delete"}
             </Button>
           );
+        }
         default:
           return cellValue;
       }
@@ -477,7 +487,7 @@ export default function CloudManagePage() {
               </div>
             </>
           }
-          items={tableState.sortedItems}
+          items={itemsWithLoading}
         >
           {(item: any) => (
             <TableRow key={item.id}>
