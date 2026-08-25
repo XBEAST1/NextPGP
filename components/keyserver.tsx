@@ -453,10 +453,11 @@ const KeyServer = ({ isOpen, onClose, initialSearch, onKeyImported }: KeyServerP
   }, [filteredRows, page, rowsPerPage]);
 
   const sortedRows = useMemo(() => {
-    if (!sortDescriptor.column) return paginatedRows;
+    const column = sortDescriptor.column;
+    if (!column) return paginatedRows;
     return [...paginatedRows].sort((a: any, b: any) => {
-      const aVal = a[sortDescriptor.column] || "";
-      const bVal = b[sortDescriptor.column] || "";
+      const aVal = a[column] || "";
+      const bVal = b[column] || "";
       const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
       return sortDescriptor.direction === "descending" ? -cmp : cmp;
     });

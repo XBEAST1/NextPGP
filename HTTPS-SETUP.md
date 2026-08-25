@@ -25,7 +25,7 @@ The Web Crypto API requires a secure context (HTTPS) to work. By setting up `nex
 
 ```bash
 # Generate self-signed SSL certificates
-yarn setup:https
+pnpm setup:https
 ```
 
 #### Step 2: Update Hosts File
@@ -53,7 +53,7 @@ sudo nano /etc/hosts
 
 ```bash
 # Start the app with HTTPS
-yarn dev:https
+pnpm dev:https
 ```
 
 ## Usage
@@ -61,7 +61,7 @@ yarn dev:https
 1. **Start the server:**
 
    ```bash
-   yarn dev:https
+   pnpm dev:https
    ```
 
 2. **Open your browser:**
@@ -81,9 +81,9 @@ yarn dev:https
 
 ## Available Scripts
 
-- `yarn dev:https` - Start development server with HTTPS
-- `yarn setup:https` - Generate SSL certificates
-- `yarn dev` - Regular development server (HTTP)
+- `pnpm dev:https` - Start development server with HTTPS
+- `pnpm setup:https` - Generate SSL certificates
+- `pnpm dev` - Regular development server (HTTP)
 
 ## Troubleshooting
 
@@ -92,7 +92,7 @@ yarn dev:https
 If you get certificate errors:
 
 1. Make sure certificates were generated: `ls -la certs/`
-2. Regenerate certificates: `yarn setup:https`
+2. Regenerate certificates: `pnpm setup:https`
 3. Clear browser cache and restart browser
 
 ### Hosts File Issues
