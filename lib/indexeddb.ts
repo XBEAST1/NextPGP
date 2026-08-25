@@ -42,22 +42,34 @@ const isSessionValid = () => {
 
 const setDecryptedMainKey = async (key: any) => {
   try {
+    let rawBytes: Uint8Array;
+    if (key instanceof CryptoKey) {
+      if (!key.extractable) {
+        throw new Error("Cannot export non-extractable key");
+      }
+      const exported = await crypto.subtle.exportKey("raw", key);
+      rawBytes = new Uint8Array(exported);
+    } else if (key instanceof Uint8Array) {
+      rawBytes = key;
+    } else if (key instanceof ArrayBuffer) {
+      rawBytes = new Uint8Array(key);
+    } else {
+      throw new Error("Invalid key format for setDecryptedMainKey");
+    }
+
     // Generate a temporary key for encrypting the decrypted main key
     const tempKey = await crypto.subtle.generateKey(
       { name: "AES-GCM", length: 256 },
-      true,
+      false,
       ["encrypt", "decrypt"]
     );
-
-    // Export the decrypted main key
-    const exportedKey = await crypto.subtle.exportKey("raw", key);
 
     // Encrypt the decrypted main key with the temp key
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const encryptedBuffer = await crypto.subtle.encrypt(
       { name: "AES-GCM", iv },
       tempKey,
-      exportedKey
+      rawBytes as any
     );
 
     // Store both the encrypted key and the temp key
@@ -83,12 +95,12 @@ const getDecryptedMainKey = async () => {
       encryptedDecryptedMainKey.encrypted
     );
 
-    // Import the decrypted main key
+    // Import the decrypted main key (non-extractable — XSS cannot export)
     return await crypto.subtle.importKey(
       "raw",
       decryptedBuffer,
       { name: "AES-GCM" },
-      true,
+      false,
       ["encrypt", "decrypt"]
     );
   } catch (error) {
@@ -99,6 +111,49 @@ const getDecryptedMainKey = async () => {
 
 const clearDecryptedMainKey = () => {
   encryptedDecryptedMainKey = null;
+};
+
+// Helper: Safely get raw main key bytes without needing extractable CryptoKeys
+const getRawMainKey = async (): Promise<Uint8Array> => {
+  const db: any = await openDB();
+  const tx = db.transaction(dbCryptoKeys, "readonly");
+  const store = tx.objectStore(dbCryptoKeys);
+  const record: any = await new Promise((resolve, reject) => {
+    const req = store.get("mainKey");
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e: any) => reject(e.target.error);
+  });
+
+  if (!record) {
+    // Generate fresh 32 bytes and store in IDB
+    const rawKey = crypto.getRandomValues(new Uint8Array(32));
+    const writeTx = db.transaction(dbCryptoKeys, "readwrite");
+    const writeStore = writeTx.objectStore(dbCryptoKeys);
+    await new Promise((resolve, reject) => {
+      const req = writeStore.put({
+        id: "mainKey",
+        key: rawKey,
+        isPasswordProtected: false,
+      });
+      req.onsuccess = () => resolve(undefined);
+      req.onerror = (e: any) => reject(e.target.error);
+    });
+    return rawKey;
+  }
+
+  if (record.isPasswordProtected) {
+    if (!encryptedDecryptedMainKey) {
+      throw new Error("Password-protected key requires verification first");
+    }
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: encryptedDecryptedMainKey.iv },
+      encryptedDecryptedMainKey.tempKey,
+      encryptedDecryptedMainKey.encrypted
+    );
+    return new Uint8Array(decryptedBuffer);
+  }
+
+  return record.key instanceof Uint8Array ? record.key : new Uint8Array(record.key);
 };
 
 // 3. Core Encryption
@@ -131,31 +186,33 @@ const getEncryptionKey = async () => {
           );
           return;
         } else {
-          // Regular unencrypted key
+          // Regular unencrypted key (non-extractable — XSS cannot export)
           const importedKey = await crypto.subtle.importKey(
             "raw",
             request.result.key,
             { name: "AES-GCM" },
-            true,
+            false,
             ["encrypt", "decrypt"]
           );
           resolve(importedKey);
         }
       } else {
         // Generate a new key if not found
-        const key = await crypto.subtle.generateKey(
-          { name: "AES-GCM", length: 256 },
-          true,
-          ["encrypt", "decrypt"]
-        );
-        const exportedKey = await crypto.subtle.exportKey("raw", key);
+        const rawBytes = crypto.getRandomValues(new Uint8Array(32));
         const txWrite = db.transaction(dbCryptoKeys, "readwrite");
         const storeWrite = txWrite.objectStore(dbCryptoKeys);
         storeWrite.put({
           id: "mainKey",
-          key: new Uint8Array(exportedKey),
+          key: rawBytes,
           isPasswordProtected: false,
         });
+        const key = await crypto.subtle.importKey(
+          "raw",
+          rawBytes,
+          { name: "AES-GCM" },
+          false,
+          ["encrypt", "decrypt"]
+        );
         resolve(key);
       }
     };
@@ -181,11 +238,11 @@ const generatePasswordBasedKey = async (password: string) => {
       name: "PBKDF2",
       salt: salt,
       iterations: 1000000,
-      hash: "SHA-256",
+      hash: "SHA-512",
     },
     keyMaterial,
     { name: "AES-GCM", length: 256 },
-    true,
+    false,
     ["encrypt", "decrypt"]
   );
 
@@ -207,11 +264,11 @@ const deriveKeyFromPassword = async (password: string, salt: any) => {
       name: "PBKDF2",
       salt: salt,
       iterations: 1000000,
-      hash: "SHA-256",
+      hash: "SHA-512",
     },
     keyMaterial,
     { name: "AES-GCM", length: 256 },
-    true,
+    false,
     ["encrypt", "decrypt"]
   );
 };
@@ -227,7 +284,7 @@ const checkIfPasswordProtected = async () => {
     request.onsuccess = () => {
       const record = request.result;
       const hasPassword =
-        record && record.isPasswordProtected && record.passwordHash;
+        record && record.isPasswordProtected && record.encrypted;
       resolve(hasPassword);
     };
     request.onerror = (e: any) => {
@@ -240,30 +297,22 @@ const checkIfPasswordProtected = async () => {
 const setAppPassword = async (password: string) => {
   const db: any = await openDB();
 
-  // Generate password-based key
+  // Generate password-based key (PBKDF2-SHA512)
   const { key: passwordKey, salt } = await generatePasswordBasedKey(password);
 
-  // Get the current main key or generate a new one
-  let mainKey;
-  mainKey = await getEncryptionKey();
-
-  const exportedMainKey = await crypto.subtle.exportKey("raw", mainKey as CryptoKey);
+  // Get the current raw main key bytes (or generate fresh ones)
+  const rawMainKey = await getRawMainKey();
 
   // Encrypt the main key with the password-based key
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encryptedMainKey = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
     passwordKey,
-    exportedMainKey
+    rawMainKey as any
   );
 
-  // Generate password hash for verification
-  const passwordHash = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(password)
-  );
-
-  // Store the encrypted main key, salt, and password hash in cryptoKeys table
+  // Store the encrypted main key and salt (no passwordHash — verification
+  // is implicit via AES-GCM decrypt success/failure in verifyAppPassword)
   const tx = db.transaction(dbCryptoKeys, "readwrite");
   const store = tx.objectStore(dbCryptoKeys);
   await new Promise((resolve, reject) => {
@@ -272,7 +321,6 @@ const setAppPassword = async (password: string) => {
       encrypted: new Uint8Array(encryptedMainKey),
       iv: new Uint8Array(iv),
       salt: new Uint8Array(salt),
-      passwordHash: new Uint8Array(passwordHash),
       isPasswordProtected: true,
     });
     request.onsuccess = () => {
@@ -284,7 +332,7 @@ const setAppPassword = async (password: string) => {
   });
 
   // Store the decrypted main key in memory and set session
-  await setDecryptedMainKey(mainKey);
+  await setDecryptedMainKey(rawMainKey);
   sessionStorage.setItem("appPasswordKey", "true");
 };
 
@@ -316,18 +364,18 @@ const verifyAppPassword = async (password: string) => {
           record.encrypted
         );
 
-        // Import the decrypted main key
+        // Store the decrypted key in memory for session
+        await setDecryptedMainKey(decryptedMainKey);
+        sessionStorage.setItem("appPasswordKey", "true");
+
+        // Import the decrypted main key (non-extractable — XSS cannot export)
         const mainKey = await crypto.subtle.importKey(
           "raw",
           decryptedMainKey,
           { name: "AES-GCM" },
-          true,
+          false,
           ["encrypt", "decrypt"]
         );
-
-        // Store the decrypted key in memory for session
-        await setDecryptedMainKey(mainKey);
-        sessionStorage.setItem("appPasswordKey", "true");
 
         resolve(mainKey);
       } catch {

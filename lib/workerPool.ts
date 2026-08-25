@@ -20,7 +20,7 @@ if (typeof window !== "undefined" && typeof Worker !== "undefined") {
 let nextWorkerIndex = 0;
 let nextTaskId = 0;
 
-export function workerPool(task: any): Promise<any> {
+export function workerPool(task: any, _addToast?: any, timeoutMs = 30_000): Promise<any> {
   return new Promise((resolve, reject) => {
     if (!workers.length) {
       return reject(
@@ -32,22 +32,40 @@ export function workerPool(task: any): Promise<any> {
     nextWorkerIndex = (nextWorkerIndex + 1) % workers.length;
 
     const taskId = nextTaskId++;
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      worker.removeEventListener("message", handleMessage);
+      worker.removeEventListener("error", handleError);
+    };
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Worker task timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    const handleError = (err: ErrorEvent) => {
+      cleanup();
+      reject(new Error(err.message || "Worker crashed"));
+    };
+
     const handleMessage = (e: MessageEvent) => {
       if (e.data.taskId !== taskId) return;
 
+      cleanup();
+
       if (e.data.type === "error") {
-        worker.removeEventListener("message", handleMessage);
         reject(new Error(e.data.error || "Worker error"));
         return;
       }
 
       if (e.data.type === task.responseType) {
-        worker.removeEventListener("message", handleMessage);
         resolve(e.data.payload);
       }
     };
 
     worker.addEventListener("message", handleMessage);
+    worker.addEventListener("error", handleError);
     worker.postMessage({ ...task, taskId });
   });
 }

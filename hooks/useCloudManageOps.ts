@@ -6,7 +6,6 @@ import {
   openDB,
   getEncryptionKey,
   encryptData,
-  decryptData,
   getStoredKeys,
   dbPgpKeys,
 } from "@/lib/indexeddb";
@@ -275,15 +274,9 @@ export function useCloudManageOps({
       const limit = rowsPerPage;
       const cacheKey = `${page}-${rowsPerPage}`;
       const storedKeys = await getStoredKeys();
-      const encryptionKey = await getEncryptionKey();
 
       if ((apiCacheRef.current as any)[cacheKey]) {
-        const encryptedCache = (apiCacheRef.current as any)[cacheKey];
-        const plainKeys = await Promise.all(
-          encryptedCache.map(async (encryptedItem: any) => {
-            return await decryptData(encryptedItem.encrypted, encryptionKey, encryptedItem.iv);
-          })
-        );
+        const plainKeys = (apiCacheRef.current as any)[cacheKey];
 
         const processPromises = (plainKeys as any[]).map(async (key: any, index: any) => {
           if ((decryptedCacheRef.current as any)[key.id]) return (decryptedCacheRef.current as any)[key.id];
@@ -331,14 +324,11 @@ export function useCloudManageOps({
       const allKeys = data.keys || [];
       const paginatedKeys = allKeys.slice(offset, offset + limit);
 
-      const encryptedCache = await Promise.all(
-        paginatedKeys.map(async (key: any) => await encryptData(key, encryptionKey))
-      );
-      (apiCacheRef.current as any)[cacheKey] = encryptedCache;
+      // Store plain objects directly in memory cache — data is already in the
+      // JS heap, so encrypting/decrypting it adds CPU cost with zero security gain
+      (apiCacheRef.current as any)[cacheKey] = paginatedKeys;
 
-      const plainKeys = await Promise.all(
-        encryptedCache.map(async (encryptedItem) => await decryptData(encryptedItem.encrypted, encryptionKey, encryptedItem.iv))
-      );
+      const plainKeys = paginatedKeys;
 
       const processPromises = (plainKeys as any[]).map(async (key: any, index: any) => {
         if ((decryptedCacheRef.current as any)[key.id]) return (decryptedCacheRef.current as any)[key.id];

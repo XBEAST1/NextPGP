@@ -34,7 +34,14 @@ const HEADER_INDEX = {
 };
 
 // Utility: encode/decode Base64
-const toBase64 = (buf: any) => btoa(String.fromCharCode(...buf));
+const toBase64 = (buf: Uint8Array): string => {
+  let binary = "";
+  const chunk = 8192;
+  for (let i = 0; i < buf.length; i += chunk) {
+    binary += String.fromCharCode(...buf.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+};
 
 const fromBase64 = (str: any) =>
   new Uint8Array(
@@ -42,6 +49,16 @@ const fromBase64 = (str: any) =>
       .split("")
       .map((c) => c.charCodeAt(0))
   );
+
+// Check if a string is already ciphertext (starts with NP magic bytes)
+const isCiphertext = (str: string): boolean => {
+  try {
+    const bytes = fromBase64(str.substring(0, 10));
+    return bytes[0] === MAGIC[0] && bytes[1] === MAGIC[1];
+  } catch {
+    return false;
+  }
+};
 
 // Utility: encode a 32-bit BE integer
 const encodeUInt32BE = (value: any) => {
@@ -119,6 +136,8 @@ export const deriveMasterKey = async (password: any, salt: any, iterations = DEF
 
 // AES-GCM + HMAC-SHA256 encryption (supports derive-once keyMaterial or password)
 export const encrypt = async (text: any, options: any = {}) => {
+  // Guard: prevent double-encryption
+  if (typeof text === "string" && isCiphertext(text)) return text;
   const enc = new TextEncoder();
   let keyMaterial;
   let salt;
@@ -146,7 +165,7 @@ export const encrypt = async (text: any, options: any = {}) => {
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
 
   // Compress plaintext
-  const compressed = pako.deflate(enc.encode(text));
+  const compressed = new Uint8Array(pako.deflate(enc.encode(text)));
 
   const aesKey = await crypto.subtle.importKey(
     "raw",
