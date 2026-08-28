@@ -38,11 +38,16 @@ interface PGPKey {
 export default function App() {
   const [pgpKeys, setPgpKeys] = useState<PGPKey[]>([]);
   const [signerKeys, setSignerKeys] = useState<PGPKey[]>([]);
-  const [signerKey, setSignerKey] = useState<{id: string; selectedUserId?: string} | null>(null);
+  const [signerKey, setSignerKey] = useState<{
+    id: string;
+    selectedUserId?: string;
+  } | null>(null);
   const [recipientKeys, setRecipientKeys] = useState<PGPKey[]>([]);
   const [isChecked, setIsChecked] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  const [recipients, setRecipients] = useState<(string | { keyId: string; userId: string })[]>([""]);
+  const [recipients, setRecipients] = useState<
+    (string | { keyId: string; userId: string })[]
+  >([""]);
   const [message, setMessage] = useState("");
   const [output, setOutput] = useState("");
   const [encryptionPassword, setEncryptionPassword] = useState("");
@@ -57,7 +62,12 @@ export default function App() {
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
-  const getSubkeyUsage = (subkey: { bindingSignatures: { keyFlags?: Uint8Array | null | number[]; parsedKeyFlags?: number[] }[] }) => {
+  const getSubkeyUsage = (subkey: {
+    bindingSignatures: {
+      keyFlags?: Uint8Array | null | number[];
+      parsedKeyFlags?: number[];
+    }[];
+  }) => {
     const usage: string[] = [];
     for (const sig of subkey.bindingSignatures) {
       const flags = sig.keyFlags || sig.parsedKeyFlags || [];
@@ -110,17 +120,19 @@ export default function App() {
               console.error("Error checking key status:", error);
               return null;
             }
-          })
+          }),
         );
 
-        const filteredKeys = validKeys.filter((key): key is PGPKey => key !== null);
+        const filteredKeys = validKeys.filter(
+          (key): key is PGPKey => key !== null,
+        );
 
         const signerKeys = filteredKeys.filter(
-          (key: PGPKey) => key.publicKey && key.privateKey
+          (key: PGPKey) => key.publicKey && key.privateKey,
         );
 
         const recipientKeys = filteredKeys.filter(
-          (key: PGPKey) => key.publicKey && key.canEncrypt
+          (key: PGPKey) => key.publicKey && key.canEncrypt,
         );
 
         setPgpKeys(filteredKeys);
@@ -148,7 +160,7 @@ export default function App() {
       const db = (await openDB()) as IDBDatabase;
       const tx = db.transaction(
         [selectedSigners, selectedRecipients],
-        "readonly"
+        "readonly",
       );
       const storeSigners = tx.objectStore(selectedSigners);
       const signerKeyRequest = storeSigners.getAll();
@@ -164,7 +176,10 @@ export default function App() {
       recipientsRequest.onsuccess = () => {
         const results = recipientsRequest.result;
         if (results && results.length > 0) {
-          const values = results.map((r: { value: string | { keyId: string; userId: string } }) => r.value);
+          const values = results.map(
+            (r: { value: string | { keyId: string; userId: string } }) =>
+              r.value,
+          );
           setRecipients([...values, ""]);
         } else {
           setRecipients([""]);
@@ -179,16 +194,13 @@ export default function App() {
     const validKeyIds = new Set(pgpKeys.map((key) => key.id.toString()));
 
     // Remove the selected signer that is not in the pgpKeys
-    if (
-      signerKey &&
-      !validKeyIds.has(signerKey.id.toString())
-    ) {
+    if (signerKey && !validKeyIds.has(signerKey.id.toString())) {
       setSignerKey(null);
       (async () => {
         const db = (await openDB()) as IDBDatabase;
         const transaction = db.transaction(
           [dbPgpKeys, selectedSigners],
-          "readwrite"
+          "readwrite",
         );
         const store = transaction.objectStore(selectedSigners);
         store.clear();
@@ -232,7 +244,7 @@ export default function App() {
     const db = (await openDB()) as IDBDatabase;
     const transaction = db.transaction(
       [dbPgpKeys, selectedSigners],
-      "readwrite"
+      "readwrite",
     );
     const store = transaction.objectStore(selectedSigners);
 
@@ -245,10 +257,10 @@ export default function App() {
     let itemObj: any = selectedItem;
     if (typeof selectedItem === "string") {
       const defaultItems = signerKeys.flatMap((key) =>
-        key.userIDs.map((uid) => ({ ...key, selectedUserId: uid }))
+        key.userIDs.map((uid) => ({ ...key, selectedUserId: uid })),
       );
       itemObj = defaultItems.find(
-        (item) => `${item.id}-${item.selectedUserId}` === selectedItem
+        (item) => `${item.id}-${item.selectedUserId}` === selectedItem,
       );
     }
 
@@ -274,7 +286,10 @@ export default function App() {
     };
   };
 
-  const handleRecipientsSelection = async (index: number, selectedItem: React.Key | null) => {
+  const handleRecipientsSelection = async (
+    index: number,
+    selectedItem: React.Key | null,
+  ) => {
     if (!selectedItem) {
       let updatedRecipients = [...recipients];
       updatedRecipients[index] = "";
@@ -306,10 +321,10 @@ export default function App() {
     let itemObj: any = selectedItem;
     if (typeof selectedItem === "string") {
       const defaultItems = recipientKeys.flatMap((key) =>
-        key.userIDs.map((uid) => ({ ...key, selectedUserId: uid }))
+        key.userIDs.map((uid) => ({ ...key, selectedUserId: uid })),
       );
       itemObj = defaultItems.find(
-        (item) => `${item.id}-${item.selectedUserId}` === selectedItem
+        (item) => `${item.id}-${item.selectedUserId}` === selectedItem,
       );
     }
 
@@ -362,13 +377,17 @@ export default function App() {
     let decryptedKey: openpgp.PrivateKey | undefined;
     while (!decryptedKey || !decryptedKey.isDecrypted()) {
       setIsPasswordModalOpen(true);
-      const passphrase = await new Promise((resolve) => {
+      const passphrase = await new Promise<string>((resolve) => {
         onSubmitPassword.current = resolve;
       });
+      if (!passphrase) {
+        setIsPasswordModalOpen(false);
+        return null;
+      }
       try {
         decryptedKey = (await openpgp.decryptKey({
           privateKey: privateKeyObject,
-          passphrase: passphrase as any,
+          passphrase: passphrase,
         })) as openpgp.PrivateKey;
         if (!decryptedKey || !decryptedKey.isDecrypted()) {
           addToast({
@@ -388,12 +407,18 @@ export default function App() {
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = event.target.files ? Array.from(event.target.files) : [];
+    const selectedFiles = event.target.files
+      ? Array.from(event.target.files)
+      : [];
     setFiles(selectedFiles);
   };
 
-  const handleDirectoryUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedDirectory = event.target.files ? Array.from(event.target.files) : [];
+  const handleDirectoryUpload = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const selectedDirectory = event.target.files
+      ? Array.from(event.target.files)
+      : [];
     setdirectoryFiles(selectedDirectory);
   };
 
@@ -403,11 +428,24 @@ export default function App() {
       let decryptedPrivateKey = null;
       if (signerKey) {
         decryptedPrivateKey = await getDecryptedPrivateKey();
+        if (!decryptedPrivateKey) {
+          setEncrypting(false);
+          return;
+        }
       }
 
       const tasks = [];
 
-      const wrappedAddToast = (toast: { title: string; color?: "danger" | "success" | "primary" | "warning" | "default" | "secondary" }) => {
+      const wrappedAddToast = (toast: {
+        title: string;
+        color?:
+          | "danger"
+          | "success"
+          | "primary"
+          | "warning"
+          | "default"
+          | "secondary";
+      }) => {
         setEncrypting(false);
         addToast(toast);
       };
@@ -426,7 +464,7 @@ export default function App() {
         tasks.push(
           workerPool(task, wrappedAddToast).then((encryptedMessage) => {
             setOutput(encryptedMessage);
-          })
+          }),
         );
       }
 
@@ -447,7 +485,7 @@ export default function App() {
               type: "application/octet-stream",
             });
             saveAs(blob, result.fileName);
-          })
+          }),
         );
       }
 
@@ -469,7 +507,7 @@ export default function App() {
               type: "application/octet-stream",
             });
             saveAs(blob, result.fileName);
-          })
+          }),
         );
       }
 
@@ -526,7 +564,7 @@ export default function App() {
                 signerKey ? `${signerKey.id}-${signerKey.selectedUserId}` : ""
               }
               defaultItems={signerKeys.flatMap((key) =>
-                key.userIDs.map((uid) => ({ ...key, selectedUserId: uid }))
+                key.userIDs.map((uid) => ({ ...key, selectedUserId: uid })),
               )}
               onSelectionChange={handleSignerSelection}
             >
@@ -547,7 +585,11 @@ export default function App() {
               const alreadySelected = recipients
                 .filter(
                   (r, i) =>
-                    i !== index && typeof r === "object" && r !== null && "keyId" in r && "userId" in r
+                    i !== index &&
+                    typeof r === "object" &&
+                    r !== null &&
+                    "keyId" in r &&
+                    "userId" in r,
                 )
                 .map((r: any) => `${r.keyId}-${r.userId}`);
               return (
@@ -568,7 +610,7 @@ export default function App() {
                       key.userIDs.map((uid) => ({
                         ...key,
                         selectedUserId: uid,
-                      }))
+                      })),
                     )
                     .filter((item) => {
                       const combo = `${item.id}-${item.selectedUserId}`;
@@ -602,6 +644,10 @@ export default function App() {
           <br />
           <Input
             isDisabled={!isChecked}
+            name="encryption-password"
+            autoComplete="new-password"
+            data-1p-ignore="true"
+            data-lpignore="true"
             classNames={{
               input: "min-h-[10px]",
             }}
@@ -703,67 +749,75 @@ export default function App() {
         backdrop="blur"
         isOpen={isPasswordModalOpen}
         onClose={() => {
-          setIsPasswordModalOpen(false), setEncrypting(false);
+          setIsPasswordModalOpen(false);
+          setEncrypting(false);
+          if (onSubmitPassword.current) {
+            const cb = onSubmitPassword.current;
+            onSubmitPassword.current = null;
+            cb("");
+          }
         }}
       >
         <ModalContent className="p-5">
-          {(onClose) => (
-            <>
-              <h3 className="mb-4">Signing Key Is Password Protected</h3>
-              <Input
-                ref={keyPassphraseInputRef}
-                placeholder="Enter Password"
-                type={isVisible ? "text" : "password"}
-                value={keyPassphrase}
-                onChange={(e) => setKeyPassphrase(e.target.value)}
-                endContent={
-                  <button
-                    aria-label="toggle password visibility"
-                    className="focus:outline-none"
-                    type="button"
-                    onClick={toggleVisibility}
-                  >
-                    {isVisible ? (
-                      <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
-                    ) : (
-                      <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
-                    )}
-                  </button>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (keyPassphrase.trim()) {
+                if (onSubmitPassword.current) {
+                  const cb = onSubmitPassword.current;
+                  onSubmitPassword.current = null;
+                  cb(keyPassphrase);
                 }
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    if (keyPassphrase) {
-                      if (onSubmitPassword.current) {
-                        onSubmitPassword.current(keyPassphrase);
-                      }
-                    } else {
-                      addToast({
-                        title: "Please enter a password",
-                        color: "danger",
-                      });
-                    }
-                  }
-                }}
-              />
-              <Button
-                className="mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
-                onPress={() => {
-                  if (keyPassphrase) {
-                    if (onSubmitPassword.current) {
-                      onSubmitPassword.current(keyPassphrase);
-                    }
-                  } else {
-                    addToast({
-                      title: "Please enter a password",
-                      color: "danger",
-                    });
-                  }
-                }}
-              >
-                Submit
-              </Button>
-            </>
-          )}
+              } else {
+                addToast({
+                  title: "Please enter a password",
+                  color: "danger",
+                });
+              }
+            }}
+          >
+            <input
+              type="text"
+              name="username"
+              autoComplete="username"
+              style={{ display: "none" }}
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+            <h3 className="mb-4">Signing Key Is Password Protected</h3>
+            <Input
+              ref={keyPassphraseInputRef}
+              name="signing-passphrase"
+              autoComplete="current-password"
+              data-1p-ignore="true"
+              data-lpignore="true"
+              placeholder="Enter Password"
+              type={isVisible ? "text" : "password"}
+              value={keyPassphrase}
+              onChange={(e) => setKeyPassphrase(e.target.value)}
+              endContent={
+                <button
+                  aria-label="toggle password visibility"
+                  className="focus:outline-none"
+                  type="button"
+                  onClick={toggleVisibility}
+                >
+                  {isVisible ? (
+                    <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                  ) : (
+                    <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                  )}
+                </button>
+              }
+            />
+            <Button
+              type="submit"
+              className="w-full mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
+            >
+              Submit
+            </Button>
+          </form>
         </ModalContent>
       </Modal>
     </>

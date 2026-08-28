@@ -37,9 +37,6 @@ export default function RevokeUserIDModal({
           <Button
             className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
             onPress={handleConfirm}
-            onKeyDown={async (e) => {
-              if (e.key === "Enter") await handleConfirm();
-            }}
           >
             Yes
           </Button>

@@ -76,6 +76,7 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }: { isOpen: boolea
   }, [isOpen]);
 
   const handleSubmit = async () => {
+    if (isLoading) return;
     setError("");
 
     if (password !== confirmPassword) {
@@ -133,6 +134,10 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }: { isOpen: boolea
               <Input
                 ref={passwordInputRef}
                 id="password"
+                name="master-password"
+                autoComplete="new-password"
+                data-1p-ignore="true"
+                data-lpignore="true"
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
                 value={password}
@@ -165,6 +170,10 @@ const PasswordSetupModal = ({ isOpen, onClose, onPasswordSet }: { isOpen: boolea
               <Input
                 ref={confirmPasswordRef}
                 id="confirmPassword"
+                name="confirm-master-password"
+                autoComplete="new-password"
+                data-1p-ignore="true"
+                data-lpignore="true"
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Confirm your password"
                 value={confirmPassword}
@@ -237,6 +246,7 @@ const PasswordUnlockModal = ({
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async () => {
+    if (isLoading) return;
     setIsLoading(true);
 
     const result = await onPasswordVerified(password);
@@ -301,6 +311,10 @@ const PasswordUnlockModal = ({
                 <Input
                   ref={passwordInputRef}
                   id="unlockPassword"
+                  name="unlock-password"
+                  autoComplete="current-password"
+                  data-1p-ignore="true"
+                  data-lpignore="true"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
@@ -380,6 +394,7 @@ const PasswordRemoveModal = ({ isOpen, onClose, onPasswordVerified }: { isOpen: 
   }, [isOpen]);
 
   const handleSubmit = async () => {
+    if (isLoading) return;
     setError("");
     setIsLoading(true);
 
@@ -430,6 +445,10 @@ const PasswordRemoveModal = ({ isOpen, onClose, onPasswordVerified }: { isOpen: 
               <Input
                 ref={passwordInputRef}
                 id="removePassword"
+                name="remove-password"
+                autoComplete="current-password"
+                data-1p-ignore="true"
+                data-lpignore="true"
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your current password"
                 value={password}

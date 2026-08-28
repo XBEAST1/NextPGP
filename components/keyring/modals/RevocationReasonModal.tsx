@@ -74,9 +74,6 @@ export default function RevocationReasonModal({
           <Button
             className="px-4 py-2 bg-default-300 text-white rounded-full"
             onPress={onClose}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onClose();
-            }}
           >
             Close
           </Button>

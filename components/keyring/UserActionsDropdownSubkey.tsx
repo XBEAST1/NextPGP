@@ -129,7 +129,7 @@ export default function UserActionsDropdownSubkey({
     };
 
     extractArmoredSubkeysFromMasterKey();
-  }, []);
+  }, [selectedUserId?.privateKey, subkey.id]);
 
   const subkeyIndex = parseInt(subkey.id.split("-subkey-")[1]);
 

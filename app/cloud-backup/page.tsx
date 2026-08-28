@@ -205,6 +205,11 @@ export default function CloudBackupPage() {
         <div className="flex justify-between gap-3 items-end">
           <Input
             isClearable
+            type="search"
+            name="search"
+            autoComplete="off"
+            data-1p-ignore="true"
+            data-lpignore="true"
             className="w-full sm:max-w-[100%]"
             placeholder="Search all fields (name, email, dates, status, key ID, fingerprint, etc.)"
             startContent={<SearchIcon />}
@@ -362,7 +367,7 @@ export default function CloudBackupPage() {
       </Table>
       <PasswordModal
         isOpen={passwordModalState.passwordModal}
-        onClose={() => passwordModalState.setPasswordModal(false)}
+        onClose={passwordModalState.onPasswordModalClose}
         subkeyGlobalIndex={passwordModalState.subkeyGlobalIndex}
         password={passwordModalState.password}
         setPassword={passwordModalState.setPassword}

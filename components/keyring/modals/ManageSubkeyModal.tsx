@@ -152,6 +152,11 @@ export default function ManageSubkeyModal({
       <div className="flex justify-between gap-3 items-end">
         <Input
           isClearable
+          type="search"
+          name="subkey-search"
+          autoComplete="off"
+          data-1p-ignore="true"
+          data-lpignore="true"
           className="w-full sm:max-w-[100%]"
           placeholder="Search all fields (usage, dates, status, key ID, fingerprint, algorithm)"
           startContent={<SearchIcon />}

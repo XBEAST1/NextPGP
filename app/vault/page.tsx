@@ -379,7 +379,10 @@ const Page = () => {
         <div className="flex flex-col sm:flex-row items-center sm:mt-20 order-2 w-full sm:w-full">
           <Input
             className="mt-8 sm:mt-0 sm:me-10 w-full sm:w-full"
-            name="password"
+            name="vault-password"
+            autoComplete="current-password"
+            data-1p-ignore="true"
+            data-lpignore="true"
             placeholder="Enter vault password"
             type={isVisible ? "text" : "password"}
             onKeyDown={(e) => {

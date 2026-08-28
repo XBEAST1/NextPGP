@@ -170,7 +170,10 @@ const Page = () => {
             </span>
           </div>
           <Input
-            name="password"
+            name="vault-new-password"
+            autoComplete="new-password"
+            data-1p-ignore="true"
+            data-lpignore="true"
             placeholder="Enter vault password"
             type={isVisible ? "text" : "password"}
             value={password}

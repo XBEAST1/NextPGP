@@ -134,6 +134,11 @@ export default function ManageUserIDsModal({
       <div className="flex justify-between gap-3 items-end">
         <Input
           isClearable
+          type="search"
+          name="userids-search"
+          autoComplete="off"
+          data-1p-ignore="true"
+          data-lpignore="true"
           className="w-full"
           placeholder="Search by name or email..."
           startContent={<SearchIcon />}

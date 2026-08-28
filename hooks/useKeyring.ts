@@ -1,60 +1,73 @@
 /**
- * hooks/useKeyring.js
+ * hooks/useKeyring.ts
  *
- * Manages loading PGP keys from IndexedDB, refreshing on storage events,
- * and exposing a manual refresh callback.
+ * Manages loading PGP keys from IndexedDB and exposing a manual refresh callback.
  */
 
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { openDB } from "@/lib/indexeddb";
 import { loadKeysFromIndexedDB } from "@/lib/pgp";
+import { KEYRING_BROADCAST_CHANNEL } from "@/lib/indexeddb";
+import { KeyringUser } from "@/hooks/useKeyOperations";
 
 export function useKeyring() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<KeyringUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Ensure IndexedDB is initialised
-    openDB();
+  const refreshKeys = useCallback(async () => {
+    try {
+      const refreshedKeys = (await loadKeysFromIndexedDB()) as KeyringUser[];
+      setUsers(refreshedKeys);
+      return refreshedKeys;
+    } catch (error) {
+      console.error("Failed to refresh keys from IndexedDB:", error);
+      return [];
+    }
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchKeys = async () => {
       setIsLoading(true);
       try {
-        const pgpKeys = await loadKeysFromIndexedDB() as any[];
-        setUsers(pgpKeys);
-      } catch {
-        // silently ignore initial load errors; individual operations surface their own toasts
+        const pgpKeys = (await loadKeysFromIndexedDB()) as KeyringUser[];
+        if (isMounted) {
+          setUsers(pgpKeys);
+        }
+      } catch (error) {
+        console.error("Failed to load keys from IndexedDB:", error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
     };
 
     fetchKeys();
 
-    const handleStorageChange = async () => {
-      setIsLoading(true);
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
       try {
-        const updatedKeys = await loadKeysFromIndexedDB() as any[];
-        setUsers(updatedKeys);
-      } catch (error) {
-        console.error("Error loading keys:", error);
-      } finally {
-        setIsLoading(false);
+        channel = new BroadcastChannel(KEYRING_BROADCAST_CHANNEL);
+        channel.onmessage = (event) => {
+          if (event.data?.type === "KEYRING_UPDATED" && isMounted) {
+            refreshKeys();
+          }
+        };
+      } catch (e) {
+        console.warn("BroadcastChannel not supported:", e);
+      }
+    }
+
+    return () => {
+      isMounted = false;
+      if (channel) {
+        channel.close();
       }
     };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
-  const refreshKeys = useCallback(async () => {
-    const refreshedKeys = await loadKeysFromIndexedDB() as any[];
-    setUsers(refreshedKeys);
-    return refreshedKeys;
-  }, []);
+  }, [refreshKeys]);
 
   return { users, setUsers, isLoading, refreshKeys };
 }

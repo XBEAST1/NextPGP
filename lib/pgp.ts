@@ -1,5 +1,5 @@
 /**
- * lib/pgp.js
+ * lib/pgp.ts
  *
  * Pure PGP utility functions – no React dependencies.
  * Extracted from app/page.jsx for reuse and testability.
@@ -227,11 +227,11 @@ export const processKey = async (key: any) => {
  * Load, decrypt, and process all PGP keys from IndexedDB.
  * Returns an array of processed key objects ready for the UI.
  */
-export const loadKeysFromIndexedDB = async () => {
+export const loadKeysFromIndexedDB = async (): Promise<any[]> => {
   const db: any = await openDB();
   const encryptionKey = await getEncryptionKey();
 
-  return new Promise((resolve, reject) => {
+  return new Promise<any[]>((resolve, reject) => {
     const transaction = db.transaction(dbPgpKeys, "readonly");
     const store = transaction.objectStore(dbPgpKeys);
     let results: any[] = [];
@@ -291,51 +291,58 @@ export const decryptAllSubkeys = async (
   const subkeyPassphrases = new Map();
   const triedPasswords = new Set();
 
-  for (let i = 0; i < subkeys.length; i++) {
-    const subkey = subkeys[i];
-    if (await subkey.isRevoked()) continue;
-    if (subkey.isDecrypted()) continue;
+  try {
+    for (let i = 0; i < subkeys.length; i++) {
+      const subkey = subkeys[i];
+      if (await subkey.isRevoked()) continue;
+      if (subkey.isDecrypted()) continue;
 
-    setSubkeyGlobalIndex(i);
-    let subkeyPass = null;
+      if (setSubkeyGlobalIndex) setSubkeyGlobalIndex(i);
+      let subkeyPass = null;
 
-    // Try every cached password first
-    for (const pass of triedPasswords) {
-      if (subkey.isDecrypted()) break;
-      try {
-        if (!subkey.isDecrypted()) {
-          await subkey.keyPacket.decrypt(pass);
-        }
-        subkeyPass = pass;
-        break;
-      } catch (err: any) {
-        if (/already decrypted/i.test(err.message)) {
+      // Try every cached password first
+      for (const pass of triedPasswords) {
+        if (subkey.isDecrypted()) break;
+        try {
+          if (!subkey.isDecrypted()) {
+            await subkey.keyPacket.decrypt(pass);
+          }
           subkeyPass = pass;
           break;
+        } catch (err: any) {
+          if (/already decrypted/i.test(err.message)) {
+            subkeyPass = pass;
+            break;
+          }
         }
       }
-    }
 
-    // If still locked, prompt the user
-    if (!subkeyPass) {
-      try {
-        const pass = await triggerSubkeyPasswordModal(subkey);
-        triedPasswords.add(pass);
-        if (!subkey.isDecrypted()) {
-          await subkey.keyPacket.decrypt(pass);
+      // If still locked, prompt the user
+      if (!subkeyPass) {
+        try {
+          const pass = await triggerSubkeyPasswordModal(subkey);
+          triedPasswords.add(pass);
+          if (!subkey.isDecrypted()) {
+            await subkey.keyPacket.decrypt(pass);
+          }
+          subkeyPass = pass;
+        } catch (err: any) {
+          if (err instanceof Error && err.message === "Password entry cancelled") {
+            throw err;
+          }
+          if (addToast) addToast({ title: "Failed to decrypt subkey", color: "danger" });
+          console.error(`Failed to decrypt subkey ${i}:`, err);
+          throw err; // let caller handle abort
         }
-        subkeyPass = pass;
-      } catch (err: any) {
-        addToast({ title: "Failed to decrypt subkey", color: "danger" });
-        console.error(`Failed to decrypt subkey ${i}:`, err);
-        throw err; // let caller handle abort
       }
+
+      subkeyPassphrases.set(i, subkeyPass);
     }
 
-    subkeyPassphrases.set(i, subkeyPass);
+    return subkeyPassphrases;
+  } finally {
+    if (setSubkeyGlobalIndex) setSubkeyGlobalIndex(null);
   }
-
-  return subkeyPassphrases;
 };
 
 /**
@@ -361,3 +368,233 @@ export const reEncryptSubkeys = async (armoredPrivateKey: any, subkeyPassphrases
 
   return keyToReEncrypt.armor();
 };
+
+// ---------------------------------------------------------------------------
+// File Download Helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Triggers a browser download of the given text content with the specified filename.
+ */
+export const downloadAsFile = (content: string, filename: string) => {
+  const blob = new Blob([content], { type: "text/plain" });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(objectUrl);
+};
+
+// ---------------------------------------------------------------------------
+// Revocation Preservation Helpers
+// ---------------------------------------------------------------------------
+
+export interface RevocationStateMaps {
+  userRevocationMap: Map<string, { isRevoked: boolean; revocationSignatures: any[] }>;
+  subkeyRevocationMap: Map<string, { isRevoked: boolean; revocationSignatures: any[] }>;
+  subkeyBindingSignaturesMap: Map<string, any[]>;
+}
+
+/**
+ * Captures revocation signatures and subkey binding signatures from keys before
+ * an operation (such as reformatKey) that might strip or rebuild them.
+ *
+ * Note: In OpenPGP.js v5+, User.isRevoked() and Subkey.isRevoked() return
+ * Promise<boolean>, so this function must be async.
+ */
+export const captureRevocationState = async (
+  publicKeyOrUsers: any,
+  privateKeyOrSubkeys?: any
+): Promise<RevocationStateMaps> => {
+  const userRevocationMap = new Map<string, { isRevoked: boolean; revocationSignatures: any[] }>();
+  const subkeyRevocationMap = new Map<string, { isRevoked: boolean; revocationSignatures: any[] }>();
+  const subkeyBindingSignaturesMap = new Map<string, any[]>();
+
+  if (publicKeyOrUsers) {
+    const users = publicKeyOrUsers.users || (Array.isArray(publicKeyOrUsers) ? publicKeyOrUsers : []);
+    for (const u of users) {
+      if (u.userID) {
+        const revoked = typeof u.isRevoked === "function" ? await u.isRevoked() : Boolean(u.isRevoked);
+        userRevocationMap.set(u.userID.userID, {
+          isRevoked: revoked,
+          revocationSignatures: u.revocationSignatures ? [...u.revocationSignatures] : [],
+        });
+      }
+    }
+  }
+
+  if (privateKeyOrSubkeys) {
+    const subkeys = typeof privateKeyOrSubkeys.getSubkeys === "function"
+      ? privateKeyOrSubkeys.getSubkeys()
+      : (Array.isArray(privateKeyOrSubkeys) ? privateKeyOrSubkeys : []);
+    for (const sk of subkeys) {
+      const fp = typeof sk.getFingerprint === "function" ? sk.getFingerprint() : "";
+      if (fp) {
+        const revoked = typeof sk.isRevoked === "function" ? await sk.isRevoked() : Boolean(sk.isRevoked);
+        subkeyRevocationMap.set(fp, {
+          isRevoked: revoked,
+          revocationSignatures: sk.revocationSignatures ? [...sk.revocationSignatures] : [],
+        });
+        if (sk.bindingSignatures) {
+          subkeyBindingSignaturesMap.set(fp, [...sk.bindingSignatures]);
+        }
+      }
+    }
+  }
+
+  return { userRevocationMap, subkeyRevocationMap, subkeyBindingSignaturesMap };
+};
+
+/**
+ * Restores revocation and binding signatures onto a mutated OpenPGP key object.
+ */
+export const restoreRevocationState = (
+  targetKey: any,
+  maps: RevocationStateMaps
+) => {
+  const { userRevocationMap, subkeyRevocationMap, subkeyBindingSignaturesMap } = maps;
+
+  if (typeof targetKey.getSubkeys === "function") {
+    targetKey.getSubkeys().forEach((sk: any) => {
+      const fp = sk.getFingerprint();
+      const origBind = subkeyBindingSignaturesMap?.get(fp);
+      if (origBind?.length) sk.bindingSignatures = [...origBind];
+
+      const orig = subkeyRevocationMap?.get(fp);
+      if (orig?.isRevoked) {
+        orig.revocationSignatures.forEach((sig: any) => {
+          if (!sk.revocationSignatures.some((e: any) => (typeof e.equals === "function" ? e.equals(sig) : e === sig))) {
+            sk.revocationSignatures.push(sig);
+          }
+        });
+      }
+    });
+  }
+
+  if (targetKey.users) {
+    targetKey.users.forEach((u: any) => {
+      if (!u.userID) return;
+      const orig = userRevocationMap?.get(u.userID.userID);
+      if (orig?.isRevoked) {
+        orig.revocationSignatures.forEach((sig: any) => {
+          if (!u.revocationSignatures.some((e: any) => (typeof e.equals === "function" ? e.equals(sig) : e === sig))) {
+            u.revocationSignatures.push(sig);
+          }
+        });
+      }
+    });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Safe Expiration Calculation
+// ---------------------------------------------------------------------------
+
+/**
+ * Safely computes keyExpirationTime (in seconds) from OpenPGP.js date values.
+ * Handles the `Infinity` return from `getExpirationTime()` for no-expiry keys,
+ * as well as null/undefined, returning `undefined` to signal "no expiry" to
+ * reformatKey / generateKey.
+ */
+export const safeExpirationSeconds = (
+  expirationTime: Date | typeof Infinity | null | undefined,
+  creationTime: Date
+): number | undefined => {
+  if (!expirationTime) return undefined;
+  const expMs = new Date(expirationTime as any).getTime();
+  if (!isFinite(expMs)) return undefined;
+  const seconds = Math.floor((expMs - new Date(creationTime).getTime()) / 1000);
+  return seconds > 0 ? seconds : undefined;
+};
+
+// ---------------------------------------------------------------------------
+// Key Decryption & Re-encryption Lifecycle Helper
+// ---------------------------------------------------------------------------
+
+export interface DecryptedKeyContext {
+  privateKey: any;
+  /** Lazily parsed — only reads user.publicKey when accessed. Avoids unnecessary parsing for revocation-only ops. */
+  publicKeyObj: any;
+  currentPassword: string | null;
+  subkeyPassphrases: Map<number, string>;
+}
+
+export interface WithDecryptedKeyOpts {
+  triggerKeyPasswordModal: (user: any) => Promise<string>;
+  decryptSubkeys: (privateKey: any) => Promise<Map<number, string>>;
+}
+
+/**
+ * Executes a mutation operation on a decrypted private key, automatically managing:
+ * 1. Decrypting primary private key if passphrase-protected (prompting via modal)
+ * 2. Decrypting all subkeys
+ * 3. Executing callback with decrypted keys
+ * 4. Re-encrypting primary private key with original passphrase
+ * 5. Re-encrypting subkeys with their individual passphrases
+ * 6. Returning final armored private and public keys
+ *
+ * The `publicKeyObj` in the context is lazily parsed from `user.publicKey` —
+ * operations that don't need it (e.g. revokeKey) skip the readKey call entirely.
+ */
+export const withDecryptedKey = async (
+  user: { id: string; privateKey: string; publicKey: string; [key: string]: any },
+  opts: WithDecryptedKeyOpts,
+  operation: (ctx: DecryptedKeyContext) => Promise<{
+    privateKey: any;
+    publicKey?: string;
+  } | void>
+): Promise<{ finalPrivateKey: string; finalPublicKey: string; currentPassword: string | null }> => {
+  let privateKey: any = await openpgp.readPrivateKey({ armoredKey: user.privateKey });
+  let currentPassword: string | null = null;
+
+  if (privateKey.isPrivate() && !privateKey.isDecrypted()) {
+    currentPassword = await opts.triggerKeyPasswordModal(user);
+    privateKey = await openpgp.decryptKey({ privateKey, passphrase: currentPassword });
+  }
+
+  const subkeyPassphrases = await opts.decryptSubkeys(privateKey);
+
+  // Lazy public key — initialized on first access via privateKey.toPublic()
+  let _publicKeyObj: any = null;
+  const ctx: DecryptedKeyContext = {
+    privateKey,
+    get publicKeyObj() {
+      if (!_publicKeyObj) {
+        _publicKeyObj = privateKey.toPublic();
+      }
+      return _publicKeyObj;
+    },
+    currentPassword,
+    subkeyPassphrases,
+  };
+
+  const result = await operation(ctx);
+
+  let mutatedPrivateKey = result?.privateKey ?? privateKey;
+  let privateKeyObj =
+    typeof mutatedPrivateKey === "string"
+      ? await openpgp.readPrivateKey({ armoredKey: mutatedPrivateKey })
+      : mutatedPrivateKey;
+
+  let finalPrivateKeyArmored = privateKeyObj.armor();
+  const finalPublicKeyArmored = result?.publicKey || privateKeyObj.toPublic().armor();
+
+  if (currentPassword) {
+    const keyToEncrypt = await openpgp.readPrivateKey({ armoredKey: finalPrivateKeyArmored });
+    const reEncrypted = await openpgp.encryptKey({
+      privateKey: keyToEncrypt,
+      passphrase: currentPassword,
+    });
+    finalPrivateKeyArmored = reEncrypted.armor();
+  }
+
+  finalPrivateKeyArmored = await reEncryptSubkeys(finalPrivateKeyArmored, subkeyPassphrases);
+
+  return {
+    finalPrivateKey: finalPrivateKeyArmored,
+    finalPublicKey: finalPublicKeyArmored,
+    currentPassword,
+  };
+};
+

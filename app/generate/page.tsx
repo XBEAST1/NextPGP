@@ -125,7 +125,7 @@ export default function App() {
         keyExpirationTime = Math.floor((expiry.getTime() - now.getTime()) / 1000);
       }
 
-      let options: openpgp.GenerateKeyOptions & { format: "armored" };
+      let options: any;
       if (selectedAlgorithm.startsWith("rsa")) {
         options = {
           type: "rsa",
@@ -138,7 +138,7 @@ export default function App() {
       } else {
         options = {
           type: "ecc",
-          curve: selectedAlgorithm as openpgp.EllipticCurveName,
+          curve: selectedAlgorithm,
           userIDs: [{ name, email: validEmail }],
           passphrase: passphraseToUse,
           format: "armored",
@@ -146,7 +146,11 @@ export default function App() {
         };
       }
 
-      const key = await openpgp.generateKey(options);
+      const key = (await openpgp.generateKey(options)) as {
+        privateKey: string;
+        publicKey: string;
+        revocationCertificate?: string;
+      };
       const { privateKey, publicKey } = key;
 
       const keyData = {
@@ -182,6 +186,10 @@ export default function App() {
 
       <Input
         isRequired
+        name="pgp-gen-name"
+        autoComplete="off"
+        data-1p-ignore="true"
+        data-lpignore="true"
         label="Name"
         labelPlacement="outside"
         placeholder="Enter your name"
@@ -194,6 +202,10 @@ export default function App() {
 
       <Input
         label="Email"
+        name="pgp-gen-email"
+        autoComplete="off"
+        data-1p-ignore="true"
+        data-lpignore="true"
         labelPlacement="outside"
         placeholder="Enter your email"
         isInvalid={emailInvalid}
@@ -262,7 +274,10 @@ export default function App() {
 
       <Input
         isDisabled={!isPasswordChecked}
-        name="password"
+        name="new-password"
+        autoComplete="new-password"
+        data-1p-ignore="true"
+        data-lpignore="true"
         placeholder="Enter your password"
         type={isVisible ? "text" : "password"}
         endContent={

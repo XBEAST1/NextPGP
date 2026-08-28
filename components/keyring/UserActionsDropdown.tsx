@@ -51,7 +51,7 @@ interface UserActionsDropdownProps {
   setdeleteModal: (open: boolean) => void;
   backupKeyring: (user: DropdownUser) => void;
   addOrChangeKeyPassword: (user: DropdownUser) => void;
-  GenerateRevocationCertificate: (user: DropdownUser) => void;
+  generateRevocationCertificate: (user: DropdownUser) => void;
   getRevocationReason: (user: DropdownUser) => Promise<any>;
 }
 
@@ -81,7 +81,7 @@ export default function UserActionsDropdown({
   setdeleteModal,
   backupKeyring,
   addOrChangeKeyPassword,
-  GenerateRevocationCertificate,
+  generateRevocationCertificate,
   getRevocationReason,
 }: UserActionsDropdownProps) {
   const [isProtected, setIsProtected] = useState<boolean | null>(null);
@@ -323,7 +323,7 @@ export default function UserActionsDropdown({
                 <>
                   <DropdownItem
                     key="revocation-certificate"
-                    onPress={() => GenerateRevocationCertificate(user)}
+                    onPress={() => generateRevocationCertificate(user)}
                   >
                     Get Revocation Certificate
                   </DropdownItem>

@@ -32,9 +32,6 @@ export default function RemovePasswordModal({
           <Button
             className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
             onPress={onConfirm}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onConfirm();
-            }}
           >
             Yes
           </Button>

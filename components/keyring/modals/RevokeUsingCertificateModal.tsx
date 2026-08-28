@@ -89,9 +89,6 @@ export default function RevokeUsingCertificateModal({
           <Button
             className="w-full mt-4 px-4 py-2 bg-danger-300 text-white rounded-full"
             onPress={handleYes}
-            onKeyDown={async (e) => {
-              if (e.key === "Enter") await handleYes();
-            }}
           >
             Yes
           </Button>

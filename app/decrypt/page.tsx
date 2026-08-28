@@ -344,6 +344,7 @@ export default function App() {
   };
 
   const handlePasswordDecrypt = async () => {
+    if (decrypting) return;
     if (!password) {
       addToast({ title: "Please enter a password", color: "danger" });
       return;
@@ -396,7 +397,7 @@ export default function App() {
             if (result && result.decrypted) {
               successfullyDecryptedFiles.push(file);
               if (file === currentPasswordFile) {
-                let currentFileDecrypted = true;
+                currentFileDecrypted = true;
               }
             }
           } catch {}
@@ -531,9 +532,6 @@ export default function App() {
                 if (result && result.decrypted) {
                   decryptedWithMsgPassword.add(file.name);
                   successfullyDecryptedWithMsgPassword.add(file);
-                  if (file === currentPasswordFile) {
-                    let currentFileDecrypted = true;
-                  }
                 }
               } catch {}
             }
@@ -583,9 +581,6 @@ export default function App() {
                 // Track files that were successfully decrypted with keys
                 if (result && result.decrypted) {
                   successfullyDecryptedWithKeys.add(file);
-                  if (file === currentPasswordFile) {
-                    let currentFileDecrypted = true;
-                  }
                 }
               } catch {}
             }
@@ -647,7 +642,7 @@ export default function App() {
             setDecrypting(false);
           }
         } catch {
-          addToast({ title: "Incorrect password", color: "danger" });
+          // Toast is already emitted by the worker via onToast, so avoid duplicate toast here
           // Ensure any remaining downloads in the queue are processed
           if (
             downloadQueueRef.current.length > 0 &&
@@ -888,91 +883,106 @@ export default function App() {
           }}
         >
           <ModalContent className="p-5">
-            <h3 className="mb-4">Password Required</h3>
-            {currentPasswordFile ? (
-              <div className="mb-4">
-                <p className="text-sm text-gray-600">
-                  <strong>File:</strong> {currentPasswordFile.name}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handlePasswordDecrypt();
+              }}
+            >
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                style={{ display: "none" }}
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+              <h3 className="mb-4">Password Required</h3>
+              {currentPasswordFile ? (
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600">
+                    <strong>File:</strong> {currentPasswordFile.name}
+                  </p>
+                  {passwordEncryptedFiles.size > 1 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {passwordEncryptedFiles.size} files remaining to decrypt
+                    </p>
+                  )}
+                  {passwordEncryptedFiles.size > 1 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      💡 Each file may have a different password
+                    </p>
+                  )}
+                </div>
+              ) : inputMessage ? (
+                <p className="mb-4 text-sm text-gray-600">
+                  Message requires password for decryption
                 </p>
-                {passwordEncryptedFiles.size > 1 && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {passwordEncryptedFiles.size} files remaining to decrypt
-                  </p>
-                )}
-                {passwordEncryptedFiles.size > 1 && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    💡 Each file may have a different password
-                  </p>
+              ) : null}
+              <Input
+                ref={passwordInputRef}
+                name="decrypt-password"
+                autoComplete="current-password"
+                data-1p-ignore="true"
+                data-lpignore="true"
+                placeholder="Enter Password"
+                type={isVisible ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                endContent={
+                  <button
+                    aria-label="toggle password visibility"
+                    className="focus:outline-none"
+                    type="button"
+                    onClick={toggleVisibility}
+                  >
+                    {isVisible ? (
+                      <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                    ) : (
+                      <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
+                    )}
+                  </button>
+                }
+              />
+              <div className="flex gap-2 mt-4">
+                <Button
+                  type="submit"
+                  className="w-full flex-1 px-4 py-2 bg-default-200 text-white rounded-full"
+                  disabled={decrypting}
+                >
+                  {decrypting ? <Spinner color="white" size="sm" /> : "Submit"}
+                </Button>
+                {currentPasswordFile && passwordEncryptedFiles.size > 1 && (
+                  <Button
+                    type="button"
+                    className="px-4 py-2 bg-gray-500 text-white rounded-full"
+                    onPress={() => {
+                      // Skip this file and move to next
+                      const updatedFiles = new Map(passwordEncryptedFiles);
+                      updatedFiles.delete(currentPasswordFile);
+                      setPasswordEncryptedFiles(updatedFiles);
+                      processedFilesRef.current.add(currentPasswordFile.name);
+                      setPassword(""); // Clear password for next file
+                      addToast({
+                        title: `Skipped ${currentPasswordFile.name}`,
+                        color: "warning",
+                      });
+
+                      // Process next file or finish if none left
+                      if (updatedFiles.size > 0) {
+                        processNextPasswordFile(updatedFiles as any);
+                      } else {
+                        setIsPasswordModalOpen(false);
+                        setDecrypting(false);
+                      }
+                    }}
+                  >
+                    Skip File
+                  </Button>
                 )}
               </div>
-            ) : inputMessage ? (
-              <p className="mb-4 text-sm text-gray-600">
-                Message requires password for decryption
-              </p>
-            ) : null}
-            <Input
-              ref={passwordInputRef}
-              placeholder="Enter Password"
-              type={isVisible ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handlePasswordDecrypt();
-                }
-              }}
-              endContent={
-                <button
-                  aria-label="toggle password visibility"
-                  className="focus:outline-none"
-                  type="button"
-                  onClick={toggleVisibility}
-                >
-                  {isVisible ? (
-                    <EyeSlashFilledIcon className="text-2xl text-default-400 pointer-events-none" />
-                  ) : (
-                    <EyeFilledIcon className="text-2xl text-default-400 pointer-events-none" />
-                  )}
-                </button>
-              }
-            />
-            <div className="flex gap-2 mt-4">
-              <Button
-                className="flex-1 px-4 py-2 bg-default-200 text-white rounded-full"
-                onPress={handlePasswordDecrypt}
-                disabled={decrypting}
-              >
-                {decrypting ? <Spinner color="white" size="sm" /> : "Submit"}
-              </Button>
-              {currentPasswordFile && passwordEncryptedFiles.size > 1 && (
-                <Button
-                  className="px-4 py-2 bg-gray-500 text-white rounded-full"
-                  onPress={() => {
-                    // Skip this file and move to next
-                    const updatedFiles = new Map(passwordEncryptedFiles);
-                    updatedFiles.delete(currentPasswordFile);
-                    setPasswordEncryptedFiles(updatedFiles);
-                    processedFilesRef.current.add(currentPasswordFile.name);
-                    setPassword(""); // Clear password for next file
-                    addToast({
-                      title: `Skipped ${currentPasswordFile.name}`,
-                      color: "warning",
-                    });
-
-                    // Process next file or finish if none left
-                    if (updatedFiles.size > 0) {
-                      processNextPasswordFile(updatedFiles as any);
-                    } else {
-                      setIsPasswordModalOpen(false);
-                      setDecrypting(false);
-                    }
-                  }}
-                >
-                  Skip File
-                </Button>
-              )}
-            </div>
+            </form>
           </ModalContent>
         </Modal>
       )}

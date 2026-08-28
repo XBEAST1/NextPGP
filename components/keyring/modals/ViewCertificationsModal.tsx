@@ -113,6 +113,11 @@ export default function ViewCertificationsModal({
       <div className="flex justify-between gap-3 items-end">
         <Input
           isClearable
+          type="search"
+          name="certs-search"
+          autoComplete="off"
+          data-1p-ignore="true"
+          data-lpignore="true"
           className="w-full sm:max-w-[100%]"
           placeholder="Search all fields (name, email, dates, status, key ID, fingerprint, etc.)"
           startContent={<SearchIcon />}

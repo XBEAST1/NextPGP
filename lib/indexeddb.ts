@@ -530,6 +530,20 @@ const decryptData = async (encryptedData: any, key: any, iv: any) => {
 };
 
 // 6. PGP Key Operations
+export const KEYRING_BROADCAST_CHANNEL = "nextpgp-keyring-channel";
+
+export const notifyKeyringChannel = () => {
+  if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
+    try {
+      const channel = new BroadcastChannel(KEYRING_BROADCAST_CHANNEL);
+      channel.postMessage({ type: "KEYRING_UPDATED", timestamp: Date.now() });
+      channel.close();
+    } catch (e) {
+      console.warn("Failed to broadcast keyring update:", e);
+    }
+  }
+};
+
 const getStoredKeys = async () => {
   const db: any = await openDB();
   const encryptionKey = await getEncryptionKey();
@@ -576,56 +590,78 @@ const saveKeyToIndexedDB = async (keyData: any) => {
   const transaction = db.transaction(dbPgpKeys, "readwrite");
   const store = transaction.objectStore(dbPgpKeys);
 
-  store.put({ id: keyData.id, encrypted, iv });
+  await new Promise<void>((resolve, reject) => {
+    const req = store.put({ id: keyData.id, encrypted, iv });
+    req.onsuccess = () => resolve();
+    req.onerror = (e: any) => reject(e.target.error);
+  });
+
+  notifyKeyringChannel();
 };
 
 const updateKeyInIndexeddb = async (keyId: any, updatedKeys: any) => {
-  const db: any = await openDB();
-  const encryptionKey = await getEncryptionKey();
+  const runUpdate = async () => {
+    const db: any = await openDB();
+    const encryptionKey = await getEncryptionKey();
 
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction("pgpKeys", "readonly");
-    const store = transaction.objectStore("pgpKeys");
-    const getRequest = store.get(keyId);
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction("pgpKeys", "readonly");
+      const store = transaction.objectStore("pgpKeys");
+      const getRequest = store.get(keyId);
 
-    getRequest.onsuccess = async () => {
-      const record = getRequest.result;
-      if (!record) {
-        return reject(new Error("Key record not found"));
-      }
+      getRequest.onsuccess = async () => {
+        const record = getRequest.result;
+        if (!record) {
+          return reject(new Error("Key record not found"));
+        }
 
-      try {
-        const originalDecrypted = await decryptData(
-          record.encrypted,
-          encryptionKey,
-          record.iv
-        );
-        const updatedDecrypted = {
-          ...originalDecrypted,
-          privateKey: updatedKeys.privateKey,
-          publicKey: updatedKeys.publicKey,
+        try {
+          const originalDecrypted = await decryptData(
+            record.encrypted,
+            encryptionKey,
+            record.iv
+          );
+          const updatedDecrypted = {
+            ...originalDecrypted,
+            privateKey:
+              updatedKeys.privateKey !== undefined
+                ? updatedKeys.privateKey
+                : originalDecrypted.privateKey,
+            publicKey:
+              updatedKeys.publicKey !== undefined
+                ? updatedKeys.publicKey
+                : originalDecrypted.publicKey,
+          };
+
+          const { encrypted, iv } = await encryptData(
+            updatedDecrypted,
+            encryptionKey
+          );
+          record.encrypted = encrypted;
+          record.iv = iv;
+        } catch (error) {
+          return reject(error);
+        }
+
+        const writeTx = db.transaction("pgpKeys", "readwrite");
+        const writeStore = writeTx.objectStore("pgpKeys");
+        const putRequest = writeStore.put(record);
+
+        putRequest.onsuccess = () => {
+          notifyKeyringChannel();
+          resolve(undefined);
         };
+        putRequest.onerror = (e: any) => reject(e.target.error);
+      };
 
-        const { encrypted, iv } = await encryptData(
-          updatedDecrypted,
-          encryptionKey
-        );
-        record.encrypted = encrypted;
-        record.iv = iv;
-      } catch (error) {
-        return reject(error);
-      }
+      getRequest.onerror = (e: any) => reject(e.target.error);
+    });
+  };
 
-      const writeTx = db.transaction("pgpKeys", "readwrite");
-      const writeStore = writeTx.objectStore("pgpKeys");
-      const putRequest = writeStore.put(record);
-
-      putRequest.onsuccess = () => resolve(undefined);
-      putRequest.onerror = (e: any) => reject(e.target.error);
-    };
-
-    getRequest.onerror = (e: any) => reject(e.target.error);
-  });
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    return navigator.locks.request(`pgp-key-${keyId}`, runUpdate);
+  }
+  return runUpdate();
 };
 
 // 7. Data Management
@@ -648,6 +684,7 @@ const deleteAllData = async () => {
   // Clear session storage and memory
   sessionStorage.clear();
   clearDecryptedMainKey();
+  notifyKeyringChannel();
 };
 
 export {

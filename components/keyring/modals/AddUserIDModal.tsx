@@ -37,6 +37,10 @@ export default function AddUserIDModal({
         <Input
           ref={nameInputRef}
           isRequired
+          name="pgp-username"
+          autoComplete="off"
+          data-1p-ignore="true"
+          data-lpignore="true"
           label="Name"
           labelPlacement="outside"
           placeholder="Enter your name"
@@ -50,6 +54,10 @@ export default function AddUserIDModal({
 
         <Input
           label="Email"
+          name="pgp-email"
+          autoComplete="off"
+          data-1p-ignore="true"
+          data-lpignore="true"
           labelPlacement="outside"
           placeholder="Enter your email"
           isInvalid={emailInvalid}

@@ -1,6 +1,12 @@
 "use client";
 
-import { Modal, ModalContent, Checkbox, DatePicker, Button } from "@heroui/react";
+import {
+  Modal,
+  ModalContent,
+  Checkbox,
+  DatePicker,
+  Button,
+} from "@heroui/react";
 import { today, getLocalTimeZone } from "@internationalized/date";
 
 interface ValidityModalProps {
@@ -51,7 +57,7 @@ export default function ValidityModal({
           onChange={(date) => setExpiryDate(date)}
         />
         <Button
-          className="mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
+          className="w-full mt-4 px-4 py-2 bg-default-200 text-white rounded-full"
           onPress={onConfirm}
         >
           Confirm

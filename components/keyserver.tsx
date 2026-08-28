@@ -429,8 +429,7 @@ const KeyServer = ({ isOpen, onClose, initialSearch, onKeyImported }: KeyServerP
   const filteredRows = useMemo(() => {
     if (!filterValue) return rows;
     return rows.filter(
-      (row) =>
-        (row: KeyserverKey) =>
+      (row: KeyserverKey) =>
         row.name.toLowerCase().includes(filterValue.toLowerCase()) ||
         row.creationdate.toLowerCase().includes(filterValue.toLowerCase()) ||
         row.expirydate.toLowerCase().includes(filterValue.toLowerCase()) ||
@@ -514,6 +513,11 @@ const KeyServer = ({ isOpen, onClose, initialSearch, onKeyImported }: KeyServerP
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
         <Input
           isClearable
+          type="search"
+          name="keyserver-search"
+          autoComplete="off"
+          data-1p-ignore="true"
+          data-lpignore="true"
           className="w-full"
           placeholder="Enter email, key ID, or fingerprint, or separate by commas to search multiple keys"
           startContent={<SearchIcon />}
@@ -594,6 +598,11 @@ const KeyServer = ({ isOpen, onClose, initialSearch, onKeyImported }: KeyServerP
         <div className="w-full sm:flex-1 sm:min-w-0 order-2 sm:order-none mt-2 sm:mt-0">
           <Input
             isClearable
+            type="search"
+            name="keyserver-filter"
+            autoComplete="off"
+            data-1p-ignore="true"
+            data-lpignore="true"
             className="w-full"
             placeholder="Filter across all fields (name, email, dates, status, key ID, fingerprint, etc.)"
             startContent={<SearchIcon />}

@@ -1,37 +1,39 @@
 /**
- * hooks/useTableState.js
+ * hooks/useTableState.ts
  *
  * Generic hook for table pagination, sorting, filtering, and column visibility.
- * Eliminates the identical pattern that was copy-pasted 5× in page.jsx
- * (main table + 4 modal tables).
+ * Eliminates duplicate table logic across main table and modal tables.
  */
 
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
 
+export interface SortDescriptor {
+  column?: string;
+  direction?: "ascending" | "descending" | string;
+}
+
+export interface UseTableStateOptions<T = any> {
+  items: T[];
+  filterFn?: (item: T, filterValue: string) => boolean;
+  rowsPerPage?: number;
+  persistKey?: string;
+}
+
 /**
- * @param {object} opts
- * @param {Array}  opts.items                - The full dataset to operate on
- * @param {Function} [opts.filterFn]         - Custom filter predicate (item, filterValue) => bool
- *                                            Defaults to matching filterValue against all string fields.
- * @param {number} [opts.rowsPerPage=5]      - Rows per page
- * @param {string} [opts.persistKey]         - localStorage key for persisting rowsPerPage
+ * @param opts Configuration options for table state
  */
-export function useTableState({
+export function useTableState<T = any>({
   items,
   filterFn,
   rowsPerPage: initialRowsPerPage = 5,
   persistKey,
-}: {
-  items: any[];
-  filterFn?: (item: any, value: string) => boolean;
-  rowsPerPage?: number;
-  persistKey?: string;
-}) {
+}: UseTableStateOptions<T>) {
   const [filterValue, setFilterValue] = useState("");
   const [page, setPage] = useState(1);
-  const [sortDescriptor, setSortDescriptor] = useState<{column?: string; direction?: string}>({});
+  const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({});
+
   const [rowsPerPage, setRowsPerPage] = useState(() => {
     if (persistKey && typeof window !== "undefined") {
       const stored = localStorage.getItem(persistKey);
@@ -42,7 +44,6 @@ export function useTableState({
 
   const hasSearchFilter = Boolean(filterValue);
 
-  // Default filter: match against all string-valued fields
   const defaultFilterFn = useCallback(
     (item: any, value: string) =>
       Object.values(item).some(
@@ -51,12 +52,12 @@ export function useTableState({
     []
   );
 
-  const activeFilerFn = filterFn || defaultFilterFn;
+  const activeFilterFn = filterFn || defaultFilterFn;
 
   const filteredItems = useMemo(() => {
     if (!filterValue) return [...items];
-    return items.filter((item: any) => activeFilerFn(item, filterValue));
-  }, [items, filterValue, activeFilerFn]);
+    return items.filter((item: T) => activeFilterFn(item, filterValue));
+  }, [items, filterValue, activeFilterFn]);
 
   const pages = Math.max(1, Math.ceil(filteredItems.length / rowsPerPage));
 
@@ -65,7 +66,7 @@ export function useTableState({
     const end = start + rowsPerPage;
 
     return [...filteredItems]
-      .sort((a, b) => {
+      .sort((a: any, b: any) => {
         if (!sortDescriptor.column) return 0;
         const first = a[sortDescriptor.column];
         const second = b[sortDescriptor.column];

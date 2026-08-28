@@ -5,7 +5,6 @@ import * as openpgp from "openpgp";
 import {
   openDB,
   getEncryptionKey,
-  encryptData,
   decryptData,
   dbPgpKeys,
 } from "@/lib/indexeddb";

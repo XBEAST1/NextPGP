@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import type { Selection, SortDescriptor } from "@heroui/react";
+import type { Selection } from "@heroui/react";
 
 export interface KeyringUser {
   id: string;
@@ -218,11 +218,12 @@ export default function App() {
   const passwordModalState = usePasswordModal();
   const {
     password, setPassword, isVisible, toggleVisibility,
-    newKeyPassword, passwordModal, setPasswordModal,
-    newPasswordChangeModal, setnewPasswordChangeModal,
+    newKeyPassword, passwordModal,
+    newPasswordChangeModal,
     subkeyGlobalIndex, setSubkeyGlobalIndex,
     passwordInputRef, newPasswordInputRef,
-    triggerKeyPasswordModal, triggernewPasswordChangeModal, triggerSubkeyPasswordModal,
+    onPasswordModalClose, onNewPasswordModalClose,
+    triggerKeyPasswordModal, triggerNewPasswordChangeModal, triggerSubkeyPasswordModal,
   } = passwordModalState;
 
   // --- Manage User IDs modal state ---
@@ -242,8 +243,10 @@ export default function App() {
     items: modalUserIDs,
     rowsPerPage: 5,
     filterFn: (u, val) =>
-      u.name.toLowerCase().includes(val.toLowerCase()) ||
-      u.email.toLowerCase().includes(val.toLowerCase()),
+      Boolean(
+        u.name?.toLowerCase().includes(val.toLowerCase()) ||
+        u.email?.toLowerCase().includes(val.toLowerCase())
+      ),
   });
 
   // --- Certify modal state (Modal2) ---
@@ -341,7 +344,7 @@ export default function App() {
   const ops = useKeyOperations({
     setUsers,
     triggerKeyPasswordModal,
-    triggernewPasswordChangeModal,
+    triggerNewPasswordChangeModal,
     triggerSubkeyPasswordModal,
     setSubkeyGlobalIndex,
     selectedUserId,
@@ -442,7 +445,7 @@ export default function App() {
               setdeleteModal={setdeleteModal}
               backupKeyring={ops.backupKeyring}
               addOrChangeKeyPassword={ops.addOrChangeKeyPassword}
-              GenerateRevocationCertificate={ops.GenerateRevocationCertificate}
+              generateRevocationCertificate={ops.generateRevocationCertificate}
               getRevocationReason={ops.getRevocationReason}
             />
           );
@@ -464,6 +467,11 @@ export default function App() {
       <div className="flex justify-between gap-3 items-end">
         <Input
           isClearable
+          type="search"
+          name="search"
+          autoComplete="off"
+          data-1p-ignore="true"
+          data-lpignore="true"
           className="w-full sm:max-w-[100%]"
           placeholder="Search all fields (name, email, dates, status, key ID, fingerprint, etc.)"
           startContent={<SearchIcon />}
@@ -643,21 +651,39 @@ export default function App() {
         setExpiryDate={setExpiryDate}
         onConfirm={async () => {
           if (manageSubkeyModal && selectedSubkey !== null) {
-            await ops.ChangeSubkeyValidity(selectedSubkey, {
-              isNoExpiryChecked, expiryDate,
-              setvalidityModal, setSelectedUserId, setSelectedSubkey,
+            const ok = await ops.changeSubkeyValidity(selectedSubkey, {
+              isNoExpiryChecked,
+              expiryDate,
             });
+            if (ok) {
+              setvalidityModal(false);
+              setSelectedSubkey(null);
+              if (selectedUserId) {
+                const refreshed = await loadKeysFromIndexedDB();
+                const updated = refreshed.find((u: any) => u.id === selectedUserId.id);
+                if (updated) {
+                  setSelectedUserId(updated);
+                  const subkeys = await ops.manageSubkeys(updated);
+                  setUsersModal4(subkeys);
+                }
+              }
+            }
           } else {
-            await ops.ChangeKeyValidity({
-              isNoExpiryChecked, expiryDate, setvalidityModal, setSelectedUserId,
+            const ok = await ops.changeKeyValidity({
+              isNoExpiryChecked,
+              expiryDate,
             });
+            if (ok) {
+              setvalidityModal(false);
+              setSelectedUserId(null);
+            }
           }
         }}
       />
 
       <PasswordModal
         isOpen={passwordModal}
-        onClose={() => setPasswordModal(false)}
+        onClose={onPasswordModalClose}
         subkeyGlobalIndex={subkeyGlobalIndex}
         password={password}
         setPassword={setPassword}
@@ -669,7 +695,7 @@ export default function App() {
 
       <NewPasswordModal
         isOpen={newPasswordChangeModal}
-        onClose={() => setnewPasswordChangeModal(false)}
+        onClose={onNewPasswordModalClose}
         subkeyGlobalIndex={subkeyGlobalIndex}
         password={password}
         setPassword={setPassword}
@@ -683,7 +709,12 @@ export default function App() {
         isOpen={removePasswordModal}
         onClose={() => setremovePasswordModal(false)}
         selectedKeyName={selectedKeyName}
-        onConfirm={() => ops.removePasswordFromKey({ setremovePasswordModal })}
+        onConfirm={async () => {
+          const ok = await ops.removePasswordFromKey();
+          if (ok) {
+            setremovePasswordModal(false);
+          }
+        }}
       />
 
       <AddUserIDModal
@@ -696,12 +727,24 @@ export default function App() {
         nameInvalid={nameInvalid}
         emailInvalid={emailInvalid}
         nameInputRef={nameInputRef}
-        onAdd={() =>
-          ops.addUserID(selectedUserId, {
-            name, email, setName, setEmail,
-            setaddUserIDModal, setNameInvalid, setEmailInvalid,
-          })
-        }
+        onAdd={async () => {
+          setNameInvalid(false);
+          setEmailInvalid(false);
+          if (!name.trim()) {
+            setNameInvalid(true);
+            return;
+          }
+          if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setEmailInvalid(true);
+            return;
+          }
+          const ok = await ops.addUserID(selectedUserId, { name, email });
+          if (ok) {
+            setaddUserIDModal(false);
+            setName("");
+            setEmail("");
+          }
+        }}
       />
 
       <ManageUserIDsModal
@@ -720,10 +763,14 @@ export default function App() {
         pages={manageUserIDsTable.pages}
         onNextPage={manageUserIDsTable.onNextPage}
         onPreviousPage={manageUserIDsTable.onPreviousPage}
-        onSetPrimary={(user, row) =>
-          ops.setPrimaryUserID(user, row, { setModalUserIDs: setModalUserIDs as any })
-        }
-        onTriggerRevoke={(user, row) => {
+        onSetPrimary={async (user, row) => {
+          const ok = await ops.setPrimaryUserID(user, row);
+          if (ok && selectedUserId) {
+            const ids = await ops.getUserIDsFromKeyForModal(selectedUserId);
+            setModalUserIDs(ids);
+          }
+        }}
+        onTriggerRevoke={(_user, row) => {
           setUserIDToRevoke(row);
           setrevokeUserIDModal(true);
         }}
@@ -733,9 +780,16 @@ export default function App() {
         isOpen={revokeUserIDModal}
         onClose={() => setrevokeUserIDModal(false)}
         userIDToRevoke={userIDToRevoke}
-        onConfirm={() =>
-          ops.revokeUserID(selectedUserId, userIDToRevoke, { setModalUserIDs: setModalUserIDs as any })
-        }
+        onConfirm={async () => {
+          const ok = await ops.revokeUserID(selectedUserId, userIDToRevoke);
+          if (ok) {
+            setrevokeUserIDModal(false);
+            if (selectedUserId) {
+              const ids = await ops.getUserIDsFromKeyForModal(selectedUserId);
+              setModalUserIDs(ids);
+            }
+          }
+        }}
       />
 
       <AddSubkeyModal
@@ -750,12 +804,28 @@ export default function App() {
         setSelectedAlgorithm={setSelectedAlgorithm}
         subkeyOption={subkeyOption}
         setSubkeyOption={setSubkeyOption}
-        onAdd={() =>
-          ops.addSubkey(selectedUserId, {
-            selectedAlgorithm, subkeyOption,
-            isNoExpiryChecked, expiryDate, setaddSubkeyModal,
-          })
-        }
+        onAdd={async () => {
+          const ok = await ops.addSubkey(selectedUserId, {
+            selectedAlgorithm,
+            subkeyOption,
+            isNoExpiryChecked,
+            expiryDate,
+          });
+          if (ok) {
+            setaddSubkeyModal(false);
+            if (selectedUserId) {
+              const refreshed = await loadKeysFromIndexedDB();
+              const updated = refreshed.find((u: any) => u.id === selectedUserId.id);
+              if (updated) {
+                setSelectedUserId(updated);
+                if (manageSubkeyModal) {
+                  const subkeys = await ops.manageSubkeys(updated);
+                  setUsersModal4(subkeys);
+                }
+              }
+            }
+          }
+        }}
       />
 
       <CertifyKeyModal
@@ -776,9 +846,12 @@ export default function App() {
         setVisibleColumns={setVisibleColumnsModal2}
         totalItems={certifyTable.filteredItems.length}
         isLoading={isLoadingModal2}
-        onCertify={(certifierUser) =>
-          ops.certifyUserKey(certifierUser, selectedUserId, { setcertifyUserModal })
-        }
+        onCertify={async (certifierUser) => {
+          const ok = await ops.certifyUserKey(certifierUser, selectedUserId);
+          if (ok) {
+            setcertifyUserModal(false);
+          }
+        }}
       />
 
       <ManageSubkeyModal
@@ -804,8 +877,22 @@ export default function App() {
         totalItems={usersModal4.length}
         isLoading={isLoadingModal4}
         onBackupSubkey={ops.backupSubkey as any}
-        onAddOrChangeSubkeyPassword={ops.addOrChangeSubkeyPassword}
-        onRemoveSubkeyPassword={ops.RemoveSubkeyPassword}
+        onAddOrChangeSubkeyPassword={async (idx: number) => {
+          const updated = await ops.addOrChangeSubkeyPassword(idx);
+          if (updated) {
+            setSelectedUserId(updated);
+            const subkeys = await ops.manageSubkeys(updated);
+            setUsersModal4(subkeys);
+          }
+        }}
+        onRemoveSubkeyPassword={async (idx: number) => {
+          const updated = await ops.removeSubkeyPassword(idx);
+          if (updated) {
+            setSelectedUserId(updated);
+            const subkeys = await ops.manageSubkeys(updated);
+            setUsersModal4(subkeys);
+          }
+        }}
         setSubkeyGlobalIndex={setSubkeyGlobalIndex}
         setSelectedSubkey={setSelectedSubkey}
         setvalidityModal={setvalidityModal}
@@ -846,7 +933,13 @@ export default function App() {
         keyInput={keyInput}
         setKeyInput={setKeyInput}
         handleFileInput={handleFileInput}
-        onConfirm={(user, cert) => ops.RevokeUsingCertificate(user, cert, { setKeyInput })}
+        onConfirm={async (user, cert) => {
+          const ok = await ops.revokeUsingCertificate(user, cert);
+          if (ok) {
+            setrevokeUsingCertificateModal(false);
+            setKeyInput("");
+          }
+        }}
       />
 
       <RevokeKeyModal
@@ -864,9 +957,25 @@ export default function App() {
         setRevocationReasonText={setRevocationReasonText}
         onConfirm={async () => {
           if (manageSubkeyModal && selectedSubkey !== null) {
-            await ops.revokeSubkey(selectedSubkey, { setSelectedUserId });
+            const ok = await ops.revokeSubkey(selectedSubkey);
+            if (ok) {
+              setrevokeModal(false);
+              setSelectedSubkey(null);
+              if (selectedUserId) {
+                const refreshed = await loadKeysFromIndexedDB();
+                const updated = refreshed.find((u: any) => u.id === selectedUserId.id);
+                if (updated) {
+                  setSelectedUserId(updated);
+                  const subkeys = await ops.manageSubkeys(updated);
+                  setUsersModal4(subkeys);
+                }
+              }
+            }
           } else {
-            await ops.revokeKey(selectedUserId);
+            const ok = await ops.revokeKey(selectedUserId);
+            if (ok) {
+              setrevokeModal(false);
+            }
           }
         }}
       />
@@ -884,21 +993,32 @@ export default function App() {
         isOpen={publishKeyModal}
         onClose={() => setpublishKeyModal(false)}
         selectedKeyName={selectedKeyName}
-        onConfirm={ops.publishKeyOnServer}
+        onConfirm={async () => {
+          const ok = await ops.publishKeyOnServer();
+          if (ok) {
+            setpublishKeyModal(false);
+          }
+        }}
       />
 
       <PublicKeySnippetModal
         isOpen={publicKeyModal}
         onClose={() => setpublicKeyModal(false)}
         publicKeySnippet={publicKeySnippet}
-        onDownload={() => ops.exportPublicKey(selectedUserPublicKey, { setPublicKeySnippet, setpublicKeyModal })}
+        onDownload={() => {
+          ops.exportPublicKey(selectedUserPublicKey);
+          setpublicKeyModal(false);
+        }}
       />
 
       <DeleteKeyModal
         isOpen={deleteModal}
         onClose={() => setdeleteModal(false)}
         selectedKeyName={selectedKeyName}
-        onConfirm={() => ops.deleteKey(selectedUserId)}
+        onConfirm={async () => {
+          await ops.deleteKey(selectedUserId);
+          setdeleteModal(false);
+        }}
       />
     </>
   );

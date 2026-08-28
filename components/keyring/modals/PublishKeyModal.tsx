@@ -53,9 +53,6 @@ export default function PublishKeyModal({
             color="warning"
             variant="flat"
             onPress={handlePublish}
-            onKeyDown={async (e) => {
-              if (e.key === "Enter") await handlePublish();
-            }}
           >
             Yes, Publish Key
           </Button>

@@ -34,12 +34,6 @@ export default function DeleteKeyModal({
               onConfirm();
               onClose();
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                onConfirm();
-                onClose();
-              }
-            }}
           >
             Yes
           </Button>
