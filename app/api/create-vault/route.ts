@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { validateCipherFormat, rateLimit, validateCSRFToken, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
-import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
+import { validateBody, CreateVaultSchema, VaultExistsResponse } from "@/lib/validations/api";
 
 export async function GET() {
   const session = await auth();
@@ -27,7 +27,7 @@ export async function GET() {
     where: { userId: session.user.id } 
   });
 
-  const response = NextResponse.json({ 
+  const response = NextResponse.json<VaultExistsResponse>({ 
     exists: Boolean(vault)
   });
   addRateLimitHeaders(response, rateLimitResult);
@@ -35,12 +35,6 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const sizeError = validateRequestSize(req as any);
-  if (sizeError) return sizeError;
-  
-  const jsonSizeError = await validateRequestBodySize(req as any);
-  if (jsonSizeError) return jsonSizeError;
-
   const session = await auth();
 
   if (!session || !session.user?.id) {
@@ -59,21 +53,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
   }
 
-  let payload;
-  try {
-    payload = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+  const parsed = await validateBody(req, CreateVaultSchema);
+  if (!parsed.success) {
+    return parsed.errorResponse;
   }
 
-  const { verificationCipher, csrfToken } = payload;
-  
-  if (!csrfToken || typeof csrfToken !== 'string') {
-    return NextResponse.json(
-      { error: "CSRF token required" },
-      { status: 403 }
-    );
-  }
+  const { verificationCipher, csrfToken } = parsed.data;
 
   const isValidCSRF = validateCSRFToken(csrfToken, session.user.id);
   if (!isValidCSRF) {
@@ -93,9 +78,9 @@ export async function POST(req: Request) {
 
   try {
     const vault = await prisma.$transaction(async (tx) => {
-        const existingVault = await tx.vault.findUnique({ 
-          where: { userId: session.user!.id } 
-        });
+      const existingVault = await tx.vault.findUnique({ 
+        where: { userId: session.user!.id } 
+      });
       if (existingVault) {
         throw new Error("Vault already exists");
       }

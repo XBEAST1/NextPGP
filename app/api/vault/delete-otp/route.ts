@@ -3,13 +3,10 @@ import { auth } from "@/auth";
 import { sendEmail } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
 import { validateCSRFToken, rateLimit, generateSecureOTP, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
-import { validateRequestSize } from "@/lib/request-limits";
+import { validateBody, CsrfOnlySchema, VaultDeleteOtpResponse } from "@/lib/validations/api";
 import argon2 from "argon2";
 
 export async function POST(request: Request) {
-  const sizeError = validateRequestSize(request as any);
-  if (sizeError) return sizeError;
-
   const session = await auth();
 
   if (!session?.user?.email || !session.user.id) {
@@ -28,18 +25,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+  const parsed = await validateBody(request, CsrfOnlySchema);
+  if (!parsed.success) {
+    return parsed.errorResponse;
   }
 
-  const { csrfToken } = body;
-
-  if (!csrfToken || typeof csrfToken !== 'string') {
-    return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
-  }
+  const { csrfToken } = parsed.data;
 
   if (!validateCSRFToken(csrfToken, session.user.id)) {
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
@@ -103,7 +94,7 @@ export async function POST(request: Request) {
         : local;
     const maskedEmail = `${localMasked}@${domain}`;
 
-    const response = NextResponse.json({
+    const response = NextResponse.json<VaultDeleteOtpResponse>({
       message: "Email sent successfully",
       maskedEmail,
     });

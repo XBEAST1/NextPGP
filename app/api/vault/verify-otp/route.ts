@@ -2,17 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { validateCSRFToken, rateLimit, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
-import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
+import { validateBody, VerifyOtpSchema, ApiMessageResponse } from "@/lib/validations/api";
 import argon2 from "argon2";
 
 export async function POST(request: Request) {
   try {
-    const sizeError = validateRequestSize(request as any);
-    if (sizeError) return sizeError;
-    
-    const jsonSizeError = await validateRequestBodySize(request as any);
-    if (jsonSizeError) return jsonSizeError;
-
     const session = await auth();
     if (!session?.user?.email || !session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,24 +24,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
     }
 
-    let payload;
-    try {
-      payload = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    const parsed = await validateBody(request, VerifyOtpSchema);
+    if (!parsed.success) {
+      return parsed.errorResponse;
     }
 
-    const { otp, csrfToken } = payload;
-
-    if (!csrfToken || typeof csrfToken !== 'string') {
-      return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
-    }
+    const { otp, csrfToken } = parsed.data;
 
     if (!validateCSRFToken(csrfToken, session.user.id)) {
       return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
-    }
-    if (!otp) {
-      return NextResponse.json({ error: "OTP is required" }, { status: 400 });
     }
 
     const vault = await prisma.vault.findUnique({ 
@@ -70,7 +55,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid OTP" }, { status: 400 });
     }
 
-    const response = NextResponse.json({ message: "OTP verified successfully" });
+    const response = NextResponse.json<ApiMessageResponse>({ message: "OTP verified successfully" });
     addRateLimitHeaders(response, rateLimitResult);
     return addSecurityHeaders(response);
   } catch {

@@ -2,15 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, validateCSRFToken, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
-import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
+import { validateBody, FetchKeysSchema, FetchKeysResponse, FetchKeysResponseKey } from "@/lib/validations/api";
 
 export async function POST(req: Request) {
-  const sizeError = validateRequestSize(req as any);
-  if (sizeError) return sizeError;
-  
-  const jsonSizeError = await validateRequestBodySize(req as any);
-  if (jsonSizeError) return jsonSizeError;
-
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -27,17 +21,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
   }
 
-  let payload;
-  try {
-    payload = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+  const parsed = await validateBody(req, FetchKeysSchema);
+  if (!parsed.success) {
+    return parsed.errorResponse;
   }
 
-  const { csrfToken } = payload;
-  if (!csrfToken || typeof csrfToken !== 'string') {
-    return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
-  }
+  const { csrfToken } = parsed.data;
 
   if (!validateCSRFToken(csrfToken, session.user.id)) {
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
@@ -55,7 +44,7 @@ export async function POST(req: Request) {
   });
 
   try {
-    const responseKeys = keys.map((key: any) => ({
+    const responseKeys: FetchKeysResponseKey[] = keys.map((key) => ({
       id: key.id,
       privateKey: key.privateKey || "",
       privateKeyHash: key.privateKeyHash || "",
@@ -63,7 +52,7 @@ export async function POST(req: Request) {
       publicKeyHash: key.publicKeyHash || "",
     }));
 
-    const response = NextResponse.json({ keys: responseKeys });
+    const response = NextResponse.json<FetchKeysResponse>({ keys: responseKeys });
     addRateLimitHeaders(response, rateLimitResult);
     return addSecurityHeaders(response);
   } catch {

@@ -2,16 +2,10 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateCSRFToken, rateLimit, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
-import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
+import { validateBody, CsrfOnlySchema, ApiMessageResponse } from "@/lib/validations/api";
 import jwt from "jsonwebtoken";
 
 export async function POST(request: Request) {
-  const sizeError = validateRequestSize(request as any);
-  if (sizeError) return sizeError;
-  
-  const jsonSizeError = await validateRequestBodySize(request as any);
-  if (jsonSizeError) return jsonSizeError;
-
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -29,18 +23,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+  const parsed = await validateBody(request, CsrfOnlySchema);
+  if (!parsed.success) {
+    return parsed.errorResponse;
   }
 
-  const { csrfToken } = body;
-
-  if (!csrfToken || typeof csrfToken !== 'string') {
-    return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
-  }
+  const { csrfToken } = parsed.data;
 
   if (!validateCSRFToken(csrfToken, session.user.id)) {
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
@@ -60,7 +48,7 @@ export async function POST(request: Request) {
   );
 
   // Set HttpOnly cookie for middleware to verify
-  const res = NextResponse.json({ message: "Vault unlocked successfully" });
+  const res = NextResponse.json<ApiMessageResponse>({ message: "Vault unlocked successfully" });
   res.cookies.set({
     name: "vault_token",
     value: token,

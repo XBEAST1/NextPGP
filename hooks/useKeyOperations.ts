@@ -110,14 +110,10 @@ export function useKeyOperations({
 
   const publishKeyOnServer = useCallback(async () => {
     try {
-      const csrfRes = await fetch("/api/csrf", { method: "GET" });
-      if (!csrfRes.ok) throw new Error("Failed to get CSRF token");
-      const { csrfToken } = await csrfRes.json();
-
       const response = await fetch("/api/keyserver", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ publicKey: selectedUserId.publicKey, csrfToken }),
+        body: JSON.stringify({ publicKey: selectedUserId.publicKey }),
       });
       if (!response.ok) throw new Error("Failed to publish key on the server.");
 

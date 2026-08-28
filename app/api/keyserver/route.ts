@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from "@/auth";
-import { rateLimit, validateCSRFToken, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
-import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
+import { rateLimit, addSecurityHeaders, addRateLimitHeaders } from "@/lib/security";
+import {
+  validateBody,
+  KeyserverPublishSchema,
+  KeyserverSearchQuerySchema,
+} from "@/lib/validations/api";
 
 const fetchWithTimeout = async (url: string, timeoutMs = 10000): Promise<Response> => {
   const controller = new AbortController();
@@ -33,16 +37,23 @@ const tryKeyserver = async (path: string): Promise<string> => {
   throw lastError;
 }
 
+function getClientIdentifier(request: NextRequest, sessionUserId?: string | null): string {
+  if (sessionUserId) return sessionUserId;
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) return realIp.trim();
+  return 'anonymous';
+}
+
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session || !session.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await auth().catch(() => null);
+  const identifier = getClientIdentifier(request, session?.user?.id);
 
   const rateLimitResult = await rateLimit({
     windowMs: 60000,
     maxRequests: 100,  // 100 requests per minute
-    userId: session.user.id,
+    userId: identifier,
     endpoint: 'keyserver-get'
   });
 
@@ -52,21 +63,18 @@ export async function GET(request: NextRequest) {
 
   const url = new URL(request.url);
   const searchParam = url.searchParams.get('search');
-  const csrfToken = url.searchParams.get('csrfToken');
 
-  if (!csrfToken || typeof csrfToken !== 'string') {
-    return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+  const queryParsed = KeyserverSearchQuerySchema.safeParse({ search: searchParam ?? "" });
+  if (!queryParsed.success) {
+    const firstIssue = queryParsed.error.issues[0];
+    return NextResponse.json(
+      { error: firstIssue?.message || "Missing search parameter" },
+      { status: 400 }
+    );
   }
 
-  if (!validateCSRFToken(csrfToken, session.user.id)) {
-    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
-  }
-
-  if (!searchParam) {
-    return NextResponse.json({ error: 'Missing search parameter' }, { status: 400 });
-  }
-
-  const terms = searchParam.split(',').map(s => s.trim()).filter(Boolean);
+  const { search } = queryParsed.data;
+  const terms = search.split(',').map(s => s.trim()).filter(Boolean);
 
   const seenKeyIds = new Set<string>();
   const seenKeyBlocks = new Set<string>();
@@ -125,21 +133,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const sizeError = validateRequestSize(request);
-    if (sizeError) return sizeError;
-    
-    const jsonSizeError = await validateRequestBodySize(request);
-    if (jsonSizeError) return jsonSizeError;
-
-    const session = await auth();
-    if (!session || !session.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await auth().catch(() => null);
+    const identifier = getClientIdentifier(request, session?.user?.id);
 
     const rateLimitResult = await rateLimit({
       windowMs: 60000,
       maxRequests: 50,  // 50 requests per minute
-      userId: session.user.id,
+      userId: identifier,
       endpoint: 'keyserver-post'
     });
 
@@ -147,22 +147,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
     }
 
-    const { publicKey, csrfToken } = await request.json();
-    
-    if (!csrfToken || typeof csrfToken !== 'string') {
-      return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+    const parsed = await validateBody(request, KeyserverPublishSchema);
+    if (!parsed.success) {
+      return parsed.errorResponse;
     }
 
-    if (!validateCSRFToken(csrfToken, session.user.id)) {
-      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
-    }
-    
-    if (!publicKey) {
-      return NextResponse.json(
-        { error: 'Missing publicKey in request body' },
-        { status: 400 }
-      );
-    }
+    const { publicKey } = parsed.data;
 
     const formData = new URLSearchParams();
     formData.append('keytext', publicKey);

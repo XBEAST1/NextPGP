@@ -8,15 +8,14 @@ import {
   addSecurityHeaders,
   addRateLimitHeaders,
 } from "@/lib/security";
-import { validateRequestSize, validateRequestBodySize } from "@/lib/request-limits";
+import {
+  validateBody,
+  ManageKeysPostSchema,
+  ManageKeysDeleteSchema,
+  ApiMessageResponse,
+} from "@/lib/validations/api";
 
 export async function POST(req: Request) {
-  const sizeError = validateRequestSize(req as any);
-  if (sizeError) return sizeError;
-  
-  const jsonSizeError = await validateRequestBodySize(req as any);
-  if (jsonSizeError) return jsonSizeError;
-
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -34,14 +33,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
-  let payload;
-  try {
-    payload = await req.json();
-  } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON payload" },
-      { status: 400 }
-    );
+  const parsed = await validateBody(req, ManageKeysPostSchema);
+  if (!parsed.success) {
+    return parsed.errorResponse;
   }
 
   const {
@@ -50,21 +44,10 @@ export async function POST(req: Request) {
     privateKeyHash,
     publicKeyHash,
     csrfToken,
-  } = payload;
-
-  if (!csrfToken || typeof csrfToken !== 'string') {
-    return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
-  }
+  } = parsed.data;
 
   if (!validateCSRFToken(csrfToken, session.user.id)) {
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
-  }
-
-  if (!encryptedPrivateKey && !encryptedPublicKey) {
-    return NextResponse.json(
-      { message: "At least one key (private or public) is required" },
-      { status: 400 }
-    );
   }
 
   if (encryptedPrivateKey) {
@@ -119,7 +102,7 @@ export async function POST(req: Request) {
       },
     });
 
-    const response = NextResponse.json(
+    const response = NextResponse.json<ApiMessageResponse>(
       { message: "Key stored successfully", key: storedKey },
       { status: 200 }
     );
@@ -133,19 +116,6 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const sizeError = validateRequestSize(req as any);
-    if (sizeError) return sizeError;
-
-    let payload;
-    try {
-      payload = await req.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON payload" },
-        { status: 400 }
-      );
-    }
-
     const session = await auth();
     if (!session || !session.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -165,21 +135,15 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const { keyId, publicKeyHash, privateKeyHash, csrfToken } = payload;
-
-    if (!csrfToken || typeof csrfToken !== 'string') {
-      return NextResponse.json({ error: "CSRF token required" }, { status: 403 });
+    const parsed = await validateBody(req, ManageKeysDeleteSchema);
+    if (!parsed.success) {
+      return parsed.errorResponse;
     }
+
+    const { publicKeyHash, privateKeyHash, csrfToken } = parsed.data;
 
     if (!validateCSRFToken(csrfToken, session.user.id)) {
       return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
-    }
-
-    if (!keyId || (!publicKeyHash && !privateKeyHash)) {
-      return NextResponse.json(
-        { error: "Missing required parameters" },
-        { status: 400 }
-      );
     }
 
     const vault = await prisma.vault.findUnique({
@@ -214,7 +178,7 @@ export async function DELETE(req: Request) {
       where: { id: keyToDelete.id },
     });
 
-    const response = NextResponse.json(
+    const response = NextResponse.json<ApiMessageResponse>(
       { message: "Key deleted successfully" },
       { status: 200 }
     );
