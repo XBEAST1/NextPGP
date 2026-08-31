@@ -9,6 +9,8 @@
     "build": "prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -74,6 +76,7 @@
     "tailwind-variants": "0.1.20",
     "tailwindcss": "3.4.16",
     "typescript": "5.6.3",
+    "vitest": "^4.1.11",
     "webpack": "^5.95.0"
   },
   "engines": {

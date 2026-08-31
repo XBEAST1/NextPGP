@@ -2,26 +2,39 @@
 
 import * as openpgp from "openpgp";
 import JSZip from "jszip";
+import type {
+  EncryptWorkerMessageData,
+  EncryptResponsePayload,
+} from "./encryptWorker.types";
 
-export type EncryptWorkerMessageData = {
-  type: string;
-  message: string;
-  recipientKeys: any[];
-  recipients: any[];
-  isChecked: boolean;
-  encryptionPassword?: string;
-  decryptedPrivateKey?: string;
-  files?: any[];
-  directoryFiles?: any[];
-};
+export type {
+  EncryptRecipientKey,
+  EncryptRecipientSelection,
+  EncryptWorkerMessageType,
+  EncryptWorkerResponseType,
+  EncryptWorkerMessageData,
+  EncryptToastPayload,
+  EncryptDownloadPayload,
+  EncryptResponsePayload,
+  EncryptWorkerTask,
+} from "./encryptWorker.types";
 
-onmessage = async function (e: MessageEvent<EncryptWorkerMessageData>) {
+/**
+ * Type-safe helper to send messages back to the main thread.
+ */
+function sendResponse(response: EncryptResponsePayload) {
+  postMessage(response);
+}
+
+export async function handleEncryptWorkerMessage(
+  e: MessageEvent<EncryptWorkerMessageData>
+) {
   const {
     type,
     message,
     recipientKeys,
     recipients,
-    isChecked,
+    isChecked = false,
     encryptionPassword,
     decryptedPrivateKey,
     files,
@@ -30,12 +43,17 @@ onmessage = async function (e: MessageEvent<EncryptWorkerMessageData>) {
 
   if (type === "messageEncrypt") {
     try {
-      if (!message.trim()) {
+      const trimmedMessage = (message || "").trim();
+      if (!trimmedMessage) {
         return;
       }
-      const recipientKeysPublic = recipientKeys
+
+      const recipientKeysList = recipientKeys || [];
+      const recipientsList = recipients || [];
+
+      const recipientKeysPublic = recipientKeysList
         .filter((key) =>
-          recipients.some(
+          recipientsList.some(
             (r) => typeof r === "object" && r.keyId === key.id.toString()
           )
         )
@@ -48,15 +66,18 @@ onmessage = async function (e: MessageEvent<EncryptWorkerMessageData>) {
             armoredKey: decryptedPrivateKey,
           });
           const cleartextMessage = await openpgp.createCleartextMessage({
-            text: message,
+            text: trimmedMessage,
           });
           const signedMessage = await openpgp.sign({
             message: cleartextMessage,
             signingKeys: signingKey,
           });
-          postMessage({ type: "setEncryptedMessage", payload: signedMessage });
+          sendResponse({
+            type: "setEncryptedMessage",
+            payload: signedMessage,
+          });
         } else {
-          postMessage({
+          sendResponse({
             type: "addToast",
             payload: {
               title:
@@ -69,34 +90,42 @@ onmessage = async function (e: MessageEvent<EncryptWorkerMessageData>) {
       }
 
       // Use the already-decrypted key if available
-      let signingKey;
-
+      let signingKey: openpgp.PrivateKey | undefined;
       if (decryptedPrivateKey) {
-        // Reconstruct the decrypted key object from the armored string
         signingKey = await openpgp.readPrivateKey({
           armoredKey: decryptedPrivateKey,
         });
       }
 
-      const messageToEncrypt = await openpgp.createMessage({ text: message });
-      const encryptionOptions = {
-        message: messageToEncrypt,
-        ...(isChecked &&
-          encryptionPassword && { passwords: [encryptionPassword] }),
-        ...(recipientKeysPublic.length > 0 && {
-          encryptionKeys: await Promise.all(
-            recipientKeysPublic.map((key) =>
-              openpgp.readKey({ armoredKey: key })
-            )
-          ),
-        }),
-        ...(signingKey && { signingKeys: signingKey }),
-      };
+      const messageToEncrypt = await openpgp.createMessage({
+        text: trimmedMessage,
+      });
 
-      const encryptedMessage = await openpgp.encrypt(encryptionOptions);
-      postMessage({ type: "setEncryptedMessage", payload: encryptedMessage });
+      const encryptionKeys =
+        recipientKeysPublic.length > 0
+          ? await Promise.all(
+              recipientKeysPublic.map((key) =>
+                openpgp.readKey({ armoredKey: key })
+              )
+            )
+          : undefined;
+
+      const passwords =
+        isChecked && encryptionPassword ? [encryptionPassword] : undefined;
+
+      const encryptedMessage = (await openpgp.encrypt({
+        message: messageToEncrypt,
+        passwords,
+        encryptionKeys,
+        signingKeys: signingKey,
+      })) as string;
+
+      sendResponse({
+        type: "setEncryptedMessage",
+        payload: encryptedMessage,
+      });
     } catch {
-      postMessage({
+      sendResponse({
         type: "addToast",
         payload: { title: "Please Enter a Password", color: "danger" },
       });
@@ -104,18 +133,24 @@ onmessage = async function (e: MessageEvent<EncryptWorkerMessageData>) {
   }
 
   if (type === "fileEncrypt") {
-    if ((!files && !directoryFiles) || (files && files.length === 0)) {
+    const dataFiles =
+      files && files.length > 0
+        ? files
+        : directoryFiles && directoryFiles.length > 0
+          ? directoryFiles
+          : null;
+
+    if (!dataFiles || dataFiles.length === 0) {
       return;
     }
 
     try {
-      let fileToEncrypt;
+      let fileToEncrypt: Uint8Array;
       let outputFileName: string = "";
-      const dataFiles = files ? files : directoryFiles;
-      if (!dataFiles) return;
-      const isDirectoryUpload =
+      const isDirectoryUpload = Boolean(
         dataFiles[0].webkitRelativePath &&
-        dataFiles[0].webkitRelativePath.trim() !== "";
+          dataFiles[0].webkitRelativePath.trim() !== ""
+      );
 
       // For a single file that isn’t a directory upload, use it directly.
       // Otherwise, zip the files.
@@ -135,7 +170,7 @@ onmessage = async function (e: MessageEvent<EncryptWorkerMessageData>) {
           zip.file(relativePath, fileData);
         }
 
-        // If uploading a directory, use the top folder name and ensure the name
+        // If uploading a directory, use the top folder name
         if (isDirectoryUpload) {
           const firstFileRelPath = dataFiles[0].webkitRelativePath;
           const folderName = firstFileRelPath.split("/")[0];
@@ -149,10 +184,13 @@ onmessage = async function (e: MessageEvent<EncryptWorkerMessageData>) {
         fileToEncrypt = new Uint8Array(zipArrayBuffer);
       }
 
+      const recipientKeysList = recipientKeys || [];
+      const recipientsList = recipients || [];
+
       // Find the recipient keys (public keys of the selected recipients)
-      const recipientKeysPublic = recipientKeys
+      const recipientKeysPublic = recipientKeysList
         .filter((key) =>
-          recipients.some(
+          recipientsList.some(
             (r) => typeof r === "object" && r.keyId === key.id.toString()
           )
         )
@@ -167,12 +205,13 @@ onmessage = async function (e: MessageEvent<EncryptWorkerMessageData>) {
           const messageToSign = await openpgp.createMessage({
             binary: fileToEncrypt,
           });
-          const signedFile = await openpgp.sign({
+          const signedFile = (await openpgp.sign({
             message: messageToSign,
             signingKeys: signingKey,
             format: "binary",
-          });
-          postMessage({
+          })) as Uint8Array;
+
+          sendResponse({
             type: "downloadFile",
             payload: {
               fileName: `${outputFileName}.sig`,
@@ -180,7 +219,7 @@ onmessage = async function (e: MessageEvent<EncryptWorkerMessageData>) {
             },
           });
         } else {
-          postMessage({
+          sendResponse({
             type: "addToast",
             payload: {
               title:
@@ -192,51 +231,46 @@ onmessage = async function (e: MessageEvent<EncryptWorkerMessageData>) {
         return;
       }
 
-      let encryptionOptions: any = {
-        message: await openpgp.createMessage({ binary: fileToEncrypt }),
-      };
+      const encryptionKeys =
+        recipientKeysPublic.length > 0
+          ? await Promise.all(
+              recipientKeysPublic.map((key) =>
+                openpgp.readKey({ armoredKey: key })
+              )
+            )
+          : undefined;
 
-      // If recipients are selected, encrypt with public keys
-      if (recipientKeysPublic.length > 0) {
-        encryptionOptions.encryptionKeys = await Promise.all(
-          recipientKeysPublic.map((key) => openpgp.readKey({ armoredKey: key }))
-        );
-      }
+      const passwords =
+        isChecked && encryptionPassword ? [encryptionPassword] : undefined;
 
-      // If no recipients are selected but a password is provided, encrypt with the password
-      if (recipientKeysPublic.length === 0 && encryptionPassword && isChecked) {
-        encryptionOptions.passwords = [encryptionPassword];
-      }
-
-      // If both recipients and password are selected, include both in encryption
-      if (recipientKeysPublic.length > 0 && encryptionPassword && isChecked) {
-        encryptionOptions.passwords = [encryptionPassword];
-      }
-
-      let signingKey;
+      let signingKey: openpgp.PrivateKey | undefined;
       if (decryptedPrivateKey) {
         signingKey = await openpgp.readPrivateKey({
           armoredKey: decryptedPrivateKey,
         });
       }
-      if (signingKey) {
-        encryptionOptions.signingKeys = signingKey;
-      }
 
-      const encrypted = await openpgp.encrypt({
-        ...encryptionOptions,
+      const encrypted = (await openpgp.encrypt({
+        message: await openpgp.createMessage({ binary: fileToEncrypt }),
+        encryptionKeys,
+        passwords,
+        signingKeys: signingKey,
         format: "binary",
-      });
+      })) as Uint8Array;
 
-      postMessage({
+      sendResponse({
         type: "downloadFile",
-        payload: { fileName: `${outputFileName}.gpg`, encrypted: encrypted },
+        payload: { fileName: `${outputFileName}.gpg`, encrypted },
       });
     } catch {
-      postMessage({
+      sendResponse({
         type: "addToast",
         payload: { title: "Please Enter a Password", color: "danger" },
       });
     }
   }
-};
+}
+
+if (typeof self !== "undefined") {
+  self.onmessage = handleEncryptWorkerMessage;
+}

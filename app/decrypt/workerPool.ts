@@ -1,5 +1,10 @@
 "use client";
 
+import type {
+  DecryptWorkerTask,
+  DecryptResponsePayload,
+} from "./decryptWorker.types";
+
 // NextPGP uses navigator.hardwareConcurrency to optimize worker pool size.
 // This info never leaves the client and is used only for performance.
 
@@ -19,7 +24,7 @@ if (typeof window !== "undefined" && typeof Worker !== "undefined") {
 
 let nextWorkerIndex = 0;
 
-export function workerPool(task: any): Promise<any> {
+export function workerPool(task: DecryptWorkerTask): Promise<unknown> {
   return new Promise((resolve, reject) => {
     if (!workers.length) {
       return reject();
@@ -43,28 +48,30 @@ export function workerPool(task: any): Promise<any> {
     let responseReceived = false;
     let detailsReceived = false;
     let toastHandled = false;
-    let responsePayload: any = null;
+    let responsePayload: unknown = null;
 
-    const handleMessage = async (e: MessageEvent) => {
+    const handleMessage = async (e: MessageEvent<DecryptResponsePayload>) => {
       const { type, payload } = e.data;
 
       if (
         type === "setDecryptedMessage" &&
         typeof onDecryptedMessage === "function"
       ) {
-        await onDecryptedMessage(payload);
+        await onDecryptedMessage(payload as string);
         responsePayload = payload;
         responseReceived = true;
       }
 
       if (type === "downloadFile" && typeof onDecryptedFile === "function") {
-        await onDecryptedFile(payload);
+        await onDecryptedFile(
+          payload as { fileName: string; decrypted: Uint8Array }
+        );
         responsePayload = payload;
         responseReceived = true;
       }
 
       if (type === "setDetails" && typeof onDetails === "function") {
-        await onDetails(payload);
+        await onDetails(payload as string);
         detailsReceived = true;
       }
 
@@ -72,20 +79,22 @@ export function workerPool(task: any): Promise<any> {
         type === "setCurrentPrivateKey" &&
         typeof onCurrentPrivateKey === "function"
       ) {
-        await onCurrentPrivateKey(payload);
+        await onCurrentPrivateKey(payload as string | null);
       }
 
       if (type === "addToast" && typeof onToast === "function") {
-        await onToast(payload);
+        await onToast(
+          payload as { title: string; description?: string; color: string }
+        );
         toastHandled = true;
       }
 
       if (type === "setIsPasswordModalOpen" && typeof onModal === "function") {
-        await onModal(payload);
+        await onModal(payload as boolean);
       }
 
       if (type === "error" && typeof onError === "function") {
-        await onError(payload);
+        await onError(payload as { message: string });
         worker.removeEventListener("message", handleMessage);
         reject();
         return;

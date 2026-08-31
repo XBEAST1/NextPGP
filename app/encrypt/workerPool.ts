@@ -1,5 +1,11 @@
 "use client";
 
+import type {
+  EncryptWorkerTask,
+  EncryptToastPayload,
+  EncryptResponsePayload,
+} from "./encryptWorker.types";
+
 // NextPGP uses navigator.hardwareConcurrency to optimize worker pool size.
 // This info never leaves the client and is used only for performance.
 
@@ -19,7 +25,10 @@ if (typeof window !== "undefined" && typeof Worker !== "undefined") {
 
 let nextWorkerIndex = 0;
 
-export function workerPool(task: any, onToast?: (payload: any) => void): Promise<any> {
+export function workerPool<T = any>(
+  task: EncryptWorkerTask,
+  onToast?: (payload: EncryptToastPayload) => void
+): Promise<T> {
   return new Promise((resolve, reject) => {
     if (!workers.length) {
       return reject(
@@ -30,14 +39,14 @@ export function workerPool(task: any, onToast?: (payload: any) => void): Promise
     const worker = workers[nextWorkerIndex];
     nextWorkerIndex = (nextWorkerIndex + 1) % workers.length;
 
-    const handleMessage = (e: MessageEvent) => {
+    const handleMessage = (e: MessageEvent<EncryptResponsePayload>) => {
       // If a toast message is sent, call the provided callback.
       if (e.data.type === "addToast" && onToast) {
         onToast(e.data.payload);
       }
       if (e.data.type === task.responseType) {
         worker.removeEventListener("message", handleMessage);
-        resolve(e.data.payload);
+        resolve(e.data.payload as T);
       }
     };
 
