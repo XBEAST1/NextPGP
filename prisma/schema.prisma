@@ -109,14 +109,3 @@ model PGPKeys {
   @@index([vaultId])
 }
 
-model RateLimit {
-  id          String   @id @default(cuid())
-  userId      String
-  endpoint    String   @default("default")
-  count       Int      @default(1)
-  windowStart DateTime @default(now())
-  createdAt   DateTime @default(now())
-
-  @@unique([userId, endpoint, windowStart])
-  @@index([windowStart])
-}

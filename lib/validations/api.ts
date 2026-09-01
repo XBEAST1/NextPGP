@@ -80,7 +80,13 @@ export const ManageKeysDeleteSchema = z
   );
 
 /** Schema for /api/manage-keys/fetch-keys (POST) */
-export const FetchKeysSchema = CsrfOnlySchema;
+export const FetchKeysSchema = z
+  .object({
+    offset: z.number().optional(),
+    limit: z.number().optional(),
+    csrfToken: csrfTokenSchema,
+  })
+  .strict();
 
 /** Schema for /api/keyserver (POST) */
 export const KeyserverPublishSchema = z.object({

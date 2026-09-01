@@ -57,9 +57,11 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   },
 });
 
+const isProd = process.env.NODE_ENV === "production";
+
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline';
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com;
   style-src 'self' 'unsafe-inline';
   img-src 'self' data: https: blob:;
   font-src 'self' data:;
@@ -67,9 +69,9 @@ const ContentSecurityPolicy = `
   base-uri 'self';
   form-action 'self';
   frame-ancestors 'none';
-  connect-src 'self' https://keyserver.ubuntu.com https://keys.openpgp.org https://authjs.dev;
+  connect-src 'self' https://keyserver.ubuntu.com https://keys.openpgp.org https://authjs.dev https://va.vercel-scripts.com https://vitals.vercel-insights.com;
   worker-src 'self' blob:;
-  upgrade-insecure-requests;
+  ${isProd ? "upgrade-insecure-requests;" : ""}
 `;
 
 const securityHeaders = [
