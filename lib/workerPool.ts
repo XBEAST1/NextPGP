@@ -1,5 +1,10 @@
 "use client";
 
+import type {
+  CryptoWorkerTask,
+  CryptoResponsePayload,
+} from "./cryptoWorker.types";
+
 // NextPGP uses navigator.hardwareConcurrency to optimize worker pool size.
 // This info never leaves the client and is used only for performance.
 
@@ -20,7 +25,11 @@ if (typeof window !== "undefined" && typeof Worker !== "undefined") {
 let nextWorkerIndex = 0;
 let nextTaskId = 0;
 
-export function workerPool(task: any, _addToast?: any, timeoutMs = 30_000): Promise<any> {
+export function workerPool<T = any>(
+  task: CryptoWorkerTask,
+  _addToast?: unknown,
+  timeoutMs = 30_000
+): Promise<T> {
   return new Promise((resolve, reject) => {
     if (!workers.length) {
       return reject(
@@ -49,7 +58,7 @@ export function workerPool(task: any, _addToast?: any, timeoutMs = 30_000): Prom
       reject(new Error(err.message || "Worker crashed"));
     };
 
-    const handleMessage = (e: MessageEvent) => {
+    const handleMessage = (e: MessageEvent<CryptoResponsePayload>) => {
       if (e.data.taskId !== taskId) return;
 
       cleanup();
@@ -60,7 +69,7 @@ export function workerPool(task: any, _addToast?: any, timeoutMs = 30_000): Prom
       }
 
       if (e.data.type === task.responseType) {
-        resolve(e.data.payload);
+        resolve(e.data.payload as T);
       }
     };
 

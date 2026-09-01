@@ -1,4 +1,21 @@
 import pako from "pako";
+import type {
+  CryptoWorkerMessageData,
+  EncryptTaskOptions,
+  DecryptTaskOptions,
+  DeriveMasterKeyResult,
+} from "./cryptoWorker.types";
+
+export type {
+  CryptoWorkerTaskType,
+  CryptoWorkerResponseType,
+  DeriveMasterKeyResult,
+  EncryptTaskOptions,
+  DecryptTaskOptions,
+  CryptoWorkerMessageData,
+  CryptoResponsePayload,
+  CryptoWorkerTask,
+} from "./cryptoWorker.types";
 
 // Constants for header
 const MAGIC = [0x4e, 0x50]; // 'NP' for "NextPGP"
@@ -43,7 +60,7 @@ const toBase64 = (buf: Uint8Array): string => {
   return btoa(binary);
 };
 
-const fromBase64 = (str: any) =>
+const fromBase64 = (str: string): Uint8Array =>
   new Uint8Array(
     atob(str)
       .split("")
@@ -61,19 +78,23 @@ const isCiphertext = (str: string): boolean => {
 };
 
 // Utility: encode a 32-bit BE integer
-const encodeUInt32BE = (value: any) => {
+const encodeUInt32BE = (value: number): Uint8Array => {
   const arr = new Uint8Array(4);
   new DataView(arr.buffer).setUint32(0, value, false);
   return arr;
 };
 
 // SHA-256 hash helper
-const sha256 = async (data: any) => {
-  return new Uint8Array(await crypto.subtle.digest("SHA-256", data));
+const sha256 = async (data: Uint8Array | ArrayBuffer): Promise<Uint8Array> => {
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", data as unknown as BufferSource));
 };
 
 // Derive 64 bytes (512 bits) via PBKDF2-SHA512: 32 bytes AES key + 32 bytes HMAC key
-export const deriveKey = async (password: any, salt: any, iterations = DEFAULT_ITERATIONS) => {
+export const deriveKey = async (
+  password: string,
+  salt: Uint8Array | number[],
+  iterations = DEFAULT_ITERATIONS
+): Promise<Uint8Array> => {
   const enc = new TextEncoder();
   const saltArray = salt instanceof Uint8Array ? salt : new Uint8Array(salt);
 
@@ -89,7 +110,7 @@ export const deriveKey = async (password: any, salt: any, iterations = DEFAULT_I
     {
       name: "PBKDF2",
       hash: "SHA-512",
-      salt: saltArray,
+      salt: saltArray as unknown as BufferSource,
       iterations,
     },
     baseKey,
@@ -100,7 +121,10 @@ export const deriveKey = async (password: any, salt: any, iterations = DEFAULT_I
 };
 
 // Timing-safe comparison for Uint8Arrays
-const timingSafeEqual = (a: any, b: any) => {
+const timingSafeEqual = (
+  a: Uint8Array | null | undefined,
+  b: Uint8Array | null | undefined
+): boolean => {
   if (!a || !b || a.length !== b.length) return false;
   let result = 0;
   for (let i = 0; i < a.length; i++) {
@@ -110,7 +134,7 @@ const timingSafeEqual = (a: any, b: any) => {
 };
 
 // Extract salt from ciphertext without full decryption
-export const extractSalt = (base64Data: any) => {
+export const extractSalt = (base64Data: string): number[] => {
   const data = fromBase64(base64Data);
   if (data.length < HEADER_LENGTH + IV_LENGTH + SALT_LENGTH + HMAC_LENGTH) {
     throw new Error("Invalid cipher length");
@@ -120,8 +144,12 @@ export const extractSalt = (base64Data: any) => {
 };
 
 // Derive master key material and return serializable arrays
-export const deriveMasterKey = async (password: any, salt: any, iterations = DEFAULT_ITERATIONS) => {
-  let saltBytes;
+export const deriveMasterKey = async (
+  password: string,
+  salt?: Uint8Array | number[] | null,
+  iterations = DEFAULT_ITERATIONS
+): Promise<DeriveMasterKeyResult> => {
+  let saltBytes: Uint8Array;
   if (salt) {
     saltBytes = salt instanceof Uint8Array ? salt : new Uint8Array(salt);
   } else {
@@ -135,26 +163,33 @@ export const deriveMasterKey = async (password: any, salt: any, iterations = DEF
 };
 
 // AES-GCM + HMAC-SHA256 encryption (supports derive-once keyMaterial or password)
-export const encrypt = async (text: any, options: any = {}) => {
+export const encrypt = async (
+  text: string,
+  options: EncryptTaskOptions = {}
+): Promise<string> => {
   // Guard: prevent double-encryption
   if (typeof text === "string" && isCiphertext(text)) return text;
   const enc = new TextEncoder();
-  let keyMaterial;
-  let salt;
+  let keyMaterial: Uint8Array;
+  let salt: Uint8Array;
   const iterations = options.iterations || DEFAULT_ITERATIONS;
 
   if (options.keyMaterial && options.salt) {
     // Fast path: use pre-derived keyMaterial and salt (0 PBKDF2 iterations)
-    keyMaterial = options.keyMaterial instanceof Uint8Array
-      ? options.keyMaterial
-      : new Uint8Array(options.keyMaterial);
-    salt = options.salt instanceof Uint8Array
-      ? options.salt
-      : new Uint8Array(options.salt);
+    keyMaterial =
+      options.keyMaterial instanceof Uint8Array
+        ? options.keyMaterial
+        : new Uint8Array(options.keyMaterial);
+    salt =
+      options.salt instanceof Uint8Array
+        ? options.salt
+        : new Uint8Array(options.salt);
   } else if (options.password) {
     // Standard path: generate new salt and derive key
     salt = options.salt
-      ? (options.salt instanceof Uint8Array ? options.salt : new Uint8Array(options.salt))
+      ? options.salt instanceof Uint8Array
+        ? options.salt
+        : new Uint8Array(options.salt)
       : crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
     keyMaterial = await deriveKey(options.password, salt, iterations);
   } else {
@@ -216,7 +251,10 @@ export const encrypt = async (text: any, options: any = {}) => {
 };
 
 // AES-GCM + HMAC-SHA256 decryption (supports fast-path with keyMaterial or legacy fallback)
-export const decrypt = async (base64Data: any, options: any = {}) => {
+export const decrypt = async (
+  base64Data: string,
+  options: DecryptTaskOptions = {}
+): Promise<string> => {
   try {
     const data = fromBase64(base64Data);
 
@@ -265,18 +303,20 @@ export const decrypt = async (base64Data: any, options: any = {}) => {
     );
 
     // Derive or reuse keyMaterial
-    let keyMaterial = null;
+    let keyMaterial: Uint8Array | null = null;
 
     if (options.keyMaterial && options.expectedSalt) {
-      const expectedSalt = options.expectedSalt instanceof Uint8Array
-        ? options.expectedSalt
-        : new Uint8Array(options.expectedSalt);
+      const expectedSalt =
+        options.expectedSalt instanceof Uint8Array
+          ? options.expectedSalt
+          : new Uint8Array(options.expectedSalt);
 
       // Fast path: if ciphertext salt matches expectedSalt, use cached keyMaterial directly
       if (timingSafeEqual(salt, expectedSalt)) {
-        keyMaterial = options.keyMaterial instanceof Uint8Array
-          ? options.keyMaterial
-          : new Uint8Array(options.keyMaterial);
+        keyMaterial =
+          options.keyMaterial instanceof Uint8Array
+            ? options.keyMaterial
+            : new Uint8Array(options.keyMaterial);
       }
     }
 
@@ -320,13 +360,15 @@ export const decrypt = async (base64Data: any, options: any = {}) => {
     );
 
     return new TextDecoder().decode(pako.inflate(decrypted));
-  } catch (err: any) {
-    throw new Error(err.message || "Decryption failed");
+  } catch (err: unknown) {
+    throw new Error(
+      err instanceof Error ? err.message : "Decryption failed"
+    );
   }
 };
 
 // SHA-512 hash
-const hashKey = async (text: any) => {
+export const hashKey = async (text: string): Promise<string> => {
   const enc = new TextEncoder();
   const buffer = enc.encode(text);
   const digest = await crypto.subtle.digest("SHA-512", buffer);
@@ -335,51 +377,97 @@ const hashKey = async (text: any) => {
     .join("");
 };
 
-onmessage = async (e: any) => {
+export async function handleCryptoWorkerMessage(
+  e: MessageEvent<CryptoWorkerMessageData>
+) {
   const task = e.data;
   try {
     switch (task.type) {
       case "encrypt": {
-        // Accepts: text, password (optional if keyMaterial provided), keyMaterial (optional), salt (optional)
+        if (!task.text) {
+          throw new Error("Missing text for encryption");
+        }
         const result = await encrypt(task.text, {
           password: task.password,
           keyMaterial: task.keyMaterial,
           salt: task.salt,
           iterations: task.iterations,
         });
-        postMessage({ type: task.responseType, payload: result, taskId: task.taskId });
+        postMessage({
+          type: task.responseType || "encryptResponse",
+          payload: result,
+          taskId: task.taskId,
+        });
         break;
       }
       case "decrypt": {
-        // Accepts: encryptedBase64, password (optional if keyMaterial matches), keyMaterial (optional), expectedSalt (optional)
+        if (!task.encryptedBase64) {
+          throw new Error("Missing encryptedBase64 for decryption");
+        }
         const result = await decrypt(task.encryptedBase64, {
           password: task.password,
           keyMaterial: task.keyMaterial,
           expectedSalt: task.expectedSalt,
         });
-        postMessage({ type: task.responseType, payload: result, taskId: task.taskId });
+        postMessage({
+          type: task.responseType || "decryptResponse",
+          payload: result,
+          taskId: task.taskId,
+        });
         break;
       }
       case "deriveMasterKey": {
-        // Derives 64-byte key material from password and salt once
-        const result = await deriveMasterKey(task.password, task.salt, task.iterations);
-        postMessage({ type: task.responseType || "deriveMasterKeyResponse", payload: result, taskId: task.taskId });
+        if (!task.password) {
+          throw new Error("Missing password for key derivation");
+        }
+        const result = await deriveMasterKey(
+          task.password,
+          task.salt,
+          task.iterations
+        );
+        postMessage({
+          type: task.responseType || "deriveMasterKeyResponse",
+          payload: result,
+          taskId: task.taskId,
+        });
         break;
       }
       case "extractSalt": {
+        if (!task.encryptedBase64) {
+          throw new Error("Missing encryptedBase64 for salt extraction");
+        }
         const result = extractSalt(task.encryptedBase64);
-        postMessage({ type: task.responseType || "extractSaltResponse", payload: result, taskId: task.taskId });
+        postMessage({
+          type: task.responseType || "extractSaltResponse",
+          payload: result,
+          taskId: task.taskId,
+        });
         break;
       }
       case "hashKey": {
+        if (!task.text) {
+          throw new Error("Missing text for hashing");
+        }
         const result = await hashKey(task.text);
-        postMessage({ type: task.responseType, payload: result, taskId: task.taskId });
+        postMessage({
+          type: task.responseType || "hashKeyResponse",
+          payload: result,
+          taskId: task.taskId,
+        });
         break;
       }
       default:
         throw new Error("Unknown task type");
     }
-  } catch (err: any) {
-    postMessage({ type: "error", error: err.message || "Unknown error", taskId: task.taskId });
+  } catch (err: unknown) {
+    postMessage({
+      type: "error",
+      error: err instanceof Error ? err.message : "Unknown error",
+      taskId: task.taskId,
+    });
   }
-};
+}
+
+if (typeof self !== "undefined") {
+  self.onmessage = handleCryptoWorkerMessage;
+}
