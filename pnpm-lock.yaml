@@ -32,6 +32,9 @@ importers:
       '@react-aria/visually-hidden':
         specifier: 3.8.18
         version: 3.8.18(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@react-types/datepicker':
+        specifier: ^3.9.0
+        version: 3.12.2(react@19.2.1)
       '@vercel/speed-insights':
         specifier: ^1.2.0
         version: 1.2.0(next@15.5.9(@babel/core@7.26.0(supports-color@8.1.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)

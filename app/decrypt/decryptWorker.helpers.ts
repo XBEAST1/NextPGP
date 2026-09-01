@@ -136,7 +136,7 @@ export async function getDecryptionKeyName(
  * Checks if an OpenPGP message packet list contains an S2K symmetric-key encrypted packet.
  */
 export function isPasswordEncryptedMessage(
-  message: openpgp.Message<openpgp.Data>
+  message: openpgp.Message<any>
 ): boolean {
   // S2K is defined on SymEncryptedSessionKeyPacket at runtime
   return message.packets.some(
@@ -148,7 +148,7 @@ export function isPasswordEncryptedMessage(
  * Builds the formatted recipient list string array for a decrypted message.
  */
 export async function buildRecipientList(
-  message: openpgp.Message<openpgp.Data>,
+  message: openpgp.Message<any>,
   publicKeys: openpgp.Key[]
 ): Promise<string[]> {
   const encryptionKeyIDs = message.getEncryptionKeyIDs();
@@ -170,7 +170,7 @@ export async function buildRecipientList(
  * Builds verification details for detached or cleartext signatures (without decryption header).
  */
 export async function buildVerificationDetails(
-  signatures: openpgp.VerificationResult[] | undefined,
+  signatures: openpgp.VerifyMessageResult['signatures'] | undefined,
   publicKeys: openpgp.Key[],
   locale?: string
 ): Promise<string> {
@@ -204,7 +204,7 @@ export async function buildVerificationDetails(
  * Builds decrypted signature details including key/password info and signatures.
  */
 export async function buildDecryptionSignatureDetails(
-  signatures: openpgp.VerificationResult[] | undefined,
+  signatures: openpgp.VerifyMessageResult['signatures'] | undefined,
   publicKeys: openpgp.Key[],
   options: {
     isFile?: boolean;

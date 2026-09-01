@@ -134,7 +134,7 @@ describe("decryptWorker.helpers unit tests", () => {
         format: "object",
       });
 
-      expect(isPasswordEncryptedMessage(encrypted as openpgp.Message<openpgp.Data>)).toBe(true);
+      expect(isPasswordEncryptedMessage(encrypted as openpgp.Message<any>)).toBe(true);
     });
 
     it("returns false for recipient-only encrypted message", async () => {
@@ -146,7 +146,7 @@ describe("decryptWorker.helpers unit tests", () => {
         format: "object",
       });
 
-      expect(isPasswordEncryptedMessage(encrypted as openpgp.Message<openpgp.Data>)).toBe(false);
+      expect(isPasswordEncryptedMessage(encrypted as openpgp.Message<any>)).toBe(false);
     });
   });
 
@@ -158,7 +158,7 @@ describe("decryptWorker.helpers unit tests", () => {
         message: msg,
         encryptionKeys: [pubKey],
         format: "object",
-      })) as openpgp.Message<openpgp.Data>;
+      })) as openpgp.Message<any>;
 
       const publicKeys = await loadPublicKeys(toStoredPGPKeys([bobKey]));
       const recipients = await buildRecipientList(encrypted, publicKeys);
