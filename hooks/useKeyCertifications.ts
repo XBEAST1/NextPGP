@@ -10,7 +10,7 @@ import { useCallback } from "react";
 import { addToast } from "@heroui/react";
 import * as openpgp from "openpgp";
 import { updateKeyInIndexeddb } from "@/lib/indexeddb";
-import { loadKeysFromIndexedDB } from "@/lib/pgp";
+import { loadKeysFromIndexedDB, captureKeySignatureState, restoreKeySignatureState } from "@/lib/pgp";
 import { KeyringUser } from "@/hooks/useKeyOperations";
 
 export interface UseKeyCertificationsConfig {
@@ -63,8 +63,20 @@ export function useKeyCertifications({
         const certifiedKey = await theirPub.signAllUsers([privateKey], new Date());
         const updatedArmored = certifiedKey.armor();
 
+        let updatedPrivateArmored = targetUser.privateKey;
+        if (targetUser.privateKey?.trim()) {
+          try {
+            const targetPrivKey = await openpgp.readPrivateKey({ armoredKey: targetUser.privateKey });
+            const sigState = await captureKeySignatureState(certifiedKey, targetPrivKey);
+            restoreKeySignatureState(targetPrivKey, sigState);
+            updatedPrivateArmored = targetPrivKey.armor();
+          } catch (err) {
+            console.warn("Could not attach certifications to private key:", err);
+          }
+        }
+
         await updateKeyInIndexeddb(targetUser.id, {
-          privateKey: targetUser.privateKey,
+          privateKey: updatedPrivateArmored,
           publicKey: updatedArmored,
         });
 
@@ -94,7 +106,7 @@ export function useKeyCertifications({
     try {
       const pubKey = await openpgp.readKey({ armoredKey: selectedUser.publicKey });
       const certifications = pubKey.users.flatMap((user: any) =>
-        user.otherCertifications.map((sig: any) => ({
+        (user.otherCertifications || []).map((sig: any) => ({
           issuerKeyID: sig.issuerKeyID.toHex().toUpperCase(),
           fingerprint: sig.issuerFingerprint
             ? Buffer.from(sig.issuerFingerprint).toString("hex").toUpperCase()

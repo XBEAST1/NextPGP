@@ -387,39 +387,61 @@ export const downloadAsFile = (content: string, filename: string) => {
 };
 
 // ---------------------------------------------------------------------------
-// Revocation Preservation Helpers
+// Key Signature Preservation Helpers
 // ---------------------------------------------------------------------------
 
-export interface RevocationStateMaps {
+export interface KeySignatureState {
   userRevocationMap: Map<string, { isRevoked: boolean; revocationSignatures: any[] }>;
   subkeyRevocationMap: Map<string, { isRevoked: boolean; revocationSignatures: any[] }>;
   subkeyBindingSignaturesMap: Map<string, any[]>;
+  userOtherCertificationsMap: Map<string, any[]>;
+  keyRevocationSignatures: any[];
 }
 
 /**
- * Captures revocation signatures and subkey binding signatures from keys before
- * an operation (such as reformatKey) that might strip or rebuild them.
+ * Captures all significant signatures from keys before an operation (such as
+ * reformatKey) that rebuilds the key from scratch and would otherwise strip them.
+ *
+ * Captures:
+ * - User revocation signatures (per user ID)
+ * - User otherCertifications — third-party certification signatures (per user ID)
+ * - Subkey revocation signatures (per subkey fingerprint)
+ * - Subkey binding signatures (per subkey fingerprint)
+ * - Primary key revocation signatures
  *
  * Note: In OpenPGP.js v5+, User.isRevoked() and Subkey.isRevoked() return
  * Promise<boolean>, so this function must be async.
  */
-export const captureRevocationState = async (
+export const captureKeySignatureState = async (
   publicKeyOrUsers: any,
   privateKeyOrSubkeys?: any
-): Promise<RevocationStateMaps> => {
+): Promise<KeySignatureState> => {
   const userRevocationMap = new Map<string, { isRevoked: boolean; revocationSignatures: any[] }>();
   const subkeyRevocationMap = new Map<string, { isRevoked: boolean; revocationSignatures: any[] }>();
   const subkeyBindingSignaturesMap = new Map<string, any[]>();
+  const userOtherCertificationsMap = new Map<string, any[]>();
+  let keyRevocationSignatures: any[] = [];
 
   if (publicKeyOrUsers) {
+    // Capture primary key revocation signatures
+    if (publicKeyOrUsers.revocationSignatures?.length) {
+      keyRevocationSignatures = [...publicKeyOrUsers.revocationSignatures];
+    }
+
     const users = publicKeyOrUsers.users || (Array.isArray(publicKeyOrUsers) ? publicKeyOrUsers : []);
     for (const u of users) {
       if (u.userID) {
+        const uid = u.userID.userID;
         const revoked = typeof u.isRevoked === "function" ? await u.isRevoked() : Boolean(u.isRevoked);
-        userRevocationMap.set(u.userID.userID, {
+        userRevocationMap.set(uid, {
           isRevoked: revoked,
           revocationSignatures: u.revocationSignatures ? [...u.revocationSignatures] : [],
         });
+
+        // Capture third-party certifications
+        if (u.otherCertifications?.length) {
+          userOtherCertificationsMap.set(uid, [...u.otherCertifications]);
+        }
       }
     }
   }
@@ -443,17 +465,33 @@ export const captureRevocationState = async (
     }
   }
 
-  return { userRevocationMap, subkeyRevocationMap, subkeyBindingSignaturesMap };
+  return { userRevocationMap, subkeyRevocationMap, subkeyBindingSignaturesMap, userOtherCertificationsMap, keyRevocationSignatures };
 };
 
 /**
- * Restores revocation and binding signatures onto a mutated OpenPGP key object.
+ * Restores all previously captured signatures onto a mutated OpenPGP key object.
+ *
+ * Restores:
+ * - User revocation signatures
+ * - User otherCertifications (third-party certifications)
+ * - Subkey binding signatures
+ * - Subkey revocation signatures
+ * - Primary key revocation signatures
  */
-export const restoreRevocationState = (
+export const restoreKeySignatureState = (
   targetKey: any,
-  maps: RevocationStateMaps
+  maps: KeySignatureState
 ) => {
-  const { userRevocationMap, subkeyRevocationMap, subkeyBindingSignaturesMap } = maps;
+  const { userRevocationMap, subkeyRevocationMap, subkeyBindingSignaturesMap, userOtherCertificationsMap, keyRevocationSignatures } = maps;
+
+  // Restore primary key revocation signatures
+  if (keyRevocationSignatures.length && targetKey.revocationSignatures) {
+    for (const sig of keyRevocationSignatures) {
+      if (!targetKey.revocationSignatures.some((e: any) => (typeof e.equals === "function" ? e.equals(sig) : e === sig))) {
+        targetKey.revocationSignatures.push(sig);
+      }
+    }
+  }
 
   if (typeof targetKey.getSubkeys === "function") {
     targetKey.getSubkeys().forEach((sk: any) => {
@@ -475,7 +513,21 @@ export const restoreRevocationState = (
   if (targetKey.users) {
     targetKey.users.forEach((u: any) => {
       if (!u.userID) return;
-      const orig = userRevocationMap?.get(u.userID.userID);
+      const uid = u.userID.userID;
+
+      // Restore third-party certifications
+      const origCerts = userOtherCertificationsMap?.get(uid);
+      if (origCerts?.length) {
+        if (!u.otherCertifications) u.otherCertifications = [];
+        for (const sig of origCerts) {
+          if (!u.otherCertifications.some((e: any) => (typeof e.equals === "function" ? e.equals(sig) : e === sig))) {
+            u.otherCertifications.push(sig);
+          }
+        }
+      }
+
+      // Restore user revocation signatures
+      const orig = userRevocationMap?.get(uid);
       if (orig?.isRevoked) {
         orig.revocationSignatures.forEach((sig: any) => {
           if (!u.revocationSignatures.some((e: any) => (typeof e.equals === "function" ? e.equals(sig) : e === sig))) {
@@ -555,14 +607,24 @@ export const withDecryptedKey = async (
 
   const subkeyPassphrases = await opts.decryptSubkeys(privateKey);
 
-  // Lazy public key — initialized on first access via privateKey.toPublic()
   let _publicKeyObj: any = null;
+  if (user.publicKey) {
+    try {
+      _publicKeyObj = await openpgp.readKey({ armoredKey: user.publicKey });
+    } catch {
+      _publicKeyObj = null;
+    }
+  }
+  if (!_publicKeyObj) {
+    _publicKeyObj = privateKey.toPublic();
+  }
+
+  // Automatically capture signature state (certifications, revocations) before mutation
+  const initialSignatureState = await captureKeySignatureState(_publicKeyObj, privateKey);
+
   const ctx: DecryptedKeyContext = {
     privateKey,
     get publicKeyObj() {
-      if (!_publicKeyObj) {
-        _publicKeyObj = privateKey.toPublic();
-      }
       return _publicKeyObj;
     },
     currentPassword,
@@ -576,6 +638,10 @@ export const withDecryptedKey = async (
     typeof mutatedPrivateKey === "string"
       ? await openpgp.readPrivateKey({ armoredKey: mutatedPrivateKey })
       : mutatedPrivateKey;
+
+  // Restore signature state on the mutated key so third-party certifications
+  // and revocation signatures are preserved across any key modification.
+  restoreKeySignatureState(privateKeyObj, initialSignatureState);
 
   let finalPrivateKeyArmored = privateKeyObj.armor();
   const finalPublicKeyArmored = result?.publicKey || privateKeyObj.toPublic().armor();

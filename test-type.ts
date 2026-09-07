@@ -1,1 +1,1 @@
-import * as openpgp from 'openpgp'; type Signatures = openpgp.VerifyMessageResult['signatures'];
+import * as openpgp from 'openpgp'; export type Signatures = openpgp.VerifyMessageResult['signatures'];

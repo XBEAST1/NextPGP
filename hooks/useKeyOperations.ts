@@ -26,8 +26,8 @@ import {
   decryptAllSubkeys,
   reEncryptSubkeys,
   downloadAsFile,
-  captureRevocationState,
-  restoreRevocationState,
+  captureKeySignatureState,
+  restoreKeySignatureState,
   withDecryptedKey,
 } from "@/lib/pgp";
 import { useSubkeyManagement } from "@/hooks/useSubkeyManagement";
@@ -311,7 +311,7 @@ export function useKeyOperations({
           selectedUserId,
           getDecryptionOpts(),
           async ({ privateKey, publicKeyObj }) => {
-            const revocationMaps = await captureRevocationState(publicKeyObj, privateKey);
+            const signatureState = await captureKeySignatureState(publicKeyObj, privateKey);
 
             const allUserIDsForReformat = publicKeyObj.users
               .filter((u: any) => !!u.userID)
@@ -331,7 +331,7 @@ export function useKeyOperations({
             })) as any;
 
             const updatedPrivateKey = updatedKeyPair.privateKey;
-            restoreRevocationState(updatedPrivateKey, revocationMaps);
+            restoreKeySignatureState(updatedPrivateKey, signatureState);
 
             return { privateKey: updatedPrivateKey };
           }

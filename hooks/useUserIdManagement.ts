@@ -14,8 +14,8 @@ import { updateKeyInIndexeddb } from "@/lib/indexeddb";
 import {
   loadKeysFromIndexedDB,
   parseUserId,
-  captureRevocationState,
-  restoreRevocationState,
+  captureKeySignatureState,
+  restoreKeySignatureState,
   withDecryptedKey,
   safeExpirationSeconds,
   WithDecryptedKeyOpts,
@@ -74,7 +74,7 @@ export function useUserIdManagement({
           user,
           getDecryptionOpts(),
           async ({ privateKey, publicKeyObj }) => {
-            const revocationMaps = await captureRevocationState(publicKeyObj, privateKey);
+            const signatureState = await captureKeySignatureState(publicKeyObj, privateKey);
 
             const currentUserIDs = publicKeyObj.getUserIDs().map(parseUserId);
             const newUserID = validEmail
@@ -100,7 +100,7 @@ export function useUserIdManagement({
             })) as any;
 
             const updatedPrivateKey = updatedKeyPair.privateKey;
-            restoreRevocationState(updatedPrivateKey, revocationMaps);
+            restoreKeySignatureState(updatedPrivateKey, signatureState);
 
             return { privateKey: updatedPrivateKey };
           }
@@ -145,7 +145,7 @@ export function useUserIdManagement({
           currentUserObj,
           getDecryptionOpts(),
           async ({ privateKey, publicKeyObj }) => {
-            const revocationMaps = await captureRevocationState(publicKeyObj, privateKey);
+            const signatureState = await captureKeySignatureState(publicKeyObj, privateKey);
 
             const currentUserIDs = publicKeyObj.getUserIDs().map(parseUserId);
             const targetUser = currentUserIDs.find((u: any) => u.id === targetUserIDObj.id);
@@ -171,7 +171,7 @@ export function useUserIdManagement({
             })) as any;
 
             const updatedPrivateKey = updatedKeyPair.privateKey;
-            restoreRevocationState(updatedPrivateKey, revocationMaps);
+            restoreKeySignatureState(updatedPrivateKey, signatureState);
 
             return { privateKey: updatedPrivateKey };
           }

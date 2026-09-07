@@ -3,6 +3,7 @@
  * Generated using ECC (Curve25519 / Ed25519) for fast headless testing.
  */
 
+import * as openpgp from "openpgp";
 import type { StoredPGPKey } from "@/app/decrypt/decryptWorker.types";
 
 export const TEST_PASSWORDS = {
@@ -86,4 +87,23 @@ export function toStoredPGPKeys(
     passphrase: options.includePassphrase ? k.passphrase : undefined,
     userIDs: [`${k.name} <${k.email}>`],
   }));
+}
+
+/**
+ * Generates a fresh ECC key pair for tests that need dynamically created keys
+ * (e.g. for testing certifications where pre-generated fixtures aren't enough).
+ */
+export async function generateTestKeyPair(
+  name: string,
+  email: string,
+  opts?: { passphrase?: string }
+): Promise<{ privateKey: openpgp.PrivateKey; publicKey: openpgp.PublicKey }> {
+  const { privateKey, publicKey } = await openpgp.generateKey({
+    type: "ecc",
+    curve: "curve25519" as any,
+    userIDs: [{ name, email }],
+    passphrase: opts?.passphrase,
+    format: "object",
+  });
+  return { privateKey, publicKey };
 }

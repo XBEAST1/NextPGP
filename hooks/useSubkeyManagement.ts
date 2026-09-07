@@ -15,8 +15,8 @@ import {
   loadKeysFromIndexedDB,
   parseUserId,
   downloadAsFile,
-  captureRevocationState,
-  restoreRevocationState,
+  captureKeySignatureState,
+  restoreKeySignatureState,
   withDecryptedKey,
   WithDecryptedKeyOpts,
 } from "@/lib/pgp";
@@ -219,7 +219,6 @@ export function useSubkeyManagement({
         await subkeys[subkeyIndex].keyPacket.encrypt(newPassphrase);
 
         let finalPrivate = privateKey.armor();
-        const finalPublic = privateKey.toPublic().armor();
 
         if (ownerPassphrase !== null) {
           const reProtected = await openpgp.encryptKey({
@@ -231,7 +230,6 @@ export function useSubkeyManagement({
 
         await updateKeyInIndexeddb(selectedUserId.id, {
           privateKey: finalPrivate,
-          publicKey: finalPublic,
         });
 
         const refreshed: any = await loadKeysFromIndexedDB();
@@ -309,7 +307,6 @@ export function useSubkeyManagement({
         }
 
         let finalPrivate = privateKey.armor();
-        const finalPublic = privateKey.toPublic().armor();
 
         if (ownerPassphrase !== null) {
           const reparsed = await openpgp.readPrivateKey({ armoredKey: finalPrivate });
@@ -322,7 +319,6 @@ export function useSubkeyManagement({
 
         await updateKeyInIndexeddb(selectedUserId.id, {
           privateKey: finalPrivate,
-          publicKey: finalPublic,
         });
         const refreshed: any = await loadKeysFromIndexedDB();
         setUsers(refreshed);
@@ -410,9 +406,9 @@ export function useSubkeyManagement({
           user,
           getDecryptionOpts(),
           async ({ privateKey, publicKeyObj }) => {
-            const revocationMaps = await captureRevocationState(publicKeyObj, privateKey);
+            const signatureState = await captureKeySignatureState(publicKeyObj, privateKey);
             const mutatedKey = await privateKey.addSubkey(subkeyOpts);
-            restoreRevocationState(mutatedKey, revocationMaps);
+            restoreKeySignatureState(mutatedKey, signatureState);
             return { privateKey: mutatedKey };
           }
         );
@@ -470,6 +466,11 @@ export function useSubkeyManagement({
           await (targetSubkey.keyPacket as any).decrypt(currentSubkeyPassphrase);
         }
 
+        const pubKeyObj = selectedUserId.publicKey
+          ? await openpgp.readKey({ armoredKey: selectedUserId.publicKey })
+          : null;
+        const signatureState = await captureKeySignatureState(pubKeyObj, primaryKey);
+
         const revokedSubkey = await targetSubkey.revoke(
           primaryKey.keyPacket,
           {
@@ -480,6 +481,7 @@ export function useSubkeyManagement({
         );
 
         await targetSubkey.update(revokedSubkey);
+        restoreKeySignatureState(primaryKey, signatureState);
 
         if (isEncrypted && currentSubkeyPassphrase) {
           await (targetSubkey.keyPacket as any).encrypt(currentSubkeyPassphrase);
