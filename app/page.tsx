@@ -239,6 +239,22 @@ export default function App() {
     }
   }, [manageUserIDsModal, selectedUserId]);
 
+  // Keep selectedUserId in sync with updated users keyring
+  useEffect(() => {
+    if (selectedUserId) {
+      const fresh = users.find((u: any) => u.id === selectedUserId.id);
+      if (
+        fresh &&
+        (fresh.publicKey !== selectedUserId.publicKey ||
+          fresh.privateKey !== selectedUserId.privateKey ||
+          fresh.name !== selectedUserId.name ||
+          fresh.email !== selectedUserId.email)
+      ) {
+        setSelectedUserId(fresh);
+      }
+    }
+  }, [users]);
+
   const manageUserIDsTable = useTableState({
     items: modalUserIDs,
     rowsPerPage: 5,
@@ -343,6 +359,7 @@ export default function App() {
   // --- Key operations ---
   const ops = useKeyOperations({
     setUsers,
+    setSelectedUserId,
     triggerKeyPasswordModal,
     triggerNewPasswordChangeModal,
     triggerSubkeyPasswordModal,
@@ -738,11 +755,15 @@ export default function App() {
             setEmailInvalid(true);
             return;
           }
-          const ok = await ops.addUserID(selectedUserId, { name, email });
-          if (ok) {
+          const updated = await ops.addUserID(selectedUserId, { name, email });
+          if (updated) {
             setaddUserIDModal(false);
             setName("");
             setEmail("");
+            const fresh = typeof updated === "object" ? updated : (await loadKeysFromIndexedDB()).find((u: any) => u.id === selectedUserId?.id);
+            if (fresh) setSelectedUserId(fresh);
+            const ids = await ops.getUserIDsFromKeyForModal(fresh || selectedUserId);
+            setModalUserIDs(ids);
           }
         }}
       />
@@ -764,9 +785,11 @@ export default function App() {
         onNextPage={manageUserIDsTable.onNextPage}
         onPreviousPage={manageUserIDsTable.onPreviousPage}
         onSetPrimary={async (user, row) => {
-          const ok = await ops.setPrimaryUserID(user, row);
-          if (ok && selectedUserId) {
-            const ids = await ops.getUserIDsFromKeyForModal(selectedUserId);
+          const updated = await ops.setPrimaryUserID(user, row);
+          if (updated) {
+            const fresh = typeof updated === "object" ? updated : (await loadKeysFromIndexedDB()).find((u: any) => u.id === user?.id);
+            if (fresh) setSelectedUserId(fresh);
+            const ids = await ops.getUserIDsFromKeyForModal(fresh || selectedUserId);
             setModalUserIDs(ids);
           }
         }}
@@ -781,13 +804,13 @@ export default function App() {
         onClose={() => setrevokeUserIDModal(false)}
         userIDToRevoke={userIDToRevoke}
         onConfirm={async () => {
-          const ok = await ops.revokeUserID(selectedUserId, userIDToRevoke);
-          if (ok) {
+          const updated = await ops.revokeUserID(selectedUserId, userIDToRevoke);
+          if (updated) {
             setrevokeUserIDModal(false);
-            if (selectedUserId) {
-              const ids = await ops.getUserIDsFromKeyForModal(selectedUserId);
-              setModalUserIDs(ids);
-            }
+            const fresh = typeof updated === "object" ? updated : (await loadKeysFromIndexedDB()).find((u: any) => u.id === selectedUserId?.id);
+            if (fresh) setSelectedUserId(fresh);
+            const ids = await ops.getUserIDsFromKeyForModal(fresh || selectedUserId);
+            setModalUserIDs(ids);
           }
         }}
       />

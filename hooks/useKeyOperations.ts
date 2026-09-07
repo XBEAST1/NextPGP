@@ -56,6 +56,7 @@ export interface KeyringUser {
 
 export interface UseKeyOperationsConfig {
   setUsers: (users: KeyringUser[] | any[]) => void;
+  setSelectedUserId?: (user: KeyringUser | any) => void;
   // from usePasswordModal
   triggerKeyPasswordModal: (user: any) => Promise<string>;
   triggerNewPasswordChangeModal: () => Promise<string>;
@@ -81,6 +82,7 @@ const isCancellationError = (err: any): boolean => {
 
 export function useKeyOperations({
   setUsers,
+  setSelectedUserId,
   triggerKeyPasswordModal,
   triggerNewPasswordChangeModal,
   triggerSubkeyPasswordModal,
@@ -149,6 +151,7 @@ export function useKeyOperations({
   const userIdOps = useUserIdManagement({
     setUsers,
     getDecryptionOpts,
+    setSelectedUserId,
   });
 
   const certOps = useKeyCertifications({

@@ -72,14 +72,14 @@ export default function ManageUserIDsModal({
 }: ManageUserIDsModalProps) {
   const renderCell = (row: any, columnKey: any) => {
     const cellValue = row[columnKey];
-    const isFirstRow = page === 1 && sortedItems?.[0]?.id === row.id;
+    const isPrimary = modalUserIDs?.[0]?.id === row.id;
 
     switch (columnKey) {
       case "name":
         return (
           <div className="flex flex-row">
             <span className="pe-1">{cellValue}</span>
-            {isFirstRow && <Tooltip content="Primary">👑</Tooltip>}
+            {isPrimary && <Tooltip content="Primary">👑</Tooltip>}
           </div>
         );
       case "status":
@@ -95,17 +95,17 @@ export default function ManageUserIDsModal({
       case "primary":
         return !selectedUserId?.privateKey ? (
           <Button isDisabled className="ms-2" color="secondary" variant="flat">
-            Set as Primary
+            {isPrimary ? "Primary" : "Set as Primary"}
           </Button>
         ) : (
           <Button
-            isDisabled={row.status === "revoked"}
+            isDisabled={row.status === "revoked" || isPrimary}
             className="ms-2"
             color="secondary"
             variant="flat"
             onPress={() => onSetPrimary(selectedUserId, row)}
           >
-            Set as Primary
+            {isPrimary ? "Primary" : "Set as Primary"}
           </Button>
         );
       case "revoke":

@@ -25,6 +25,7 @@ import { KeyringUser } from "@/hooks/useKeyOperations";
 export interface UseUserIdManagementConfig {
   setUsers: (users: KeyringUser[] | any[]) => void;
   getDecryptionOpts: () => WithDecryptedKeyOpts;
+  setSelectedUserId?: (user: KeyringUser | any) => void;
 }
 
 const isCancellationError = (err: any): boolean => {
@@ -34,14 +35,28 @@ const isCancellationError = (err: any): boolean => {
 export function useUserIdManagement({
   setUsers,
   getDecryptionOpts,
+  setSelectedUserId,
 }: UseUserIdManagementConfig) {
   // ---------------------------------------------------------------------------
   // getUserIDsFromKeyForModal
   // ---------------------------------------------------------------------------
   const getUserIDsFromKeyForModal = useCallback(async (user: KeyringUser | any) => {
-    if (!user || !user.publicKey) return [];
+    if (!user) return [];
+    let publicKeyArmored = user.publicKey;
+    if (user.id) {
+      try {
+        const refreshed: any = await loadKeysFromIndexedDB();
+        const found = refreshed.find((u: any) => u.id === user.id);
+        if (found?.publicKey) {
+          publicKeyArmored = found.publicKey;
+        }
+      } catch {
+        // Fall back to user.publicKey
+      }
+    }
+    if (!publicKeyArmored) return [];
     try {
-      const key = await openpgp.readKey({ armoredKey: user.publicKey });
+      const key = await openpgp.readKey({ armoredKey: publicKeyArmored });
       const uids = key.getUserIDs();
       const keyUsers = key.users;
       const parsedUsers = [];
@@ -65,13 +80,16 @@ export function useUserIdManagement({
     async (
       user: KeyringUser | any,
       { name, email }: { name: string; email?: string }
-    ): Promise<boolean> => {
+    ): Promise<KeyringUser | boolean> => {
       if (!name || !name.trim()) return false;
       const validEmail = email?.trim() || "";
 
       try {
+        const refreshedStart: any = await loadKeysFromIndexedDB();
+        const currentUserObj = refreshedStart.find((u: any) => u.id === user.id) || user;
+
         const { finalPrivateKey, finalPublicKey } = await withDecryptedKey(
-          user,
+          currentUserObj,
           getDecryptionOpts(),
           async ({ privateKey, publicKeyObj }) => {
             const signatureState = await captureKeySignatureState(publicKeyObj, privateKey);
@@ -111,8 +129,13 @@ export function useUserIdManagement({
           publicKey: finalPublicKey,
         });
         addToast({ title: "User ID added successfully", color: "success" });
-        setUsers(await loadKeysFromIndexedDB());
-        return true;
+        const refreshed: any = await loadKeysFromIndexedDB();
+        setUsers(refreshed);
+        const updated = refreshed.find((u: any) => u.id === user.id);
+        if (updated) {
+          setSelectedUserId?.(updated);
+        }
+        return updated || true;
       } catch (error: any) {
         if (isCancellationError(error)) return false;
         console.error("addUserID error:", error);
@@ -120,25 +143,27 @@ export function useUserIdManagement({
         return false;
       }
     },
-    [getDecryptionOpts, setUsers]
+    [getDecryptionOpts, setUsers, setSelectedUserId]
   );
 
   // ---------------------------------------------------------------------------
   // setPrimaryUserID
   // ---------------------------------------------------------------------------
   const setPrimaryUserID = useCallback(
-    async (user: KeyringUser | any, targetUserIDObj: any): Promise<boolean> => {
+    async (user: KeyringUser | any, targetUserIDObj: any): Promise<KeyringUser | boolean> => {
       try {
         const refreshedStart: any = await loadKeysFromIndexedDB();
         const currentUserObj = refreshedStart.find((u: any) => u.id === user.id);
         if (!currentUserObj) throw new Error("User not found in IndexedDB");
 
+        const targetId = typeof targetUserIDObj === "string" ? targetUserIDObj : targetUserIDObj?.id;
         const initialPubKey = await openpgp.readKey({ armoredKey: currentUserObj.publicKey });
         const freshUserIDs = initialPubKey.getUserIDs().map(parseUserId);
-        if (freshUserIDs[0]?.id === targetUserIDObj.id) {
+        if (freshUserIDs[0]?.id === targetId) {
           addToast({ title: "Primary User ID already selected", color: "primary" });
           setUsers(refreshedStart);
-          return true;
+          setSelectedUserId?.(currentUserObj);
+          return currentUserObj;
         }
 
         const { finalPrivateKey, finalPublicKey } = await withDecryptedKey(
@@ -148,12 +173,12 @@ export function useUserIdManagement({
             const signatureState = await captureKeySignatureState(publicKeyObj, privateKey);
 
             const currentUserIDs = publicKeyObj.getUserIDs().map(parseUserId);
-            const targetUser = currentUserIDs.find((u: any) => u.id === targetUserIDObj.id);
+            const targetUser = currentUserIDs.find((u: any) => u.id === targetId);
             if (!targetUser) throw new Error("Target user ID not found on key");
 
             const reorderedUserIDs = [
               targetUser,
-              ...currentUserIDs.filter((u: any) => u.id !== targetUserIDObj.id),
+              ...currentUserIDs.filter((u: any) => u.id !== targetId),
             ].map((u: any) =>
               u.email && u.email !== "N/A" ? { name: u.name, email: u.email } : { name: u.name }
             );
@@ -185,7 +210,11 @@ export function useUserIdManagement({
 
         const refreshed: any = await loadKeysFromIndexedDB();
         setUsers(refreshed);
-        return true;
+        const updated = refreshed.find((u: any) => u.id === user.id);
+        if (updated) {
+          setSelectedUserId?.(updated);
+        }
+        return updated || true;
       } catch (error: any) {
         if (isCancellationError(error)) return false;
         console.error("setPrimaryUserID error:", error);
@@ -193,18 +222,20 @@ export function useUserIdManagement({
         return false;
       }
     },
-    [getDecryptionOpts, setUsers]
+    [getDecryptionOpts, setUsers, setSelectedUserId]
   );
 
   // ---------------------------------------------------------------------------
   // revokeUserID
   // ---------------------------------------------------------------------------
   const revokeUserID = useCallback(
-    async (user: KeyringUser | any, targetUserIDObj: any): Promise<boolean> => {
+    async (user: KeyringUser | any, targetUserIDObj: any): Promise<KeyringUser | boolean> => {
       try {
         const refreshedStart: any = await loadKeysFromIndexedDB();
         const currentUserObj = refreshedStart.find((u: any) => u.id === user.id);
         if (!currentUserObj) throw new Error("User not found in IndexedDB");
+
+        const targetId = typeof targetUserIDObj === "string" ? targetUserIDObj : targetUserIDObj?.id;
 
         const { finalPrivateKey, finalPublicKey } = await withDecryptedKey(
           currentUserObj,
@@ -213,7 +244,7 @@ export function useUserIdManagement({
             const targetUser = privateKey.users.find((u: any) => {
               if (!u.userID) return false;
               const parsed = parseUserId(u.userID.userID);
-              return parsed.id === targetUserIDObj.id;
+              return parsed.id === targetId;
             });
             if (!targetUser) throw new Error("Target user ID not found on key");
 
@@ -233,7 +264,11 @@ export function useUserIdManagement({
 
         const refreshed: any = await loadKeysFromIndexedDB();
         setUsers(refreshed);
-        return true;
+        const updated = refreshed.find((u: any) => u.id === user.id);
+        if (updated) {
+          setSelectedUserId?.(updated);
+        }
+        return updated || true;
       } catch (error: any) {
         if (isCancellationError(error)) return false;
         console.error("revokeUserID error:", error);
@@ -241,7 +276,7 @@ export function useUserIdManagement({
         return false;
       }
     },
-    [getDecryptionOpts, setUsers]
+    [getDecryptionOpts, setUsers, setSelectedUserId]
   );
 
   return {
