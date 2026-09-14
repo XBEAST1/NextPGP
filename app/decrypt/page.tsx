@@ -15,6 +15,7 @@ import { openDB, getStoredKeys } from "@/lib/indexeddb";
 import KeyServer from "@/components/keyserver";
 import { saveAs } from "file-saver";
 import { workerPool } from "./workerPool";
+import { isVerificationInput } from "./decryptUtils";
 
 export default function App() {
   const [inputMessage, setInputMessage] = useState("");
@@ -846,7 +847,13 @@ export default function App() {
           disabled={decrypting}
           onPress={handleDecrypt}
         >
-          {decrypting ? <Spinner color="white" size="sm" /> : "🔓 Decrypt"}
+          {decrypting ? (
+            <Spinner color="white" size="sm" />
+          ) : isVerificationInput(inputMessage, files) ? (
+            "🔏 Verify"
+          ) : (
+            "🔓 Decrypt"
+          )}
         </Button>
 
         {details.includes("- Unknown") && (

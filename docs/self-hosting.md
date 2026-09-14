@@ -24,7 +24,7 @@ NextPGP uses the following environment variables defined in [`.env.example`](fil
 | `AUTH_SECRET` | **Yes** | — | Cryptographic salt used by NextAuth to sign session tokens and CSRF digests. Generate with `openssl rand -hex 32`. |
 | `AUTH_URL` | **Yes** | `http://localhost:3000` | The public canonical URL of your instance (e.g. `https://pgp.yourdomain.com`). Must include `https://` in production. |
 | `DATABASE_URL` | **Yes** | — | PostgreSQL connection string: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public`. |
-| `REDIS` | **Yes** | — | Redis connection URL: `redis://HOST:PORT` (or `rediss://` for TLS-enabled Redis). |
+| `REDIS_URL` | **Yes** | — | Redis connection URL: `redis://HOST:PORT` (or `rediss://` for TLS-enabled Redis). |
 
 ### OAuth Authentication Providers (Optional)
 If you wish to allow user authentication via OAuth, configure at least one provider:

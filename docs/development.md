@@ -43,7 +43,7 @@ Populate the core database and session keys:
 AUTH_SECRET="generate-a-secure-random-secret-e.g.-openssl-rand-hex-32"
 AUTH_URL="http://localhost:3000"
 DATABASE_URL="postgresql://postgres:password@localhost:5432/nextpgp?schema=public"
-REDIS="redis://localhost:6379"
+REDIS_URL="redis://localhost:6379"
 ```
 *(For a complete breakdown of OAuth and Gmail SMTP keys, see the [Self-Hosting Guide](file:///Users/xbeast/My-Projects/NextPGP/docs/self-hosting.md)).*
 

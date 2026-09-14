@@ -8,10 +8,10 @@ declare global {
 let isHealthy = false;
 
 function createRedisClient(): Redis | null {
-  const redisUrl = process.env.REDIS || process.env.REDIS_URL;
+  const redisUrl = process.env.REDIS_URL;
 
   if (!redisUrl) {
-    console.warn('[Redis] No REDIS or REDIS_URL environment variable configured. In-memory fallback will be used.');
+    console.warn('[Redis] No REDIS_URL environment variable configured. In-memory fallback will be used.');
     isHealthy = false;
     return null;
   }

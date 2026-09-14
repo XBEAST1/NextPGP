@@ -64,7 +64,7 @@ pnpm install
 
 # 3. Configure environment variables
 cp .env.example .env
-# Edit .env and supply your DATABASE_URL, REDIS, and AUTH_SECRET
+# Edit .env and supply your DATABASE_URL, REDIS_URL, and AUTH_SECRET
 
 # 4. Push database schema
 pnpm prisma db push
