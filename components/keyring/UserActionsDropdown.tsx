@@ -129,7 +129,7 @@ export default function UserActionsDropdown({
         <DropdownMenu
   
           aria-label="User actions"
-          shouldBlockScroll={true}
+          shouldBlockScroll={false}
           closeOnSelect={true}
           classNames={{
             base: "max-w-[280px] sm:max-w-[320px]",

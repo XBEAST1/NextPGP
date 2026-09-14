@@ -72,3 +72,40 @@ td {
     animation: shine 2s infinite;
     pointer-events: none;
 }
+
+/* ==========================================================================
+   HeroUI Modal Mobile Viewport & Keyboard Resizing Rules
+   Fixes virtual keyboard pushing modal and inputs outside the visible screen.
+   ========================================================================== */
+
+div[data-slot="wrapper"] {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+div[data-slot="wrapper"] > [role="dialog"],
+div[data-slot="wrapper"] > section,
+div[data-slot="wrapper"] > [data-slot="base"] {
+    max-height: calc(var(--visual-viewport-height, 100dvh) - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+@media (max-width: 639px) {
+    div[data-slot="wrapper"] {
+        align-items: flex-end !important;
+        justify-content: center !important;
+        padding-top: max(env(safe-area-inset-top, 0px), 0.5rem) !important;
+        padding-bottom: max(env(safe-area-inset-bottom, 0px), 0rem) !important;
+    }
+
+    div[data-slot="wrapper"] > [role="dialog"],
+    div[data-slot="wrapper"] > section,
+    div[data-slot="wrapper"] > [data-slot="base"] {
+        max-height: calc(var(--visual-viewport-height, 100dvh) - env(safe-area-inset-top, 0px) - 1rem) !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        overflow-y: auto !important;
+    }
+}

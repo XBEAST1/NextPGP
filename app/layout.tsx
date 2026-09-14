@@ -16,6 +16,7 @@ import { PasswordProtectionProvider } from "@/context/password-protection";
 import PasswordProtectionWrapper from "@/components/password-protection-wrapper";
 import { ToastProvider } from "@heroui/toast";
 import { JsonLd } from "react-schemaorg";
+import type { Viewport } from "next";
 
 const twittercardimg = `https://nextpgp.vercel.app${Logo.src}`;
 
@@ -79,11 +80,14 @@ const websiteSchema = {
     "PGP tool, Next.js PGP, online pgp tool, key management, key generation, encrypt message, decrypt message, secure communication, OpenPGP, keyring management, encryption tool, modern PGP tool",
 };
 
-export const viewport = {
+export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "white" },
     { media: "(prefers-color-scheme: dark)", color: "black" },
   ],
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
