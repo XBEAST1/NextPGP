@@ -529,7 +529,7 @@ const KeyServer = ({ isOpen, onClose, initialSearch, onKeyImported }: KeyServerP
           <Button variant="flat" onPress={doSearch} className="w-1/2 sm:w-auto">
             Search
           </Button>
-          <Dropdown>
+          <Dropdown shouldBlockScroll={false}>
             <DropdownTrigger>
               <Button variant="flat" className="w-1/2 sm:w-auto">
                 Columns

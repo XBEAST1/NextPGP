@@ -19,6 +19,7 @@ export interface DropdownSubkey {
   id: string;
   status: string;
   expirydate: string;
+  passwordprotected?: string;
 }
 
 interface UserActionsDropdownSubkeyProps {
@@ -53,7 +54,9 @@ export default function UserActionsDropdownSubkey({
   onRemoveSubkeyPassword,
 }: UserActionsDropdownSubkeyProps) {
   const [armoredSubkey, setArmoredSubkey] = useState<string[]>([]);
-  const [isSubkeyProtected, setIsSubkeyProtected] = useState(false);
+  const [isSubkeyProtected, setIsSubkeyProtected] = useState(() => {
+    return subkey.passwordprotected === "Yes";
+  });
   const revocationReasonsRef = useRef<any[]>([]);
 
   useEffect(() => {
@@ -154,7 +157,7 @@ export default function UserActionsDropdownSubkey({
 
   return (
     <div className="relative flex justify-end items-center gap-2 me-8">
-      <Dropdown>
+      <Dropdown shouldBlockScroll={false}>
         <DropdownTrigger>
           <Button isIconOnly size="sm" variant="light">
             <VerticalDotsIcon className="text-default-300" />
@@ -163,7 +166,6 @@ export default function UserActionsDropdownSubkey({
         <DropdownMenu
   
           aria-label="Subkey actions"
-          shouldBlockScroll={true}
           closeOnSelect={true}
           classNames={{
             base: "max-w-[280px] sm:max-w-[320px]",

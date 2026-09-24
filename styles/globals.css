@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+    overflow-y: scroll !important;
+    scrollbar-gutter: stable;
+}
+
 table,
 th,
 td {

@@ -131,7 +131,7 @@ export default function CertifyKeyModal({
           onClear={onClear}
           onValueChange={onSearchChange}
         />
-        <Dropdown>
+        <Dropdown shouldBlockScroll={false}>
           <DropdownTrigger>
             <Button endContent={<ChevronDownIcon className="text-small" />} variant="faded" className="border-0">
               Columns

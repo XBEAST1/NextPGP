@@ -23,6 +23,7 @@ export interface DropdownUser {
   subkeysCount: number;
   privateKey?: string;
   publicKey?: string;
+  passwordprotected?: string;
 }
 
 interface UserActionsDropdownProps {
@@ -84,9 +85,18 @@ export default function UserActionsDropdown({
   generateRevocationCertificate,
   getRevocationReason,
 }: UserActionsDropdownProps) {
-  const [isProtected, setIsProtected] = useState<boolean | null>(null);
+  const [isProtected, setIsProtected] = useState<boolean | null>(() => {
+    if (user.passwordprotected) {
+      return user.passwordprotected === "Yes";
+    }
+    return null;
+  });
 
   useEffect(() => {
+    if (user.passwordprotected) {
+      setIsProtected(user.passwordprotected === "Yes");
+      return;
+    }
     let mounted = true;
     const checkProtected = async () => {
       if (user.privateKey?.trim()) {
@@ -98,7 +108,7 @@ export default function UserActionsDropdown({
     };
     checkProtected();
     return () => { mounted = false; };
-  }, [user.privateKey]);
+  }, [user.privateKey, user.passwordprotected]);
 
   const openValidityModal = () => {
     setSelectedUserId(user);
@@ -120,7 +130,7 @@ export default function UserActionsDropdown({
 
   return (
     <div className="relative flex justify-center items-center gap-2">
-      <Dropdown>
+      <Dropdown shouldBlockScroll={false}>
         <DropdownTrigger>
           <Button isIconOnly size="sm" variant="light">
             <VerticalDotsIcon className="text-default-300" />
@@ -129,7 +139,6 @@ export default function UserActionsDropdown({
         <DropdownMenu
   
           aria-label="User actions"
-          shouldBlockScroll={false}
           closeOnSelect={true}
           classNames={{
             base: "max-w-[280px] sm:max-w-[320px]",

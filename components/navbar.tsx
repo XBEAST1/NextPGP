@@ -71,7 +71,7 @@ export const Navbar = () => {
       </NavbarContent>
 
       <NavbarContent className="hidden lg:flex gap-4 ms-12" justify="center">
-        <Dropdown>
+        <Dropdown shouldBlockScroll={false}>
           <NavbarItem>
             <DropdownTrigger>
               <Button size="md">Keyrings Management</Button>
@@ -120,7 +120,7 @@ export const Navbar = () => {
       </NavbarContent>
 
       <NavbarContent className="hidden lg:flex gap-4" justify="center">
-        <Dropdown>
+        <Dropdown shouldBlockScroll={false}>
           <NavbarItem>
             <DropdownTrigger>
               <Button size="md">Encryption / Decryption</Button>
@@ -158,7 +158,7 @@ export const Navbar = () => {
       </NavbarContent>
 
       <NavbarContent className="hidden lg:flex gap-4" justify="center">
-        <Dropdown>
+        <Dropdown shouldBlockScroll={false}>
           <NavbarItem>
             <DropdownTrigger>
               <Button size="md">Cloud Keys Management</Button>
