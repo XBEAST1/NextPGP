@@ -157,7 +157,7 @@ export default function UserActionsDropdownSubkey({
 
   return (
     <div className="relative flex justify-end items-center gap-2 me-8">
-      <Dropdown shouldBlockScroll={false}>
+      <Dropdown shouldBlockScroll={false} disableAnimation>
         <DropdownTrigger>
           <Button isIconOnly size="sm" variant="light">
             <VerticalDotsIcon className="text-default-300" />

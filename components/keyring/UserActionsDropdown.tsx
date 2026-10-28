@@ -130,7 +130,7 @@ export default function UserActionsDropdown({
 
   return (
     <div className="relative flex justify-center items-center gap-2">
-      <Dropdown shouldBlockScroll={false}>
+      <Dropdown shouldBlockScroll={false} disableAnimation>
         <DropdownTrigger>
           <Button isIconOnly size="sm" variant="light">
             <VerticalDotsIcon className="text-default-300" />

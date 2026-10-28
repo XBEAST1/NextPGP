@@ -164,7 +164,7 @@ export default function ManageSubkeyModal({
           onClear={onClear}
           onValueChange={onSearchChange}
         />
-        <Dropdown shouldBlockScroll={false}>
+        <Dropdown shouldBlockScroll={false} disableAnimation>
           <DropdownTrigger>
             <Button endContent={<ChevronDownIcon className="text-small" />} variant="faded" className="border-0">
               Columns

@@ -81,7 +81,7 @@
     "webpack": "^5.95.0"
   },
   "engines": {
-    "node": "22.x"
+    "node": "^22.0.0 || ^24.0.0"
   },
   "packageManager": "pnpm@11.22.0",
   "resolutions": {

@@ -217,7 +217,7 @@ export default function CloudBackupPage() {
             onClear={() => tableState.onClear()}
             onValueChange={tableState.onSearchChange}
           />
-          <Dropdown>
+          <Dropdown shouldBlockScroll={false} disableAnimation>
             <DropdownTrigger>
               <Button endContent={<ChevronDownIcon className="text-small" />} variant="faded" className="border-0">
                 Columns

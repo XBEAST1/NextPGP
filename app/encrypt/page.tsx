@@ -558,6 +558,8 @@ export default function App() {
             <h5 className="ms-1">Sign as:</h5>
             <Autocomplete
               className="max-w-full"
+              disableAnimation
+              popoverProps={{ shouldBlockScroll: false }}
               label="Select the signer"
               allowsCustomValue={false}
               selectedKey={
@@ -596,6 +598,8 @@ export default function App() {
                 <Autocomplete
                   key={index}
                   className="max-w-full"
+                  disableAnimation
+                  popoverProps={{ shouldBlockScroll: false }}
                   label={`Select recipient ${index + 1}`}
                   selectedKey={
                     typeof selectedKey === "object" && selectedKey

@@ -218,6 +218,8 @@ export default function App() {
 
       <Autocomplete
         className="max-w-md"
+        disableAnimation
+        popoverProps={{ shouldBlockScroll: false }}
         defaultItems={keyalgorithms}
         defaultSelectedKey="curve25519"
         label="Select Key Algorithm"
@@ -250,6 +252,8 @@ export default function App() {
       <br />
 
       <DatePicker
+        disableAnimation
+        popoverProps={{ shouldBlockScroll: false }}
         minValue={today(getLocalTimeZone()).add({ days: 1 }) as any}
         isDisabled={isNoExpiryChecked}
         className="max-w-[284px]"

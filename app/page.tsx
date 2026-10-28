@@ -496,7 +496,7 @@ export default function App() {
           onClear={mainTable.onClear}
           onValueChange={mainTable.onSearchChange}
         />
-        <Dropdown>
+        <Dropdown shouldBlockScroll={false} disableAnimation>
           <DropdownTrigger>
             <Button endContent={<ChevronDownIcon className="text-small" />} variant="faded" className="border-0">
               Columns

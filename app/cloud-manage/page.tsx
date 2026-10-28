@@ -290,7 +290,7 @@ export default function CloudManagePage() {
             onClear={() => tableState.onClear()}
             onValueChange={tableState.onSearchChange}
           />
-          <Dropdown>
+          <Dropdown shouldBlockScroll={false} disableAnimation>
             <DropdownTrigger>
               <Button
                 endContent={<ChevronDownIcon className="text-small" />}

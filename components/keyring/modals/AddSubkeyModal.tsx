@@ -61,6 +61,8 @@ export default function AddSubkeyModal({
       <ModalContent className="p-8">
         <Autocomplete
           className="max-w-md"
+          disableAnimation
+          popoverProps={{ shouldBlockScroll: false }}
           defaultItems={keyalgorithms}
           selectedKey={selectedAlgorithm}
           label="Select Key Algorithm"
@@ -102,6 +104,8 @@ export default function AddSubkeyModal({
         <br />
 
         <DatePicker
+          disableAnimation
+          popoverProps={{ shouldBlockScroll: false }}
           minValue={today(getLocalTimeZone()).add({ days: 1 }) as any}
           maxValue={(primaryKeyMaxDate as any) ?? undefined}
           isDisabled={isNoExpiryChecked}

@@ -78,11 +78,7 @@ td {
     pointer-events: none;
 }
 
-/* ==========================================================================
-   HeroUI Modal Mobile Viewport & Keyboard Resizing Rules
-   Fixes virtual keyboard pushing modal and inputs outside the visible screen.
-   ========================================================================== */
-
+/* Modal keyboard / viewport fix on mobile */
 div[data-slot="wrapper"] {
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -112,5 +108,49 @@ div[data-slot="wrapper"] > [data-slot="base"] {
         margin-top: 0 !important;
         margin-bottom: 0 !important;
         overflow-y: auto !important;
+    }
+}
+
+/* Dropdown, autocomplete & calendar animations */
+div[data-slot="base"]:has([role="menu"]),
+div[data-slot="base"]:has([role="listbox"]),
+div[data-slot="base"]:has([data-slot="list"]),
+div[data-slot="base"][data-placement]:has([role="grid"]),
+div[data-slot="base"][data-placement]:has([data-slot="gridWrapper"]),
+div[data-slot="base"][data-placement]:has([data-slot="headerWrapper"]) {
+    transform-origin: top center;
+    will-change: transform, opacity;
+    animation: dropdown-popover-enter-bottom 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+div[data-slot="base"][data-placement^="top"]:has([role="menu"]),
+div[data-slot="base"][data-placement^="top"]:has([role="listbox"]),
+div[data-slot="base"][data-placement^="top"]:has([data-slot="list"]),
+div[data-slot="base"][data-placement^="top"]:has([role="grid"]),
+div[data-slot="base"][data-placement^="top"]:has([data-slot="gridWrapper"]),
+div[data-slot="base"][data-placement^="top"]:has([data-slot="headerWrapper"]) {
+    transform-origin: bottom center;
+    animation: dropdown-popover-enter-top 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes dropdown-popover-enter-bottom {
+    0% {
+        opacity: 0;
+        transform: scale(0.96) translateY(-6px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes dropdown-popover-enter-top {
+    0% {
+        opacity: 0;
+        transform: scale(0.96) translateY(6px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
     }
 }

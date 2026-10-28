@@ -49,6 +49,8 @@ export default function ValidityModal({
         </Checkbox>
         <br />
         <DatePicker
+          disableAnimation
+          popoverProps={{ shouldBlockScroll: false }}
           minValue={today(getLocalTimeZone()).add({ days: 1 }) as any}
           color="default"
           isDisabled={isNoExpiryChecked}
