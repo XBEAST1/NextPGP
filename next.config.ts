@@ -31,7 +31,8 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       },
       // Cache static assets (JS, CSS, images, fonts) permanently
       {
-        urlPattern: ({ request }: any) =>
+        urlPattern: ({ sameOrigin, request }: any) =>
+          sameOrigin &&
           ["style", "script", "worker"].includes(request.destination),
         handler: "NetworkFirst",
         options: {
@@ -43,7 +44,8 @@ const withPWA = require("@ducanh2912/next-pwa").default({
         },
       },
       {
-        urlPattern: ({ request }: any) => request.destination === "image",
+        urlPattern: ({ sameOrigin, request }: any) =>
+          sameOrigin && request.destination === "image",
         handler: "StaleWhileRevalidate",
         options: {
           cacheName: "image-cache",
@@ -61,7 +63,7 @@ const isProd = process.env.NODE_ENV === "production";
 
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com;
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com https://www.googletagmanager.com https://*.googletagmanager.com;
   style-src 'self' 'unsafe-inline';
   img-src 'self' data: https: blob:;
   font-src 'self' data:;
@@ -69,7 +71,7 @@ const ContentSecurityPolicy = `
   base-uri 'self';
   form-action 'self';
   frame-ancestors 'none';
-  connect-src 'self' https://keyserver.ubuntu.com https://keys.openpgp.org https://authjs.dev https://va.vercel-scripts.com https://vitals.vercel-insights.com;
+  connect-src 'self' https://keyserver.ubuntu.com https://keys.openpgp.org https://authjs.dev https://va.vercel-scripts.com https://vitals.vercel-insights.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.googleusercontent.com https://*.githubusercontent.com https://*.discordapp.com https://discord.com;
   worker-src 'self' blob:;
   ${isProd ? "upgrade-insecure-requests;" : ""}
 `;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, Skeleton } from "@heroui/react";
+import { Avatar, Card, Skeleton } from "@heroui/react";
 
 interface SessionData {
   user?: {
@@ -49,15 +49,15 @@ const UserDetails = () => {
       <h1 className="text-center text-2xl font-serif mb-3">
         {session?.user?.name}
       </h1>
-      {session?.user?.image && (
-        <img
-          alt="User Avatar"
-          className="rounded-medium"
-          width={150}
-          height={150}
-          src={session.user.image}
-        />
-      )}
+      <Avatar
+        src={session?.user?.image || undefined}
+        name={session?.user?.name || "User"}
+        className="w-[150px] h-[150px] text-3xl"
+        radius="md"
+        imgProps={{
+          referrerPolicy: "no-referrer",
+        }}
+      />
     </div>
   );
 };
